@@ -1,0 +1,16 @@
+name: cineflow-codeql
+
+# Application sources only. Extend paths when modern modules land (#3); do not
+# rewrite the workflow matrix structure to add coverage.
+paths:
+  - legacy/src
+  # - src/                 # modern Spring Boot modules (#3)
+  # - frontend/            # React / TypeScript SPA (#3) — adjust to the real path
+
+paths-ignore:
+  - legacy/lib/**
+  - "**/node_modules/**"
+  - "**/build/**"
+  - "**/dist/**"
+  - "**/target/**"
+  - "**/.gradle/**"

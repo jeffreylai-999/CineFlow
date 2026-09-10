@@ -18,3 +18,7 @@ See [`legacy/README.md`](legacy/README.md) for authors, prerequisites, Derby set
 ## Modernization
 
 Track work through [GitHub issue #1](https://github.com/jeffreylai-999/CineFlow/issues/1) and the linked sub-issues. The product specification is in `docs/specs/cineflow-modernization.md`.
+
+## Code scanning
+
+Pull requests and pushes to `main` run GitHub CodeQL. Alerts show under **Security → Code scanning**. Permissions and the blocking severity policy are documented in [`docs/code-scanning.md`](docs/code-scanning.md).

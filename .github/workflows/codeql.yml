@@ -1,0 +1,54 @@
+# Code scanning only — application CI (tests, lint, builds, containers) lives in #3.
+name: CodeQL
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Weekly refresh so default-branch alerts stay current without waiting on a push.
+    - cron: "27 4 * * 1"
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Legacy Ant/NetBeans Java under legacy/. Use none so analysis does not
+          # depend on Java 8, Derby client jars, or a successful Ant build.
+          - language: java-kotlin
+            build-mode: none
+          # When modern modules land (#3), add matrix rows without rewriting this job:
+          # - language: java-kotlin
+          #   build-mode: none   # or autobuild/manual once a Gradle tree exists
+          # - language: javascript-typescript
+          #   build-mode: none
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v4
+        with:
+          category: "/language:${{ matrix.language }}"
+          # Wait so the Code scanning results check can apply the severity policy
+          # documented in docs/code-scanning.md before the job finishes.
+          wait-for-processing: true

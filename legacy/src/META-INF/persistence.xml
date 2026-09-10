@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<persistence version="2.1" xmlns="http://xmlns.jcp.org/xml/ns/persistence" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://xmlns.jcp.org/xml/ns/persistence http://xmlns.jcp.org/xml/ns/persistence/persistence_2_1.xsd">
+  <persistence-unit name="CineFlowPU" transaction-type="RESOURCE_LOCAL">
+    <provider>org.eclipse.persistence.jpa.PersistenceProvider</provider>
+    <class>domain.Seat</class>
+    <class>domain.Member</class>
+    <class>domain.Staff</class>
+    <class>domain.Customer</class>
+    <class>domain.Movie</class>
+    <class>control.Hall</class>
+    <class>control.Showtime</class>
+    <class>domain.Showtime</class>
+    <class>domain.Hall</class>
+    <class>control.Movie</class>
+    <class>domain.Walkin</class>
+    <class>domain.Reservation</class>
+    <class>domain.Promotion</class>
+    <class>domain.Payment</class>
+    <class>domain.Creditcard</class>
+    <class>domain.Ticket</class>
+    <properties>
+      <property name="javax.persistence.jdbc.url" value="jdbc:derby://localhost:1527/cinemas"/>
+      <property name="javax.persistence.jdbc.user" value="APP_USER"/>
+      <property name="javax.persistence.jdbc.driver" value="org.apache.derby.jdbc.ClientDriver"/>
+      <property name="javax.persistence.jdbc.password" value="changeme"/>
+    </properties>
+  </persistence-unit>
+</persistence>

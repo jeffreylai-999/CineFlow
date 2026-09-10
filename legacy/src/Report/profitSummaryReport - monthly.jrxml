@@ -1,0 +1,236 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="profitSummaryReport" language="groovy" pageWidth="842" pageHeight="595" orientation="Landscape" columnWidth="802" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="0541fbf4-7656-43ff-a8f9-0d5a6277d527">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<style name="Row">
+		<conditionalStyle>
+			<conditionExpression><![CDATA[$V{REPORT_COUNT}%2==0]]></conditionExpression>
+			<style mode="Opaque" backcolor="#FFFF99"/>
+		</conditionalStyle>
+	</style>
+	<parameter name="showMonth" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="pay_month" class="java.lang.String" isForPrompting="false"/>
+	<queryString>
+		<![CDATA[select p.cus_type,m.movie_name,s.show_time,p.adult,p.child,p.payment_date,p.payment_type,p.total_price
+from movie m,payment p,showtime s
+where p.show_id = s.show_id AND m.movie_id=s.movie_id AND p.PAYMENT_DATE like $P{pay_month}
+ORDER BY p.cus_type]]>
+	</queryString>
+	<field name="CUS_TYPE" class="java.lang.String">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<field name="MOVIE_NAME" class="java.lang.String">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<field name="SHOW_TIME" class="java.lang.String">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<field name="ADULT" class="java.lang.Integer">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<field name="CHILD" class="java.lang.Integer">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<field name="PAYMENT_DATE" class="java.lang.String">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<field name="PAYMENT_TYPE" class="java.lang.String">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<field name="TOTAL_PRICE" class="java.math.BigDecimal">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<variable name="totalSales" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{TOTAL_PRICE}]]></variableExpression>
+	</variable>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="71" splitType="Stretch">
+			<rectangle>
+				<reportElement x="0" y="0" width="802" height="71" backcolor="#000000" uuid="f814c7cc-6413-4411-aab9-79a58d110085"/>
+			</rectangle>
+			<elementGroup/>
+			<image>
+				<reportElement x="15" y="9" width="96" height="62" uuid="fd91e554-ba0b-4d06-9c31-d154d90a30fd"/>
+				<imageExpression><![CDATA["images/logo.jpg"]]></imageExpression>
+			</image>
+		</band>
+	</title>
+	<pageHeader>
+		<band height="65" splitType="Stretch">
+			<rectangle>
+				<reportElement x="0" y="0" width="802" height="65" backcolor="#000000" uuid="302b6cd5-484b-4aa9-8d5c-784adfcb4e9d"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="258" y="1" width="286" height="38" forecolor="#FF6666" uuid="8f83fcfd-9ae4-4d8a-97e5-e34186a61b48"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="20"/>
+				</textElement>
+				<text><![CDATA[Monthly Sales Summary Report]]></text>
+			</staticText>
+			<textField>
+				<reportElement mode="Transparent" x="330" y="28" width="142" height="37" forecolor="#FFCCCC" uuid="4e9a48cf-7bcc-4eb5-a78c-e2f6e36fc9ac"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="18" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{showMonth}]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageHeader>
+	<columnHeader>
+		<band height="21" splitType="Stretch">
+			<staticText>
+				<reportElement mode="Opaque" x="139" y="0" width="183" height="21" backcolor="#CCCCCC" uuid="fdaf6623-4078-4c61-80f3-44b5054338b3"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<text><![CDATA[MOVIE NAME]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="697" y="0" width="105" height="21" backcolor="#CCCCCC" uuid="3dc02891-8af1-4795-bde1-a56efd1d4cc6"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<text><![CDATA[TOTAL (RM)]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="410" y="0" width="86" height="21" backcolor="#CCCCCC" uuid="0013b079-30d1-4dd6-ab69-b97448027142"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[ADULT SEAT]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="496" y="0" width="95" height="21" backcolor="#CCCCCC" uuid="8ca892fd-a0b9-4a99-8704-a67718e7b6b5"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[CHILDREN SEAT]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="591" y="0" width="106" height="21" backcolor="#CCCCCC" uuid="14ab8972-27d8-45b9-ba8e-15fe164922ce"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<text><![CDATA[PAYMENT TYPE]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="30" y="0" width="109" height="21" backcolor="#CCCCCC" uuid="d4c771d7-5f4b-4b23-ac1a-1b1e53dfc4f0"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10" isBold="true"/>
+				</textElement>
+				<text><![CDATA[CUSTOMER TYPE]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="322" y="0" width="88" height="21" backcolor="#CCCCCC" uuid="34426e84-716e-48ad-9baa-b0d3b2b9bb2d"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[SHOW TIME]]></text>
+			</staticText>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="1" y="1" width="29" height="20" uuid="4f93bb7b-617b-4994-9702-fa8f096efcae"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement mode="Opaque" x="1" y="0" width="29" height="21" backcolor="#CCCCCC" uuid="213590a5-4ff2-42ae-a38d-a74798c66406"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[NO.]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="21" splitType="Stretch">
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="139" y="0" width="183" height="21" uuid="ad75448a-4377-4fae-931d-519163fc5777"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{MOVIE_NAME}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="697" y="0" width="105" height="21" uuid="ff535590-b1b9-43ad-8941-dc2f9377ef8c"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{TOTAL_PRICE}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="410" y="0" width="86" height="21" uuid="8c8e7d08-710e-4a7d-a67b-3ca4f45884fb"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{ADULT}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="496" y="0" width="95" height="21" uuid="ce2bdf37-6d02-4f4a-86fd-e2e649991944"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{CHILD}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="591" y="0" width="106" height="21" uuid="d29b7430-956d-40d3-8da3-a5be09e7c250"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{PAYMENT_TYPE}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="31" y="0" width="108" height="21" uuid="26ae3853-b172-48e0-a99f-e59cd489bc5f"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="10"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$F{CUS_TYPE}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="322" y="1" width="88" height="20" uuid="bfcdc9d3-b6cf-474b-bdd2-7f208cd32750"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{SHOW_TIME}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="1" y="1" width="30" height="20" uuid="8bb18827-7983-4807-aaa2-7932111c60a9"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band height="23" splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band height="23" splitType="Stretch">
+			<textField>
+				<reportElement x="342" y="3" width="80" height="20" uuid="8f3139e2-5184-4654-8dd7-949c9fee3ff1"/>
+				<textElement textAlignment="Right"/>
+				<textFieldExpression><![CDATA["Page "+$V{PAGE_NUMBER}+" of"]]></textFieldExpression>
+			</textField>
+			<textField evaluationTime="Report">
+				<reportElement x="422" y="3" width="40" height="20" uuid="0edd2139-45e8-47ec-b401-0d6c593e4bfa"/>
+				<textFieldExpression><![CDATA[" " + $V{PAGE_NUMBER}]]></textFieldExpression>
+			</textField>
+			<textField pattern="EEEEE dd MMMMM yyyy">
+				<reportElement x="8" y="3" width="125" height="20" uuid="94948fcd-26d4-4300-9336-f5a826926367"/>
+				<textFieldExpression><![CDATA[new java.util.Date()]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageFooter>
+	<summary>
+		<band height="21" splitType="Stretch">
+			<staticText>
+				<reportElement mode="Opaque" x="1" y="0" width="696" height="21" backcolor="#FFCCFF" uuid="8ea9532e-22ff-43bc-8f91-70af96a5d2fe"/>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<text><![CDATA[Total Sales (RM):]]></text>
+			</staticText>
+			<textField pattern="###0.00">
+				<reportElement mode="Opaque" x="697" y="0" width="105" height="21" backcolor="#FFCCFF" uuid="2db6f0ca-fa1a-46ee-9d85-5bc7920f2ccd"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="12" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{totalSales}]]></textFieldExpression>
+			</textField>
+		</band>
+	</summary>
+</jasperReport>

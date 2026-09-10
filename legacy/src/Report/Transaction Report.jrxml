@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Transaction Report" language="groovy" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="098a35ce-d532-4714-bb63-2010be201b6c">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<style name="Row">
+		<conditionalStyle>
+			<conditionExpression><![CDATA[$V{REPORT_COUNT}%2==0]]></conditionExpression>
+			<style mode="Opaque" backcolor="#FFFF99"/>
+		</conditionalStyle>
+	</style>
+	<parameter name="showMonth" class="java.lang.String"/>
+	<parameter name="pay_month" class="java.lang.String"/>
+	<queryString>
+		<![CDATA[select p.cus_type,m.movie_name,(p.adult+p.child) AS totalseat,p.total_price,p.payment_date
+from movie m,payment p,showtime s
+where p.show_id = s.show_id AND m.movie_id=s.movie_id AND p.PAYMENT_DATE like $P{pay_month}
+order by p.PAYMENT_DATE,p.cus_type]]>
+	</queryString>
+	<field name="CUS_TYPE" class="java.lang.String">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<field name="MOVIE_NAME" class="java.lang.String">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<field name="TOTALSEAT" class="java.lang.Integer"/>
+	<field name="TOTAL_PRICE" class="java.math.BigDecimal">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<field name="PAYMENT_DATE" class="java.lang.String">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<variable name="SUBTOTAL" class="java.lang.Double" resetType="Group" resetGroup="Date" calculation="Sum">
+		<variableExpression><![CDATA[$F{TOTAL_PRICE}]]></variableExpression>
+	</variable>
+	<variable name="SumTotal" class="java.lang.Double" incrementType="Group" incrementGroup="Date" calculation="Sum">
+		<variableExpression><![CDATA[$V{SUBTOTAL}]]></variableExpression>
+	</variable>
+	<variable name="GROUP_EXP" class="java.lang.Integer" resetType="Group" resetGroup="Date" calculation="Count">
+		<variableExpression><![CDATA[new java.lang.Integer(1)]]></variableExpression>
+		<initialValueExpression><![CDATA[new java.lang.Integer(0)]]></initialValueExpression>
+	</variable>
+	<group name="Date">
+		<groupExpression><![CDATA[$F{PAYMENT_DATE}]]></groupExpression>
+		<groupHeader>
+			<band height="52">
+				<textField>
+					<reportElement mode="Transparent" x="86" y="12" width="130" height="20" backcolor="#CCFFCC" uuid="b24ead19-8c13-4ba9-8ebb-6b1d7c5d91d5"/>
+					<textElement verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$F{PAYMENT_DATE}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement mode="Opaque" x="156" y="32" width="189" height="20" backcolor="#CCCCCC" uuid="dd552475-c090-4f75-ac3e-f08a0ea80885"/>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<text><![CDATA[MOVIE NAME]]></text>
+				</staticText>
+				<staticText>
+					<reportElement mode="Opaque" x="345" y="32" width="87" height="20" backcolor="#CCCCCC" uuid="fcd461b4-4f82-4e84-8416-12757446b4cd"/>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<text><![CDATA[TOTAL SEAT]]></text>
+				</staticText>
+				<staticText>
+					<reportElement mode="Opaque" x="432" y="32" width="123" height="20" backcolor="#CCCCCC" uuid="c5aa178f-7baa-4230-88a8-ff24164e2ece"/>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<text><![CDATA[TOTAL PRICE (RM)]]></text>
+				</staticText>
+				<staticText>
+					<reportElement mode="Opaque" x="39" y="32" width="117" height="20" backcolor="#CCCCCC" uuid="b0d360cb-a128-4ce4-8d41-f47693fff313"/>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<text><![CDATA[CUSTOMER TYPE]]></text>
+				</staticText>
+				<staticText>
+					<reportElement mode="Transparent" x="0" y="12" width="86" height="20" backcolor="#CCFFCC" uuid="6daf2987-8bef-48a9-adf5-a5a4f43c2248"/>
+					<textElement verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<text><![CDATA[PAYMENT DATE:]]></text>
+				</staticText>
+				<staticText>
+					<reportElement mode="Opaque" x="1" y="32" width="38" height="20" backcolor="#CCCCCC" uuid="dbc744c9-1957-4a9b-9dfe-b8810b52f897"/>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<text><![CDATA[NO.]]></text>
+				</staticText>
+			</band>
+		</groupHeader>
+		<groupFooter>
+			<band height="22">
+				<textField pattern="###0.00">
+					<reportElement mode="Opaque" x="432" y="0" width="123" height="22" backcolor="#FFCCCC" uuid="d4c1d05f-db29-4b06-940d-13c226e274bb"/>
+					<textElement textAlignment="Center" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<textFieldExpression><![CDATA[$V{SUBTOTAL}]]></textFieldExpression>
+				</textField>
+				<staticText>
+					<reportElement mode="Opaque" x="1" y="0" width="431" height="22" backcolor="#FFCCCC" uuid="101b35e0-b6b8-4e85-95ea-c10e36e7d23f"/>
+					<textElement textAlignment="Right" verticalAlignment="Middle">
+						<font isBold="true"/>
+					</textElement>
+					<text><![CDATA[Sub-Total (RM):]]></text>
+				</staticText>
+			</band>
+		</groupFooter>
+	</group>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="50" splitType="Stretch">
+			<rectangle>
+				<reportElement x="1" y="0" width="554" height="50" backcolor="#000000" uuid="f814c7cc-6413-4411-aab9-79a58d110085"/>
+			</rectangle>
+			<elementGroup/>
+			<image>
+				<reportElement x="8" y="4" width="78" height="46" uuid="fd91e554-ba0b-4d06-9c31-d154d90a30fd"/>
+				<imageExpression><![CDATA["images/logo.jpg"]]></imageExpression>
+			</image>
+		</band>
+	</title>
+	<pageHeader>
+		<band height="53" splitType="Stretch">
+			<rectangle>
+				<reportElement x="1" y="0" width="554" height="53" backcolor="#000000" uuid="302b6cd5-484b-4aa9-8d5c-784adfcb4e9d"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="122" y="2" width="310" height="26" forecolor="#FF6666" uuid="8f83fcfd-9ae4-4d8a-97e5-e34186a61b48"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="18"/>
+				</textElement>
+				<text><![CDATA[Monthly Customer Transaction Report]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="227" y="27" width="130" height="26" forecolor="#FFCCCC" uuid="10b23672-5ffa-4577-b924-ee3599ff9b93"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="14" isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{showMonth}]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageHeader>
+	<columnHeader>
+		<band splitType="Stretch"/>
+	</columnHeader>
+	<detail>
+		<band height="22" splitType="Stretch">
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="155" y="0" width="189" height="22" uuid="51711da4-e338-45fd-b19b-9fe1eea36e17"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{MOVIE_NAME}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="344" y="0" width="88" height="22" uuid="f0d8e2f3-b736-43df-ad9f-2a5720f42387"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{TOTALSEAT}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="432" y="0" width="123" height="22" uuid="6d647471-04af-45c1-ae52-bfecc01ebf29"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{TOTAL_PRICE}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="39" y="0" width="116" height="22" uuid="50f6bdc8-4365-4b84-96c6-de51a5c9eac9"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{CUS_TYPE}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="1" y="0" width="38" height="22" uuid="47e99b14-0e7d-446a-8db7-500dba15c45c"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$V{GROUP_EXP}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band splitType="Stretch"/>
+	</pageFooter>
+	<summary>
+		<band height="24" splitType="Stretch">
+			<textField pattern="###0.00">
+				<reportElement mode="Opaque" x="432" y="0" width="123" height="24" backcolor="#FFC800" uuid="310b2f14-6bc4-4840-91ab-67efd0524a33"/>
+				<box>
+					<topPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0" lineStyle="Double"/>
+				</box>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$V{SumTotal}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement mode="Opaque" x="303" y="0" width="129" height="24" backcolor="#FFC800" uuid="556a9083-0077-470b-8c7f-a57c39c64264"/>
+				<box>
+					<topPen lineWidth="1.0"/>
+					<bottomPen lineWidth="1.0" lineStyle="Double"/>
+				</box>
+				<textElement textAlignment="Right" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Sum Total (RM):]]></text>
+			</staticText>
+		</band>
+	</summary>
+</jasperReport>

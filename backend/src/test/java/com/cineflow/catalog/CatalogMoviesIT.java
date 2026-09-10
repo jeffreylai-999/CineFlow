@@ -1,0 +1,69 @@
+package com.cineflow.catalog;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+import com.cineflow.TestcontainersConfiguration;
+
+@Import(TestcontainersConfiguration.class)
+@SpringBootTest
+@AutoConfigureMockMvc
+class CatalogMoviesIT {
+
+	@Autowired
+	MockMvc mockMvc;
+
+	@Test
+	void listsAvailableSanitizedMoviesFromFixture() throws Exception {
+		mockMvc.perform(get("/api/movies").accept(MediaType.APPLICATION_JSON))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$", hasSize(1)))
+			.andExpect(jsonPath("$[0].title").value("Nebula Express"))
+			.andExpect(jsonPath("$[0].synopsis").value(
+					"A courier crew races a sealed cargo across three colonies before the gate collapses."))
+			.andExpect(jsonPath("$[0].genre").value("Adventure"))
+			.andExpect(jsonPath("$[0].runtimeMinutes").value(118))
+			.andExpect(jsonPath("$[0].ageRating").value("PG-13"))
+			.andExpect(jsonPath("$[0].posterUrl").value("https://cdn.example.test/posters/nebula-express.jpg"))
+			.andExpect(jsonPath("$[0].id").isNumber());
+	}
+
+	@Test
+	void echoesOrAssignsCorrelationId() throws Exception {
+		mockMvc.perform(get("/api/movies").header("X-Correlation-Id", "trace-fixture-1"))
+			.andExpect(status().isOk())
+			.andExpect(header().string("X-Correlation-Id", "trace-fixture-1"));
+
+		MvcResult generated = mockMvc.perform(get("/api/movies"))
+			.andExpect(status().isOk())
+			.andExpect(header().exists("X-Correlation-Id"))
+			.andReturn();
+
+		assertThat(generated.getResponse().getHeader("X-Correlation-Id")).isNotBlank();
+	}
+
+	@Test
+	void unknownApiRouteReturnsProblemDetails() throws Exception {
+		mockMvc.perform(get("/api/does-not-exist").accept(MediaType.APPLICATION_JSON))
+			.andExpect(status().isNotFound())
+			.andExpect(header().exists("X-Correlation-Id"))
+			.andExpect(jsonPath("$.title").value("Not Found"))
+			.andExpect(jsonPath("$.status").value(404))
+			.andExpect(jsonPath("$.code").value("resource.not_found"))
+			.andExpect(jsonPath("$.correlationId").exists())
+			.andExpect(jsonPath("$.detail").doesNotExist());
+	}
+}

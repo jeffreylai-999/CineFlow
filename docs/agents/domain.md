@@ -9,7 +9,10 @@ This is a single-context repository:
 ├── CONTEXT.md
 ├── docs/adr/
 ├── legacy/          # preserved 2017 Java Swing reference (not the modern app)
-└── src/             # modern application modules (added by later tickets)
+├── backend/         # Spring Boot modular monolith (Java 25)
+├── frontend/        # React + TypeScript SPA (Vite)
+├── docker-compose.yml
+└── Dockerfile
 ```
 
 Use terminology defined in `CONTEXT.md`. If a proposal contradicts an ADR, identify the conflict explicitly instead of silently overriding the decision.

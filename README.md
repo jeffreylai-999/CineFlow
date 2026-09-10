@@ -7,9 +7,76 @@ CineFlow is a cinema booking platform. This repository holds the preserved 2017 
 | Path | Purpose |
 |------|---------|
 | `legacy/` | Original desktop application (sanitized reference) |
+| `backend/` | Java 25 Spring Boot modular monolith |
+| `frontend/` | React + TypeScript SPA (Vite) |
 | `docs/` | Specs, ADRs, research, and agent workflow |
 | `CONTEXT.md` | Domain language |
 | `scripts/` | Repository checks, including legacy sanitization scan |
+| `docker-compose.yml` | Local PostgreSQL + application containers |
+
+## Prerequisites
+
+- OpenJDK 25
+- Node.js 24+ and [pnpm](https://pnpm.io/) 11+
+- Docker Desktop (for Compose, Testcontainers, and image builds)
+
+## Local development
+
+### Database only
+
+```bash
+docker compose up db -d
+```
+
+Copy `.env.example` values into your shell or a local `.env` (gitignored). Defaults match Compose:
+
+- JDBC URL `jdbc:postgresql://localhost:5432/cineflow`
+- User/password `cineflow` / `cineflow`
+
+### Backend
+
+Build the SPA once so Spring Boot can serve it from the same origin (optional for API-only work; required for `bootJar`/`bootRun` with the UI):
+
+```bash
+cd frontend && pnpm install && pnpm build && cd ..
+cd backend
+./gradlew bootRun
+```
+
+Useful URLs once running:
+
+- Catalog API: `http://localhost:8080/api/movies`
+- OpenAPI: `http://localhost:8080/v3/api-docs`
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- Readiness: `http://localhost:8080/actuator/health/readiness`
+
+### Frontend
+
+```bash
+cd frontend
+pnpm install
+pnpm dev
+```
+
+Vite proxies `/api` to the Spring Boot process on port 8080.
+
+### Full stack in containers
+
+```bash
+docker compose up --build
+```
+
+Open `http://localhost:8080` for the SPA served from Spring Boot.
+
+## Tests and CI
+
+```bash
+cd backend && ./gradlew test
+cd frontend && pnpm lint && pnpm typecheck && pnpm test && pnpm build
+docker build -t cineflow:local .
+```
+
+GitHub Actions runs the same checks on pull requests and `main`.
 
 ## Legacy application
 

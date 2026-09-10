@@ -1,0 +1,35 @@
+# Ant / NetBeans build output
+/build/
+/dist/
+/legacy/build/
+/legacy/dist/
+*.class
+*.jasper
+
+# Private IDE state
+/nbproject/private/
+/legacy/nbproject/private/
+
+# Embedded Derby runtime and logs (recreate from legacy/table.sql)
+/derby-cinemas/
+/legacy/derby-cinemas/
+/cinemas/
+derby.log
+derby.properties
+**/derby.log
+**/derby.properties
+
+# Local agent brainstorm artifacts
+/.superpowers/
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+*.iml
+
+# Local secrets / env
+.env
+.env.*
+!.env.example

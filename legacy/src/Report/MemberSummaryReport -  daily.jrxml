@@ -1,0 +1,218 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="MemberSummaryReport" language="groovy" pageWidth="842" pageHeight="595" orientation="Landscape" columnWidth="802" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="516d1fba-6fec-474a-91ed-c9552e81dcfe">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<style name="Row" mode="Transparent">
+		<conditionalStyle>
+			<conditionExpression><![CDATA[$V{REPORT_COUNT}%2 == 0]]></conditionExpression>
+			<style backcolor="#FFFF99"/>
+		</conditionalStyle>
+	</style>
+	<parameter name="showDay" class="java.lang.String" isForPrompting="false"/>
+	<parameter name="pay_Day" class="java.lang.String"/>
+	<queryString>
+		<![CDATA[select c.cus_id,c.cus_name,s.show_date,s.show_time,m.movie_name,p.payment_date,p.seat_no
+from payment p,customer c,showtime s,movie m
+where p.cus_id = c.cus_id AND p.show_id=s.show_id AND s.movie_id=m.movie_id AND p.PAYMENT_DATE like $P{pay_Day}]]>
+	</queryString>
+	<field name="CUS_ID" class="java.lang.String">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<field name="CUS_NAME" class="java.lang.String">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<field name="SHOW_DATE" class="java.lang.String">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<field name="SHOW_TIME" class="java.lang.String">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<field name="MOVIE_NAME" class="java.lang.String">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<field name="PAYMENT_DATE" class="java.lang.String">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<field name="SEAT_NO" class="java.lang.String">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="66" splitType="Stretch">
+			<rectangle>
+				<reportElement x="1" y="-1" width="801" height="67" backcolor="#000000" uuid="f814c7cc-6413-4411-aab9-79a58d110085"/>
+			</rectangle>
+			<elementGroup/>
+			<image>
+				<reportElement x="8" y="4" width="96" height="58" uuid="fd91e554-ba0b-4d06-9c31-d154d90a30fd"/>
+				<imageExpression><![CDATA["images/logo.jpg"]]></imageExpression>
+			</image>
+		</band>
+	</title>
+	<pageHeader>
+		<band height="67" splitType="Stretch">
+			<rectangle>
+				<reportElement x="1" y="1" width="801" height="66" backcolor="#000000" uuid="302b6cd5-484b-4aa9-8d5c-784adfcb4e9d"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="258" y="1" width="321" height="36" forecolor="#FF6666" uuid="8f83fcfd-9ae4-4d8a-97e5-e34186a61b48"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="20"/>
+				</textElement>
+				<text><![CDATA[Daily Member Summary Report]]></text>
+			</staticText>
+			<textField>
+				<reportElement mode="Transparent" x="343" y="37" width="116" height="30" forecolor="#FFCCCC" uuid="492d7868-a9de-412d-9c6d-caeb8bfd60bf"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="18"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{showDay}]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageHeader>
+	<columnHeader>
+		<band height="20" splitType="Stretch">
+			<staticText>
+				<reportElement mode="Opaque" x="31" y="0" width="100" height="20" backcolor="#CCCCCC" uuid="e3edd9ab-dc7c-4372-99b6-6ffcfef9ff3e"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[CUSTOMER ID]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="410" y="0" width="121" height="20" backcolor="#CCCCCC" uuid="d841fe42-8461-46d4-b5ea-6336e57988eb"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[MOVIE NAME]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="624" y="0" width="178" height="20" backcolor="#CCCCCC" uuid="0a52ffe2-f21b-4095-858d-7065f4fcff54"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[SEAT NUMBER]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="531" y="0" width="93" height="20" backcolor="#CCCCCC" uuid="0860293e-6a64-46dd-adc5-334f2ab253bb"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[PAYMENT DATE]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="130" y="0" width="141" height="20" backcolor="#CCCCCC" uuid="7ccb00d0-b67d-48f8-999c-35ad61187c96"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[CUSTOMER NAME]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="1" y="0" width="30" height="20" backcolor="#CCCCCC" uuid="a87f76b3-fdfb-4f1e-b37c-32da1d3f3c03"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[NO.]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="270" y="0" width="68" height="20" backcolor="#CCCCCC" uuid="15ecd098-7409-413e-ad98-a2b65ea51593"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[SHOW DATE]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="338" y="0" width="72" height="20" backcolor="#CCCCCC" uuid="efe40b71-bfb6-4c4f-a8da-95d2ece444f8"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[SHOW TIME]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="22" splitType="Stretch">
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="30" y="0" width="100" height="22" uuid="fc6e4d1d-92d1-4d58-b3be-3753dcba5fbf"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{CUS_ID}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="410" y="0" width="121" height="22" uuid="008b298c-a221-4a1f-9f5d-c7e10bc463f4"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{MOVIE_NAME}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="531" y="0" width="93" height="22" uuid="32a8bf88-d7b6-4b5d-93ab-bc6e677bb8bf"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{PAYMENT_DATE}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="624" y="0" width="178" height="22" forecolor="#000000" uuid="abcc8e88-2879-4e60-aa69-7babb1a0d4c4"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{SEAT_NO}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="130" y="0" width="140" height="22" uuid="01466908-59e5-48da-9bb7-574b794ccbbd"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{CUS_NAME}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="0" y="0" width="30" height="22" uuid="1f89ff69-3988-4598-810c-a2abf7dcd2f1"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="270" y="0" width="68" height="22" uuid="3a46ba75-12eb-43b9-9f09-517174067d96"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{SHOW_DATE}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="338" y="0" width="72" height="22" uuid="1beee2b9-6de1-4686-9261-d05ad3cc427d"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{SHOW_TIME}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band height="22" splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band height="54" splitType="Stretch">
+			<textField>
+				<reportElement x="362" y="34" width="80" height="20" uuid="8f3139e2-5184-4654-8dd7-949c9fee3ff1"/>
+				<textElement textAlignment="Right"/>
+				<textFieldExpression><![CDATA["Page "+$V{PAGE_NUMBER}+" of"]]></textFieldExpression>
+			</textField>
+			<textField evaluationTime="Report">
+				<reportElement x="442" y="34" width="40" height="20" uuid="0edd2139-45e8-47ec-b401-0d6c593e4bfa"/>
+				<textFieldExpression><![CDATA[" " + $V{PAGE_NUMBER}]]></textFieldExpression>
+			</textField>
+			<textField pattern="EEEEE dd MMMMM yyyy">
+				<reportElement x="0" y="34" width="125" height="20" uuid="94948fcd-26d4-4300-9336-f5a826926367"/>
+				<textFieldExpression><![CDATA[new java.util.Date()]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageFooter>
+	<summary>
+		<band height="20" splitType="Stretch">
+			<textField>
+				<reportElement mode="Opaque" x="706" y="0" width="96" height="20" backcolor="#FFCCCC" uuid="c47261cd-ee3d-4709-bfa9-abac2efcafc3"/>
+				<textElement textAlignment="Center">
+					<font isBold="true"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+			<staticText>
+				<reportElement mode="Opaque" x="0" y="0" width="706" height="20" backcolor="#FFCCCC" uuid="885b10b6-bb2a-43e2-9d26-2fbe3fca76d5"/>
+				<textElement textAlignment="Right">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[Total Members:]]></text>
+			</staticText>
+		</band>
+	</summary>
+</jasperReport>

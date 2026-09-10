@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<jasperReport xmlns="http://jasperreports.sourceforge.net/jasperreports" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://jasperreports.sourceforge.net/jasperreports http://jasperreports.sourceforge.net/xsd/jasperreport.xsd" name="Highest Sales Report" language="groovy" pageWidth="595" pageHeight="842" columnWidth="555" leftMargin="20" rightMargin="20" topMargin="20" bottomMargin="20" uuid="e87b441c-3b45-42cc-aabc-fd452aed2891">
+	<property name="ireport.zoom" value="1.0"/>
+	<property name="ireport.x" value="0"/>
+	<property name="ireport.y" value="0"/>
+	<style name="Row">
+		<conditionalStyle>
+			<conditionExpression><![CDATA[$V{REPORT_COUNT}%2==0]]></conditionExpression>
+			<style mode="Transparent" backcolor="#FFFF99" fill="Solid"/>
+		</conditionalStyle>
+	</style>
+	<parameter name="pay_month" class="java.lang.String">
+		<defaultValueExpression><![CDATA[]]></defaultValueExpression>
+	</parameter>
+	<parameter name="showMonth" class="java.lang.String" isForPrompting="false"/>
+	<queryString>
+		<![CDATA[select st.movie_id , m.movie_name,SUM(p.total_price) as totalSales
+from payment p,movie m,showtime st
+where st.show_id = p.show_id AND m.movie_id = st.movie_id AND p.PAYMENT_DATE like $P{pay_month}
+group by m.movie_name,st.movie_id
+order by totalSales desc]]>
+	</queryString>
+	<field name="MOVIE_ID" class="java.lang.String">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<field name="MOVIE_NAME" class="java.lang.String">
+		<fieldDescription><![CDATA[]]></fieldDescription>
+	</field>
+	<field name="TOTALSALES" class="java.math.BigDecimal"/>
+	<variable name="SUBTOTAL" class="java.lang.Double" calculation="Sum">
+		<variableExpression><![CDATA[$F{TOTALSALES}]]></variableExpression>
+	</variable>
+	<background>
+		<band splitType="Stretch"/>
+	</background>
+	<title>
+		<band height="66" splitType="Stretch">
+			<rectangle>
+				<reportElement x="1" y="-1" width="554" height="67" backcolor="#000000" uuid="f814c7cc-6413-4411-aab9-79a58d110085"/>
+			</rectangle>
+			<elementGroup/>
+			<image>
+				<reportElement x="8" y="4" width="96" height="58" uuid="fd91e554-ba0b-4d06-9c31-d154d90a30fd"/>
+				<imageExpression><![CDATA["images/logo.jpg"]]></imageExpression>
+			</image>
+		</band>
+	</title>
+	<pageHeader>
+		<band height="62" splitType="Stretch">
+			<rectangle>
+				<reportElement x="1" y="1" width="554" height="61" backcolor="#000000" uuid="302b6cd5-484b-4aa9-8d5c-784adfcb4e9d"/>
+			</rectangle>
+			<staticText>
+				<reportElement x="115" y="1" width="324" height="36" forecolor="#FF6666" uuid="8f83fcfd-9ae4-4d8a-97e5-e34186a61b48"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="20"/>
+				</textElement>
+				<text><![CDATA[Monthly Highest Sales Movie Report ]]></text>
+			</staticText>
+			<textField>
+				<reportElement x="196" y="33" width="163" height="25" forecolor="#FFCCCC" uuid="50d6eecf-edf1-45b1-bdc1-686b3b2034e4"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font size="18" isBold="false"/>
+				</textElement>
+				<textFieldExpression><![CDATA[$P{showMonth}]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageHeader>
+	<columnHeader>
+		<band height="20" splitType="Stretch">
+			<staticText>
+				<reportElement mode="Opaque" x="166" y="0" width="220" height="20" backcolor="#CCCCCC" uuid="588acb61-a944-4401-a5c1-9c1db307edf3"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[MOVIE NAME]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="386" y="0" width="169" height="20" backcolor="#CCCCCC" uuid="2c0ff16b-e61d-4399-9ef9-1b48504e0d54"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[TOTAL SALES]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="1" y="0" width="30" height="20" backcolor="#CCCCCC" uuid="1ab237a7-40ce-47fe-a0b2-d12adba04d4a"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[NO.]]></text>
+			</staticText>
+			<staticText>
+				<reportElement mode="Opaque" x="31" y="0" width="141" height="20" backcolor="#CCCCCC" uuid="bbd92bf1-0d11-4cbb-a8b3-4953cf8e7cf8"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle">
+					<font isBold="true"/>
+				</textElement>
+				<text><![CDATA[MOVIE_ID]]></text>
+			</staticText>
+		</band>
+	</columnHeader>
+	<detail>
+		<band height="25" splitType="Stretch">
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="386" y="0" width="169" height="23" uuid="face2436-bb8c-4afb-b5dc-d56870b417e1"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{TOTALSALES}]]></textFieldExpression>
+			</textField>
+			<textField pattern="">
+				<reportElement style="Row" mode="Opaque" x="1" y="0" width="30" height="23" uuid="09684bd1-5707-4b7e-a4c8-f20639324200"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$V{REPORT_COUNT}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="166" y="0" width="220" height="25" uuid="1dd7ca8e-2749-4f04-b3ab-31b587d540aa"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{MOVIE_NAME}]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement style="Row" mode="Opaque" x="31" y="0" width="135" height="25" uuid="0eef0759-a174-458d-abd2-07614546d154"/>
+				<textElement textAlignment="Center" verticalAlignment="Middle"/>
+				<textFieldExpression><![CDATA[$F{MOVIE_ID}]]></textFieldExpression>
+			</textField>
+		</band>
+	</detail>
+	<columnFooter>
+		<band height="23" splitType="Stretch"/>
+	</columnFooter>
+	<pageFooter>
+		<band height="24" splitType="Stretch">
+			<textField pattern="EEEEE dd MMMMM yyyy">
+				<reportElement x="8" y="1" width="140" height="20" uuid="51cc0331-543c-4f5a-af5e-df0ddf14db9b"/>
+				<textFieldExpression><![CDATA[new java.util.Date()]]></textFieldExpression>
+			</textField>
+			<textField>
+				<reportElement x="204" y="1" width="80" height="20" uuid="b5a93df1-d56c-46e7-9547-0b7403c72626"/>
+				<textElement textAlignment="Right"/>
+				<textFieldExpression><![CDATA["Page "+$V{PAGE_NUMBER}+" of"]]></textFieldExpression>
+			</textField>
+			<textField evaluationTime="Report">
+				<reportElement x="284" y="1" width="40" height="20" uuid="e4af32c2-8f12-48b2-8131-fd43c3f88ba6"/>
+				<textFieldExpression><![CDATA[" " + $V{PAGE_NUMBER}]]></textFieldExpression>
+			</textField>
+		</band>
+	</pageFooter>
+	<summary>
+		<band height="24" splitType="Stretch"/>
+	</summary>
+</jasperReport>

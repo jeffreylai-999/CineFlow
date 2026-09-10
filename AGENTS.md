@@ -16,6 +16,14 @@ Use `feat/<short-slug>` for implementation branches (for example `feat/sanitize-
 
 Use `#<issue-number> - <issue title>` (for example `#2 - Sanitize and preserve the legacy application`).
 
+### Frontend package manager
+
+Use `pnpm` for the React/Vite frontend. Do not use `npm` or `yarn` for install or scripts.
+
+### Java toolchain
+
+Use OpenJDK **25** (current LTS) for the modern Spring Boot / Gradle stack. Do not use Java 8 except when inspecting `legacy/`.
+
 ### Triage labels
 
 The canonical Matt Pocock triage labels are used unchanged. See `docs/agents/triage-labels.md`.

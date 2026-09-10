@@ -10,7 +10,7 @@ The project owner wants to rebuild CineFlow as a modern full-stack learning proj
 
 Build a responsive cinema booking and operations platform for one Cinema. Online Customers can browse Movies, select a Showtime and Seats, complete a simulated Payment, and receive a printable Ticket. Booking Staff can create anonymous Staff-Assisted Bookings and admit a whole Booking by scanning its Ticket or entering its Booking Reference. Administrators can manage Staff, Movies, Halls, immutable Seat Maps, Showtimes, Ticket Prices, movie metadata providers, and cinema-wide settings.
 
-The modern application consists of a Java 21 Spring Boot modular monolith, a React and TypeScript single-page application built with Vite, and Supabase PostgreSQL. Spring Boot serves the compiled React application, REST interface, and STOMP WebSocket endpoint from one Render Docker service. Supabase Cron schedules idempotent PostgreSQL automation. Selected Edge Functions handle automation that requires external APIs. React remains a client-rendered SPA with no server-side rendering.
+The modern application consists of a Java 25 Spring Boot modular monolith, a React and TypeScript single-page application built with Vite, and Supabase PostgreSQL. Spring Boot serves the compiled React application, REST interface, and STOMP WebSocket endpoint from one Render Docker service. Supabase Cron schedules idempotent PostgreSQL automation. Selected Edge Functions handle automation that requires external APIs. React remains a client-rendered SPA with no server-side rendering.
 
 ## User Stories
 
@@ -157,7 +157,7 @@ The modern application consists of a Java 21 Spring Boot modular monolith, a Rea
 ### Architecture and modules
 
 - Preserve the original Java application as a `legacy` area. Build the modern backend and frontend as separate development modules in the same repository, with deployment configuration at the repository root.
-- Use Java 21, Spring Boot, Gradle, React, TypeScript, Vite, and Supabase PostgreSQL.
+- Use Java 25, Spring Boot, Gradle, React, TypeScript, Vite, and Supabase PostgreSQL.
 - Build one Spring Boot modular monolith. Package code by business module rather than technical layer.
 - Define Catalog, Scheduling, Booking, Payment, Admission, Identity and Access, Staff Administration, Automation, Audit, and Web Interface modules.
 - Let each module expose one small interface to its callers. Keep persistence models, framework types, provider payloads, and internal helpers behind those interfaces.

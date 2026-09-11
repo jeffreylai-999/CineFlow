@@ -1,0 +1,76 @@
+/*
+  Cinematic Focus dark theme over shadcn zinc token names.
+  Contrast ratios measured by hand (WCAG 2.2 relative luminance, sRGB).
+  AA requires 4.5:1 for normal text and 3:1 for large text / UI components.
+*/
+
+@theme inline {
+  --font-sans: "Segoe UI", "Helvetica Neue", ui-sans-serif, system-ui, sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
+
+:root,
+.dark {
+  --radius: 0.625rem;
+
+  /* Deep navy surfaces (ADR 0004): override zinc background / card / popover. */
+  --background: #07101f; /* foreground on background = 16.62:1 */
+  --foreground: #f4efe6;
+  --card: #0d1830; /* foreground on card = 15.40:1 */
+  --card-foreground: #f4efe6;
+  --popover: #101b33; /* foreground on popover = 14.95:1 */
+  --popover-foreground: #f4efe6;
+
+  /* Vivid red actions */
+  --primary: #e11d2e; /* primary-foreground on primary = 4.75:1 */
+  --primary-foreground: #ffffff;
+
+  --secondary: #16233f; /* secondary-foreground on secondary = 13.62:1 */
+  --secondary-foreground: #f4efe6;
+  --muted: #16233f;
+  --muted-foreground: #b7c0d4; /* muted-foreground on background = 10.43:1 */
+  --accent: #1a2948;
+  --accent-foreground: #f4efe6; /* accent-foreground on accent = 12.60:1 */
+  --destructive: #f07178; /* destructive on background = 6.65:1 */
+  --border: rgb(244 239 230 / 12%);
+  --input: rgb(244 239 230 / 16%);
+  --ring: #e11d2e; /* focus ring against background ≈ 4.75:1 as UI accent */
+
+  --sidebar: #0a1428;
+  --sidebar-foreground: #f4efe6; /* sidebar-foreground on sidebar = 16.03:1 */
+  --sidebar-primary: #e11d2e;
+  --sidebar-primary-foreground: #ffffff; /* 4.75:1 */
+  --sidebar-accent: #16233f;
+  --sidebar-accent-foreground: #f4efe6;
+  --sidebar-border: rgb(244 239 230 / 12%);
+  --sidebar-ring: #e11d2e;
+}

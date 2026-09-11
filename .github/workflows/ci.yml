@@ -55,6 +55,9 @@ jobs:
       - name: Install
         working-directory: frontend
         run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers for Vitest browser mode
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium
       - name: Lint
         working-directory: frontend
         run: pnpm lint

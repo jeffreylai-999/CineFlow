@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { CatalogClient, Movie } from '@/catalog/api/catalogClient.ts'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card.tsx'
 
 type CatalogPageProps = {
   client: CatalogClient
@@ -52,24 +59,33 @@ export function CatalogPage({ client }: CatalogPageProps) {
       {state.status === 'ready' ? (
         <ul className="grid list-none gap-6 p-0">
           {state.movies.map((movie) => (
-            <li
-              key={movie.id}
-              className="grid gap-4 border-b border-border pb-6 md:grid-cols-[180px_minmax(0,1fr)]"
-            >
-              {movie.posterUrl ? (
-                <img
-                  className="aspect-[2/3] w-full max-w-[220px] object-cover"
-                  src={movie.posterUrl}
-                  alt={`Poster for ${movie.title}`}
-                />
-              ) : null}
-              <div className="space-y-2">
-                <h2 className="text-2xl font-semibold">{movie.title}</h2>
-                <p className="text-sm text-muted-foreground">
-                  {movie.genre} · {movie.runtimeMinutes} min · {movie.ageRating}
-                </p>
-                <p className="max-w-2xl text-sm leading-relaxed">{movie.synopsis}</p>
-              </div>
+            <li key={movie.id}>
+              <Card className="overflow-hidden border-border/60 bg-card">
+                <div className="grid gap-4 md:grid-cols-[180px_minmax(0,1fr)]">
+                  {movie.posterUrl ? (
+                    <img
+                      className="aspect-[2/3] w-full max-w-[220px] object-cover"
+                      src={movie.posterUrl}
+                      alt={`Poster for ${movie.title}`}
+                    />
+                  ) : null}
+                  <div>
+                    <CardHeader className="px-4 pt-4 md:px-6">
+                      <CardTitle className="text-2xl">
+                        <h2 className="text-inherit">{movie.title}</h2>
+                      </CardTitle>
+                      <CardDescription>
+                        {movie.genre} · {movie.runtimeMinutes} min · {movie.ageRating}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="px-4 pb-4 md:px-6">
+                      <p className="max-w-2xl text-sm leading-relaxed text-foreground/90">
+                        {movie.synopsis}
+                      </p>
+                    </CardContent>
+                  </div>
+                </div>
+              </Card>
             </li>
           ))}
         </ul>

@@ -24,6 +24,9 @@ export default defineConfig({
       '/swagger-ui.html': 'http://localhost:8080',
     },
   },
+  optimizeDeps: {
+    include: ['cn'],
+  },
   test: {
     setupFiles: ['./src/test/setup.ts'],
     browser: {

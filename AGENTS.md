@@ -20,6 +20,10 @@ Use `#<issue-number> - <issue title>` (for example `#2 - Sanitize and preserve t
 
 Use `pnpm` for the React/Vite frontend. Do not use `npm` or `yarn` for install or scripts.
 
+### Vendored UI components
+
+Frontend components come from the shadcn CLI and are vendored into `src/components/ui/`, so nothing records which upstream revision each file came from. Vendor or update a component in a commit that touches nothing else, with the message `chore(ui): vendor <component> via shadcn CLI <version>`, so that `git log` on the file answers the question. Add a component only when a screen needs it.
+
 ### Java toolchain
 
 Use OpenJDK **25** (current LTS) for the modern Spring Boot / Gradle stack. Do not use Java 8 except when inspecting `legacy/`.

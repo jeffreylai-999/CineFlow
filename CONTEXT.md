@@ -52,6 +52,10 @@ _Avoid_: Slot, position
 A seat excluded from new holds and bookings. A seat with an active hold or future booking cannot be disabled.
 _Avoid_: Deleted seat, occupied seat
 
+**Unavailable Seat**:
+A seat a customer cannot select, being under another customer's seat hold, held within another customer's booking, or a disabled seat. The customer interface presents these as one state and does not reveal which applies. Staff see the underlying seat hold, booking, or disabled seat directly.
+_Avoid_: Booked seat, disabled seat, occupied seat
+
 **Seat Map**:
 The immutable rows and numbered seats established when a hall is created. Individual seats may later be enabled or disabled without changing the layout.
 _Avoid_: Showtime layout, capacity
@@ -67,6 +71,10 @@ _Avoid_: Reservation, order
 **Seat Hold**:
 A temporary claim on selected seats while checkout is in progress. It expires after ten minutes unless a booking is confirmed; a failed payment does not extend or release it early.
 _Avoid_: Booking, reservation
+
+**Seat Selection**:
+The seats a customer has chosen but not yet claimed. It grants no entitlement, blocks nobody else, and is lost if the customer leaves. A seat hold replaces it when checkout begins.
+_Avoid_: Seat hold, reservation, basket
 
 **Staff-Assisted Booking**:
 A booking created by Booking Staff for a customer using the same availability and confirmation rules as online checkout.

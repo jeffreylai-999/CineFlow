@@ -157,7 +157,7 @@ The modern application consists of a Java 25 Spring Boot modular monolith, a Rea
 ### Architecture and modules
 
 - Preserve the original Java application as a `legacy` area. Build the modern backend and frontend as separate development modules in the same repository, with deployment configuration at the repository root.
-- Use Java 25, Spring Boot, Gradle, React, TypeScript, Vite, and Supabase PostgreSQL.
+- Use Java 25, Spring Boot, Gradle, React 19, TypeScript, Vite, Tailwind CSS v4, and Supabase PostgreSQL.
 - Build one Spring Boot modular monolith. Package code by business module rather than technical layer.
 - Define Catalog, Scheduling, Booking, Payment, Admission, Identity and Access, Staff Administration, Automation, Audit, and Web Interface modules.
 - Let each module expose one small interface to its callers. Keep persistence models, framework types, provider payloads, and internal helpers behind those interfaces.
@@ -173,6 +173,17 @@ The modern application consists of a Java 25 Spring Boot modular monolith, a Rea
 - Build the Customer interface mobile-first. Build the Staff portal desktop-first and retain tablet usability.
 - Meet WCAG 2.2 AA. Support keyboard operation, visible focus, semantic landmarks, announced errors, and Seat states that do not rely on color.
 - Support the current and previous major versions of Chrome, Edge, Firefox, and Safari.
+- Build the interface with Tailwind CSS v4 through the `@tailwindcss/vite` plugin, React 19, and shadcn/ui component source vendored into the repository on Base UI primitives. Add a component only when a screen needs it. See ADR 0004.
+- Organize the frontend feature-first, mirroring the backend module names, with vendored primitives in `src/components/ui/` and the two audience layouts in `src/shells/`. Both audiences share one component layer.
+- Define one dark theme for the first release. Use the shadcn token set unchanged as the base layer and add domain tokens such as `--seat-held` only for concepts the glossary names. Apply deep navy by overriding `--background`, `--card`, and `--popover`.
+- Convey every Seat state through a border treatment and a glyph as well as color, always render the Seat label, and include the state in each Seat's accessible name. Render each Seat as a `button` element with `aria-pressed`, so keyboard operation comes from the platform.
+- Build the Seat Map as one presentational `SeatGrid` that owns grid geometry, per-Seat buttons, and accessible names, and knows nothing of the Booking Limit, cutoffs, or WebSockets. Place policy and data in separate Customer, Staff, and Administrator containers, each mapping domain state to visual state.
+- Accept native tab order through the Seat Map. Upgrade to the WAI-ARIA grid pattern only if keyboard users find the tab count tedious.
+- Present a customer-facing Unavailable Seat that does not reveal whether a Seat is under another customer's Seat Hold, inside another customer's Booking, or disabled. The Staff interface shows these separately.
+- Use native `input type="date"` and `input type="time"` for Showtime scheduling. Name Cinema Time and its zone in the visible label, send a zoneless local date-time with the zone identifier, and let Spring Boot resolve the instant. The browser must never perform the conversion.
+- Validate forms with native HTML constraints for shape only, and map Problem Details responses to field errors through one shared mapper. Do not add a form library: every meaningful rule is enforced in Spring Boot.
+- Page, sort, and filter list surfaces through REST query parameters and render them as semantic tables. Do not add a table library or send unbounded Audit Event history to the browser.
+- Accept that the Seat Map, the Seat Hold countdown, and QR rendering and scanning have no equivalent in any component registry and are built from primitives.
 
 ### Domain time and money
 
@@ -279,15 +290,17 @@ The modern application consists of a Java 25 Spring Boot modular monolith, a Rea
 - Use concurrency tests that start competing Seat acquisitions and prove that one transaction wins while the others receive a stable Seat-conflict response.
 - Use controlled clocks for Cinema Time, Seat Hold expiry, cutoffs, Cleaning Buffers, token expiry, and anonymization.
 - Test PostgreSQL constraints through integration behavior, including uniqueness, restrictive deletion, schedule exclusion, immutable Seat identity, and foreign-key preservation.
-- Render full React routes with React Testing Library. Replace backend access through one typed client adapter and STOMP through one socket adapter.
+- Render full React routes in Vitest browser mode using the Playwright provider. Do not use jsdom: it does not implement pointer capture, `scrollIntoView`, or `ResizeObserver`, which the component primitives call, and it disables automated color-contrast checking. Replace backend access through one typed client adapter and STOMP through one socket adapter.
 - Verify the guided Booking flow, countdown behavior, live invalidation refresh, validation, role-sensitive navigation, Ticket rendering, Admission feedback, loading states, safe errors, keyboard use, focus movement, and non-color Seat states.
+- Run `@axe-core/playwright` against every route with dialogs and menus opened first, because axe does not inspect closed or hidden regions.
+- Treat automated accessibility checks as a floor, not the target. Automated tooling detects no Focus Order, Focus Visible, Non-text Contrast, or Meaningful Sequence issues, and no library in the interface stack claims WCAG conformance. Each release therefore requires a keyboard-only walkthrough of catalog browsing, Seat selection, checkout, administration, and Admission, and Seat-state contrast ratios measured by hand and recorded beside the token definitions.
 - Run one contract suite against both `MovieMetadataProvider` adapters using controlled HTTP fixtures. Cover mapping, absent optional fields, provenance, errors, quotas, refresh, and source-specific behavior.
 - Invoke automation functions against controlled PostgreSQL state. Prove idempotence and business outcomes. Test Cron definitions as thin wiring rather than duplicating function behavior.
 - Use backend unit tests only for dense combinatorial policies such as price calculation, schedule ranges, and cutoff evaluation when integration tests would obscure failures or run too slowly.
 - The legacy project has no existing automated tests that provide prior art.
-- GitHub Actions must run backend unit and integration tests, frontend linting, TypeScript checks, React component tests, production builds, migration verification, and Docker image construction.
+- GitHub Actions must run backend unit and integration tests, frontend linting, TypeScript checks, browser-mode React route and component tests, production builds, migration verification, and Docker image construction. The workflow installs Playwright browsers for the browser-mode provider.
 - Judge completeness through required scenarios. Do not enforce a global line-coverage percentage.
-- Defer Playwright end-to-end tests until the initial implementation is complete. Track them as a future enhancement.
+- Defer Playwright end-to-end tests until the initial implementation is complete. Track them as a future enhancement. This defers end-to-end suites only; Playwright is already present as the Vitest browser-mode provider.
 
 ## Out of Scope
 

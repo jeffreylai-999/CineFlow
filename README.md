@@ -58,7 +58,9 @@ pnpm install
 pnpm dev
 ```
 
-Vite proxies `/api` to the Spring Boot process on port 8080.
+Vite proxies `/api` to the Spring Boot process on port 8080. Component tests use Vitest browser mode with Playwright Chromium (ADR 0005); install browsers once with `pnpm exec playwright install chromium`.
+
+Frontend UI: Tailwind v4 (`@tailwindcss/vite`) and shadcn on Base UI (ADR 0004). `components.json` keeps `style: "new-york"`, `tailwind.baseColor: "zinc"`, and `tailwind.cssVariables: true` after verifying those values against shadcn CLI 4.21.0 (`new-york` is in the schema enum and styles index; `zinc` resolves at the colors registry; `--css-variables` is the CLI default). Interactive `init -t vite` only offers Nova-family presets, so init is recorded via that checked `components.json` plus Base UI component adds from the `base-nova` registry. Vendor each component in its own commit.
 
 ### Full stack in containers
 

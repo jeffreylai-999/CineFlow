@@ -1,11 +1,15 @@
-import { createCatalogClient } from './api/catalogClient.ts'
-import { CatalogPage } from './CatalogPage.tsx'
-import './App.css'
+import { createCatalogClient } from '@/catalog/api/catalogClient.ts'
+import { CatalogPage } from '@/catalog/CatalogPage.tsx'
+import { CustomerShell } from '@/shells/customer/CustomerShell.tsx'
 
 const catalogClient = createCatalogClient()
 
 function App() {
-  return <CatalogPage client={catalogClient} />
+  return (
+    <CustomerShell>
+      <CatalogPage client={catalogClient} />
+    </CustomerShell>
+  )
 }
 
 export default App

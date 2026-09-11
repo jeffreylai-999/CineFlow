@@ -1,38 +1,16 @@
-:root {
-  color-scheme: dark;
-  --bg-deep: #07101f;
-  --bg-mid: #101b33;
-  --ink: #f4efe6;
-  --muted: #b7c0d4;
-  --accent: #e11d2e;
-  --line: rgba(244, 239, 230, 0.12);
-  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-  color: var(--ink);
-  background:
-    radial-gradient(circle at top left, rgba(225, 29, 46, 0.18), transparent 40%),
-    linear-gradient(160deg, var(--bg-deep), var(--bg-mid) 55%, #0a1428);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "./styles/cinematic-focus.css";
 
-* {
-  box-sizing: border-box;
-}
+@custom-variant dark (&:is(.dark *));
 
-body {
-  margin: 0;
-  min-width: 320px;
-  min-height: 100vh;
-}
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
 
-#root {
-  min-height: 100vh;
-}
-
-button {
-  font: inherit;
+  body {
+    @apply bg-background text-foreground;
+  }
 }

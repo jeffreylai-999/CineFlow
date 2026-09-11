@@ -31,7 +31,7 @@ The modern application consists of a Java 25 Spring Boot modular monolith, a Rea
 10. As an Online Customer, I want to choose a Showtime before its Booking Cutoff, so that I can begin checkout while online sales remain open.
 11. As an Online Customer, I want CineFlow to reject new online checkout after the Booking Cutoff, so that late online sales follow Cinema policy.
 12. As an Online Customer, I want to see the fixed Seat Map for my Showtime, so that I can select labelled Seats.
-13. As an Online Customer, I want available, held, booked, disabled, and selected Seats to have distinct text or shape indicators, so that color is not the only status cue.
+13. As an Online Customer, I want available, selected, and unavailable Seats to have distinct text or shape indicators, so that color is not the only status cue.
 14. As an Online Customer, I want live Seat changes through WebSockets, so that I see activity from other customers without refreshing the page.
 15. As an Online Customer, I want CineFlow to refresh authoritative availability through REST after a WebSocket event or reconnect, so that missed or reordered events do not show stale state.
 16. As an Online Customer, I want to select no more than the Booking Limit, so that one Booking follows Cinema policy.
@@ -179,8 +179,8 @@ The modern application consists of a Java 25 Spring Boot modular monolith, a Rea
 - Convey every Seat state through a border treatment and a glyph as well as color, always render the Seat label, and include the state in each Seat's accessible name. Render each Seat as a `button` element with `aria-pressed`, so keyboard operation comes from the platform.
 - Build the Seat Map as one presentational `SeatGrid` that owns grid geometry, per-Seat buttons, and accessible names, and knows nothing of the Booking Limit, cutoffs, or WebSockets. Place policy and data in separate Customer, Staff, and Administrator containers, each mapping domain state to visual state.
 - Accept native tab order through the Seat Map. Upgrade to the WAI-ARIA grid pattern only if keyboard users find the tab count tedious.
-- Present a customer-facing Unavailable Seat that does not reveal whether a Seat is under another customer's Seat Hold, inside another customer's Booking, or disabled. The Staff interface shows these separately.
-- Use native `input type="date"` and `input type="time"` for Showtime scheduling. Name Cinema Time and its zone in the visible label, send a zoneless local date-time with the zone identifier, and let Spring Boot resolve the instant. The browser must never perform the conversion.
+- Present a customer-facing Unavailable Seat that does not reveal whether a Seat is under another customer's Seat Hold, allocated to another customer's Booking, or disabled. The Staff interface shows these three separately, because Booking Staff need to tell a claim that expires in minutes from one that never will.
+- Use native `input type="date"` and `input type="time"` for Showtime scheduling. Do not add a date-picker library or vendor the `calendar` component: no story requires range selection or month browsing, and a picker component is the usual source of browser-timezone bugs. Name Cinema Time and its zone in the visible label, send a zoneless local date-time with the zone identifier, and let Spring Boot resolve the instant. The browser must never perform the conversion.
 - Validate forms with native HTML constraints for shape only, and map Problem Details responses to field errors through one shared mapper. Do not add a form library: every meaningful rule is enforced in Spring Boot.
 - Page, sort, and filter list surfaces through REST query parameters and render them as semantic tables. Do not add a table library or send unbounded Audit Event history to the browser.
 - Accept that the Seat Map, the Seat Hold countdown, and QR rendering and scanning have no equivalent in any component registry and are built from primitives.
@@ -202,6 +202,7 @@ The modern application consists of a Java 25 Spring Boot modular monolith, a Rea
 - Keep simulated Payment work outside locking transactions. Use a short final transaction to validate the Seat Hold, record Payment, create the Booking, convert claims, and issue the Booking Reference and Admission token.
 - Make Payment confirmation idempotent through a client-supplied idempotency key with a unique database constraint.
 - Publish Seat changes after the transaction commits. WebSocket messages tell clients to refresh the authoritative REST representation.
+- Collapse the reason a Seat is unavailable in the customer-facing availability representation itself, not only in the interface. A customer response reports a Seat as available or unavailable and nothing more; Seat Hold, Booking, and Disabled Seat are distinguished only in responses to authorized Staff. Presentation-only collapsing is bypassable through developer tools and would not hold the privacy boundary.
 - Enforce the ten-minute Seat Hold, cinema-wide Booking Limit, Booking Cutoff, and Counter Sales Cutoff in the backend using Cinema Time.
 - Generate unpredictable Booking References suitable for lookup and store Admission tokens as hashes. One Admission token covers the whole Booking.
 - Keep confirmed Bookings immutable. Do not implement cancellation, refunds, or partial Admission.

@@ -14,7 +14,11 @@ A versioned component library such as MUI or Mantine was rejected because a besp
 
 Vendored components receive no upstream bug or security fixes automatically, and there is no lockfile entry recording which upstream revision each file came from. Components are therefore vendored in commits that touch nothing else, so that the file history answers the question.
 
-Three shadcn settings — `style`, `baseColor`, and `cssVariables` — cannot be changed after `init`. The published `components.json` schema and the shadcn documentation disagree on the legal values of `style` and `baseColor`, so intended values must be verified against the installed CLI before `init` is run rather than against either document.
+CineFlow initializes with `style: "new-york"`, `tailwind.baseColor: "zinc"`, and `tailwind.cssVariables: true`. `new-york` is the only style the documentation still offers, `default` having been deprecated. `zinc` is the coolest of the offered base colors and so the shortest distance from the navy the theme overrides to; no offered base color is navy. `cssVariables` must be true, because the theme is expressed as token overrides rather than utility classes.
+
+The documentation states that all three of those settings cannot be changed after `init`, but they are not equally fixed. `cssVariables` is the hardest: switching it means deleting and re-installing every component. `style` has no documented migration. `baseColor` is the exception — `shadcn migrate base-color` is documented as switching a theme from one base color to another, so that choice is reversible at a cost rather than permanent. Treat `style` and `cssVariables` as the real one-way doors.
+
+The published `components.json` schema and the documentation disagree on the legal values of `style` and `baseColor`: the documentation offers one style and seven base colors, the schema a longer list of each. Verify the intended values against the installed CLI before running `init` rather than against either document.
 
 The `shadcn` package remains a build dependency, because generated CSS imports `shadcn/tailwind.css`. It is retained rather than ejected, since ejecting inlines roughly 630 lines of base CSS that nothing in CineFlow edits. The CLI's `eject` command reverses this in one step if theme overrides begin to conflict with it.
 

@@ -53,7 +53,7 @@ A seat excluded from new holds and bookings. A seat with an active hold or futur
 _Avoid_: Deleted seat, occupied seat
 
 **Unavailable Seat**:
-A seat a customer cannot select, being under another customer's seat hold, held within another customer's booking, or a disabled seat. The customer interface presents these as one state and does not reveal which applies. Staff see the underlying seat hold, booking, or disabled seat directly.
+A seat a customer cannot select, being under another customer's seat hold, allocated to another customer's booking, or a disabled seat. The customer interface presents these as one state and does not reveal which applies. Staff see the underlying seat hold, booking, or disabled seat directly.
 _Avoid_: Booked seat, disabled seat, occupied seat
 
 **Seat Map**:
@@ -73,7 +73,7 @@ A temporary claim on selected seats while checkout is in progress. It expires af
 _Avoid_: Booking, reservation
 
 **Seat Selection**:
-The seats a customer has chosen but not yet claimed. It grants no entitlement, blocks nobody else, and is lost if the customer leaves. A seat hold replaces it when checkout begins.
+The seats a customer has chosen but not yet claimed. It grants no entitlement, blocks nobody else, and does not survive a page reload or a return visit. A seat hold replaces it when checkout begins.
 _Avoid_: Seat hold, reservation, basket
 
 **Staff-Assisted Booking**:

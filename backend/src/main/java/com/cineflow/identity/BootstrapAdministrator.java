@@ -39,6 +39,11 @@ class BootstrapAdministrator implements ApplicationRunner {
 			throw new IllegalStateException(
 					"Bootstrap Administrator credentials are required when no Administrator exists");
 		}
+		if (password.length() < PasswordResetRequest.MIN_LENGTH) {
+			throw new IllegalStateException(
+					"Bootstrap Administrator password must be at least " + PasswordResetRequest.MIN_LENGTH
+							+ " characters");
+		}
 		staffAccounts.save(new StaffAccountEntity(
 				username,
 				passwordEncoder.encode(password),

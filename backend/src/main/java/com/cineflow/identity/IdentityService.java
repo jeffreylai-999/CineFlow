@@ -44,7 +44,7 @@ class IdentityService implements Identity {
 	@Override
 	@Transactional(noRollbackFor = IdentityException.class)
 	public StaffSession login(String username, String password) {
-		StaffAccountEntity staff = staffAccounts.findByUsername(username).orElse(null);
+		StaffAccountEntity staff = staffAccounts.findByUsernameForUpdate(username).orElse(null);
 		if (staff == null || !staff.isActive() || !passwordEncoder.matches(password, staff.getPasswordHash())) {
 			audit.record(staff == null ? null : staff.getId(), AuditAction.STAFF_LOGIN_FAILURE, "staff", username);
 			throw IdentityException.invalidCredentials();
@@ -102,7 +102,7 @@ class IdentityService implements Identity {
 	@Transactional
 	public void deactivate(long actorStaffId, long targetStaffId) {
 		StaffAccountEntity actor = requireAdministrator(actorStaffId);
-		StaffAccountEntity target = staffAccounts.findById(targetStaffId).orElseThrow(IdentityException::unauthorized);
+		StaffAccountEntity target = staffAccounts.findByIdForUpdate(targetStaffId).orElseThrow(IdentityException::unauthorized);
 		if (target.getRole() != StaffRole.BOOKING_STAFF) {
 			throw IdentityException.forbidden();
 		}
@@ -115,7 +115,7 @@ class IdentityService implements Identity {
 	@Transactional
 	public void resetPassword(long actorStaffId, long targetStaffId, String newPassword) {
 		StaffAccountEntity actor = requireAdministrator(actorStaffId);
-		StaffAccountEntity target = staffAccounts.findById(targetStaffId).orElseThrow(IdentityException::unauthorized);
+		StaffAccountEntity target = staffAccounts.findByIdForUpdate(targetStaffId).orElseThrow(IdentityException::unauthorized);
 		if (target.getRole() != StaffRole.BOOKING_STAFF) {
 			throw IdentityException.forbidden();
 		}

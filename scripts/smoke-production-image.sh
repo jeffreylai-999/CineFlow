@@ -8,6 +8,10 @@ cd "$root"
 
 compose=(docker compose -p cineflow-smoke -f docker-compose.yml -f docker-compose.smoke.yml)
 export CINEFLOW_IMAGE="${CINEFLOW_IMAGE:-}"
+export CINEFLOW_JWT_SECRET="${CINEFLOW_JWT_SECRET:-test-jwt-hs256-secret-key-32bytes!}"
+export CINEFLOW_BOOTSTRAP_ADMIN_USERNAME="${CINEFLOW_BOOTSTRAP_ADMIN_USERNAME:-administrator}"
+export CINEFLOW_BOOTSTRAP_ADMIN_PASSWORD="${CINEFLOW_BOOTSTRAP_ADMIN_PASSWORD:-AdminPassw0rd!}"
+export CINEFLOW_AUTH_COOKIE_SECURE="${CINEFLOW_AUTH_COOKIE_SECURE:-false}"
 base_url="${CINEFLOW_SMOKE_URL:-http://127.0.0.1:18080}"
 
 cleanup() {

@@ -36,7 +36,11 @@ Take the real hostname from the Supabase **Connect** dialog's JDBC **Session poo
 5. Keep an independent `pg_dump` of the `cineflow` schema. Free hosting is not a durability guarantee.
 
 ```bash
-pg_dump "postgresql://postgres.<project-ref>:<password>@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require" \
+# Store the password in ~/.pgpass (chmod 0600), never in the command or shell history:
+# hostname:port:database:username:password
+# aws-0-ap-southeast-1.pooler.supabase.com:5432:postgres:postgres.<project-ref>:<password>
+
+pg_dump "postgresql://postgres.<project-ref>@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require" \
   --schema=cineflow --file=cineflow.dump
 ```
 

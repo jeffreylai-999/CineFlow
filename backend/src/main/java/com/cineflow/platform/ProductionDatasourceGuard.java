@@ -76,6 +76,7 @@ class ProductionDatasourceGuard {
 		if (query == null || query.isBlank()) {
 			return false;
 		}
+		String sslMode = null;
 		for (String pair : query.split("&")) {
 			int separator = pair.indexOf('=');
 			if (separator <= 0) {
@@ -84,9 +85,13 @@ class ProductionDatasourceGuard {
 			String key = URLDecoder.decode(pair.substring(0, separator), StandardCharsets.UTF_8);
 			String value = URLDecoder.decode(pair.substring(separator + 1), StandardCharsets.UTF_8);
 			if ("sslmode".equalsIgnoreCase(key)) {
-				return TLS_SSL_MODES.contains(value.toLowerCase(Locale.ROOT));
+				if (sslMode != null) {
+					throw new IllegalStateException(
+							"Production JDBC URL must not set sslmode more than once.");
+				}
+				sslMode = value.toLowerCase(Locale.ROOT);
 			}
 		}
-		return false;
+		return sslMode != null && TLS_SSL_MODES.contains(sslMode);
 	}
 }

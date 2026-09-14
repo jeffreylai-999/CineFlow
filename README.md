@@ -69,6 +69,8 @@ Frontend UI: Tailwind v4 (`@tailwindcss/vite`) and shadcn on Base UI (ADR 0004).
 
 ### Full stack in containers
 
+Copy `.env.example` to `.env` first. Compose interpolates the JWT signing secret and bootstrap Administrator credentials from that file.
+
 ```bash
 docker compose up --build
 ```

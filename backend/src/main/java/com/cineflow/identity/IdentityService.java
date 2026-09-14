@@ -70,7 +70,7 @@ class IdentityService implements Identity {
 			audit.record(staff.getId(), AuditAction.TOKEN_REUSE, "refresh_token_family", Long.toString(family.getId()));
 			throw IdentityException.tokenReused();
 		}
-		if (current.getExpiresAt().isBefore(now) || !staff.isActive()) {
+		if (!current.getExpiresAt().isAfter(now) || !staff.isActive()) {
 			revokeFamily(family, now);
 			throw IdentityException.unauthorized();
 		}

@@ -43,14 +43,26 @@ export function StaffAuthProvider({ client, socket, children }: StaffAuthProvide
     if (!session) {
       return
     }
-    const delayMs = Math.max((session.expiresInSeconds - 60) * 1000, 5_000)
+    let cancelled = false
+    const delayMs = Math.max(session.expiresInSeconds - 60, 0) * 1000
     const timer = window.setTimeout(() => {
       client
         .refresh()
-        .then((next) => setSession(next))
-        .catch(() => setSession(null))
+        .then((next) => {
+          if (!cancelled) {
+            setSession(next)
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setSession(null)
+          }
+        })
     }, delayMs)
-    return () => window.clearTimeout(timer)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
   }, [client, session])
 
   useEffect(() => {
@@ -59,26 +71,33 @@ export function StaffAuthProvider({ client, socket, children }: StaffAuthProvide
       return
     }
     let cancelled = false
-    void socket.connect(session.accessToken).catch(async () => {
+
+    function recover() {
       if (cancelled || retrying.current) {
         return
       }
       retrying.current = true
-      try {
-        const next = await client.refresh()
-        if (!cancelled) {
-          setSession(next)
-        }
-      } catch {
-        if (!cancelled) {
-          setSession(null)
-        }
-      } finally {
-        retrying.current = false
-      }
-    })
+      void client
+        .refresh()
+        .then((next) => {
+          if (!cancelled) {
+            setSession(next)
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setSession(null)
+          }
+        })
+        .finally(() => {
+          retrying.current = false
+        })
+    }
+
+    void socket.connect(session.accessToken, recover).catch(recover)
     return () => {
       cancelled = true
+      void socket.disconnect()
     }
   }, [client, session, socket])
 

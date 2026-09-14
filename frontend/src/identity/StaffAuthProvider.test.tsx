@@ -17,12 +17,24 @@ const refreshed: StaffSession = {
   accessToken: 'next-token',
 }
 
+const shortLived: StaffSession = {
+  ...expired,
+  expiresInSeconds: 60,
+}
+
 function TokenProbe() {
   const auth = useStaffAuth()
   if (!auth.ready) {
     return <p role="status">Restoring session…</p>
   }
-  return <p>token:{auth.session?.accessToken ?? 'none'}</p>
+  return (
+    <>
+      <p>token:{auth.session?.accessToken ?? 'none'}</p>
+      <button type="button" onClick={() => void auth.signOut()}>
+        Log out
+      </button>
+    </>
+  )
 }
 
 describe('StaffAuthProvider', () => {
@@ -51,7 +63,68 @@ describe('StaffAuthProvider', () => {
     )
 
     await expect.element(page.getByText('token:next-token')).toBeInTheDocument()
-    expect(socket.connect).toHaveBeenCalledWith('expired-token')
-    expect(socket.connect).toHaveBeenCalledWith('next-token')
+    expect(socket.connect).toHaveBeenCalledWith('expired-token', expect.any(Function))
+    expect(socket.connect).toHaveBeenCalledWith('next-token', expect.any(Function))
+  })
+
+  it('ignores a scheduled refresh after sign-out', async () => {
+    let finishRefresh: ((session: StaffSession) => void) | undefined
+    const refresh = vi
+      .fn()
+      .mockResolvedValueOnce(shortLived)
+      .mockImplementation(
+        () =>
+          new Promise<StaffSession>((resolve) => {
+            finishRefresh = resolve
+          }),
+      )
+    const client: IdentityClient = {
+      login: vi.fn(),
+      refresh,
+      logout: vi.fn().mockResolvedValue(undefined),
+    }
+    const socket: StaffSocket = {
+      connect: vi.fn().mockResolvedValue(undefined),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+    }
+
+    await render(
+      <StaffAuthProvider client={client} socket={socket}>
+        <TokenProbe />
+      </StaffAuthProvider>,
+    )
+
+    await expect.element(page.getByText('token:expired-token')).toBeInTheDocument()
+    await expect.poll(() => finishRefresh).toBeTruthy()
+    await page.getByRole('button', { name: 'Log out' }).click()
+    await expect.element(page.getByText('token:none')).toBeInTheDocument()
+    finishRefresh?.(refreshed)
+    await expect.element(page.getByText('token:none')).toBeInTheDocument()
+  })
+
+  it('refreshes and reconnects after a live socket drops', async () => {
+    let onDisconnected: (() => void) | undefined
+    const client: IdentityClient = {
+      login: vi.fn(),
+      refresh: vi.fn().mockResolvedValueOnce(expired).mockResolvedValueOnce(refreshed),
+      logout: vi.fn(),
+    }
+    const socket: StaffSocket = {
+      connect: vi.fn(async (_token, disconnected) => {
+        onDisconnected = disconnected
+      }),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+    }
+
+    await render(
+      <StaffAuthProvider client={client} socket={socket}>
+        <TokenProbe />
+      </StaffAuthProvider>,
+    )
+
+    await expect.element(page.getByText('token:expired-token')).toBeInTheDocument()
+    await expect.poll(() => onDisconnected).toBeTruthy()
+    onDisconnected?.()
+    await expect.element(page.getByText('token:next-token')).toBeInTheDocument()
   })
 })

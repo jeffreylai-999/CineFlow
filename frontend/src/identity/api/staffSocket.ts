@@ -1,7 +1,7 @@
 import { Client } from '@stomp/stompjs'
 
 export type StaffSocket = {
-  connect: (accessToken: string) => Promise<void>
+  connect: (accessToken: string, onDisconnected?: () => void) => Promise<void>
   disconnect: () => Promise<void>
 }
 
@@ -24,12 +24,15 @@ export function createStaffSocket(options: StaffSocketOptions = {}): StaffSocket
     const current = active
     active = null
     if (current) {
+      current.onConnect = undefined
+      current.onStompError = undefined
+      current.onWebSocketClose = undefined
       await current.deactivate()
     }
   }
 
   return {
-    async connect(accessToken: string) {
+    async connect(accessToken: string, onDisconnected?: () => void) {
       await disconnect()
       const client = options.createClient
         ? options.createClient(accessToken)
@@ -41,6 +44,11 @@ export function createStaffSocket(options: StaffSocketOptions = {}): StaffSocket
         client.onWebSocketClose = () => reject(new Error('STOMP socket closed'))
         client.activate()
       })
+      if (active !== client) {
+        return
+      }
+      client.onStompError = () => onDisconnected?.()
+      client.onWebSocketClose = () => onDisconnected?.()
     },
     disconnect,
   }

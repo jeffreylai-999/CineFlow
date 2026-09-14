@@ -2,14 +2,16 @@ package com.cineflow.identity;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.springframework.stereotype.Component;
 
 @Component
 class AuthRateLimiter {
+
+	static final int MAX_KEYS = 10_000;
 
 	private final ConcurrentHashMap<String, List<Instant>> attempts = new ConcurrentHashMap<>();
 	private final AuthProperties authProperties;
@@ -31,11 +33,29 @@ class AuthRateLimiter {
 	private void check(String key, int limit) {
 		Instant now = clock.instant();
 		Instant windowStart = now.minus(authProperties.rateLimitWindow());
-		List<Instant> stamps = attempts.computeIfAbsent(key, ignored -> new CopyOnWriteArrayList<>());
-		stamps.removeIf(instant -> instant.isBefore(windowStart));
-		if (stamps.size() >= limit) {
-			throw new RateLimitException(authProperties.rateLimitWindow());
+		if (!attempts.containsKey(key) && attempts.size() >= MAX_KEYS) {
+			evictExpired(windowStart);
+			if (!attempts.containsKey(key) && attempts.size() >= MAX_KEYS) {
+				throw new RateLimitException(authProperties.rateLimitWindow());
+			}
 		}
-		stamps.add(now);
+		attempts.compute(key, (ignored, existing) -> {
+			List<Instant> stamps = existing == null ? new ArrayList<>() : existing;
+			stamps.removeIf(instant -> instant.isBefore(windowStart));
+			if (stamps.size() >= limit) {
+				throw new RateLimitException(authProperties.rateLimitWindow());
+			}
+			stamps.add(now);
+			return stamps;
+		});
+	}
+
+	private void evictExpired(Instant windowStart) {
+		attempts.forEach((key, stamps) -> {
+			stamps.removeIf(instant -> instant.isBefore(windowStart));
+			if (stamps.isEmpty()) {
+				attempts.remove(key, stamps);
+			}
+		});
 	}
 }

@@ -22,11 +22,6 @@ export function StaffShell({ children, role, username, onLogout }: StaffShellPro
             <a className="rounded-md px-2 py-1 hover:bg-sidebar-accent" href="/staff">
               Overview
             </a>
-            {showsAdministratorNav(role) ? (
-              <a className="rounded-md px-2 py-1 hover:bg-sidebar-accent" href="/staff">
-                Staff accounts
-              </a>
-            ) : null}
           </nav>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
@@ -43,19 +38,6 @@ export function StaffShell({ children, role, username, onLogout }: StaffShellPro
       </div>
     </div>
   )
-}
-
-function showsAdministratorNav(role: StaffRole): boolean {
-  switch (role) {
-    case 'ADMINISTRATOR':
-      return true
-    case 'BOOKING_STAFF':
-      return false
-    default: {
-      const exhaustive: never = role
-      return exhaustive
-    }
-  }
 }
 
 function roleLabel(role: StaffRole): string {

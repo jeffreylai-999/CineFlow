@@ -58,7 +58,7 @@ class IdentityExpiryIT {
 	void refreshTokenExpiresAfterEightHours() throws Exception {
 		clock.set(START);
 		Cookie refresh = signIn().getResponse().getCookie("cineflow_refresh");
-		clock.set(START.plus(Duration.ofHours(8)).plus(Duration.ofMinutes(1)));
+		clock.set(START.plus(Duration.ofHours(8)));
 		mockMvc.perform(post("/api/auth/refresh").cookie(refresh))
 			.andExpect(status().isUnauthorized());
 	}

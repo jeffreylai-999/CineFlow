@@ -1,6 +1,8 @@
 package com.cineflow.identity;
 
 import java.security.Principal;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 
 import org.springframework.context.annotation.Configuration;
@@ -24,9 +26,13 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 class StaffStompConfiguration implements WebSocketMessageBrokerConfigurer {
 
 	private final AccessTokens accessTokens;
+	private final StaffAccountRepository staffAccounts;
+	private final Clock clock;
 
-	StaffStompConfiguration(AccessTokens accessTokens) {
+	StaffStompConfiguration(AccessTokens accessTokens, StaffAccountRepository staffAccounts, Clock clock) {
 		this.accessTokens = accessTokens;
+		this.staffAccounts = staffAccounts;
+		this.clock = clock;
 	}
 
 	@Override
@@ -52,9 +58,8 @@ class StaffStompConfiguration implements WebSocketMessageBrokerConfigurer {
 				if (StompCommand.CONNECT.equals(accessor.getCommand())) {
 					accessor.setUser(authenticate(accessor));
 				}
-				else if (accessor.getUser() == null && accessor.getCommand() != null
-						&& accessor.getCommand() != StompCommand.DISCONNECT) {
-					throw IdentityException.unauthorized();
+				else if (accessor.getCommand() != null && accessor.getCommand() != StompCommand.DISCONNECT) {
+					requireActiveSession(accessor.getUser());
 				}
 				return message;
 			}
@@ -68,10 +73,37 @@ class StaffStompConfiguration implements WebSocketMessageBrokerConfigurer {
 		}
 		String token = authorization.substring("Bearer ".length()).trim();
 		Jwt jwt = accessTokens.decode(token);
+		requireActiveStaff(jwt);
 		String role = jwt.getClaimAsString("role");
 		List<SimpleGrantedAuthority> authorities = role == null
 				? List.of()
 				: List.of(new SimpleGrantedAuthority("ROLE_" + role));
 		return new JwtAuthenticationToken(jwt, authorities);
+	}
+
+	private void requireActiveSession(Principal user) {
+		if (!(user instanceof JwtAuthenticationToken authentication)) {
+			throw IdentityException.unauthorized();
+		}
+		Jwt jwt = authentication.getToken();
+		Instant expiresAt = jwt.getExpiresAt();
+		if (expiresAt == null || !expiresAt.isAfter(clock.instant())) {
+			throw IdentityException.unauthorized();
+		}
+		requireActiveStaff(jwt);
+	}
+
+	private void requireActiveStaff(Jwt jwt) {
+		long staffId;
+		try {
+			staffId = Long.parseLong(jwt.getSubject());
+		}
+		catch (NumberFormatException exception) {
+			throw IdentityException.unauthorized();
+		}
+		StaffAccountEntity staff = staffAccounts.findById(staffId).orElseThrow(IdentityException::unauthorized);
+		if (!staff.isActive()) {
+			throw IdentityException.unauthorized();
+		}
 	}
 }

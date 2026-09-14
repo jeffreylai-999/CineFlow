@@ -27,10 +27,11 @@ describe('StaffHomePage', () => {
     await expect.element(page.getByRole('link', { name: 'Staff accounts' })).not.toBeInTheDocument()
   })
 
-  it('shows Administrator navigation for an Administrator', async () => {
+  it('identifies an Administrator in the portal shell without a Staff accounts route', async () => {
     await render(<StaffHomePage session={administrator} onLogout={() => undefined} />)
 
-    await expect.element(page.getByRole('link', { name: 'Staff accounts' })).toBeInTheDocument()
+    await expect.element(page.getByText(/Administrator/)).toBeInTheDocument()
+    await expect.element(page.getByRole('link', { name: 'Staff accounts' })).not.toBeInTheDocument()
   })
 
   it('has no serious axe violations on the staff portal', async () => {

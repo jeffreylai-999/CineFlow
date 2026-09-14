@@ -69,6 +69,50 @@ class AuthRateLimiterTest {
 		limiter.checkLogin("new-client");
 	}
 
+	@Test
+	void evictionDoesNotThrowWhenOtherKeysAreUpdated() throws Exception {
+		MutableClock clock = new MutableClock(START);
+		AuthRateLimiter limiter = new AuthRateLimiter(properties(20), clock);
+		for (int i = 0; i < AuthRateLimiter.MAX_KEYS; i++) {
+			limiter.checkLogin("flood-" + i);
+		}
+		clock.set(START.plus(Duration.ofMinutes(2)));
+		int threads = 32;
+		ExecutorService pool = Executors.newFixedThreadPool(threads);
+		CountDownLatch start = new CountDownLatch(1);
+		CountDownLatch done = new CountDownLatch(threads);
+		AtomicInteger failures = new AtomicInteger();
+		try {
+			for (int i = 0; i < threads; i++) {
+				int n = i;
+				pool.submit(() -> {
+					try {
+						start.await();
+						limiter.checkLogin(n < 16 ? "flood-" + n : "live-" + n);
+					}
+					catch (InterruptedException interrupted) {
+						Thread.currentThread().interrupt();
+						failures.incrementAndGet();
+					}
+					catch (RateLimitException ignored) {
+					}
+					catch (RuntimeException exception) {
+						failures.incrementAndGet();
+					}
+					finally {
+						done.countDown();
+					}
+				});
+			}
+			start.countDown();
+			done.await(5, TimeUnit.SECONDS);
+		}
+		finally {
+			pool.shutdownNow();
+		}
+		assertThat(failures.get()).isZero();
+	}
+
 	private static AuthProperties properties(int loginLimit) {
 		return new AuthProperties(
 				Duration.ofMinutes(15),

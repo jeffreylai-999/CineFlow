@@ -51,11 +51,11 @@ class AuthRateLimiter {
 	}
 
 	private void evictExpired(Instant windowStart) {
-		attempts.forEach((key, stamps) -> {
-			stamps.removeIf(instant -> instant.isBefore(windowStart));
-			if (stamps.isEmpty()) {
-				attempts.remove(key, stamps);
-			}
-		});
+		for (String key : attempts.keySet()) {
+			attempts.computeIfPresent(key, (ignored, stamps) -> {
+				stamps.removeIf(instant -> instant.isBefore(windowStart));
+				return stamps.isEmpty() ? null : stamps;
+			});
+		}
 	}
 }

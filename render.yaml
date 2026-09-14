@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: cineflow
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /actuator/health/readiness
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: CINEFLOW_DB_POOL_SIZE
+        value: "3"
+      - key: JAVA_TOOL_OPTIONS
+        value: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=60.0 -XX:+UseSerialGC"
+      - key: CINEFLOW_DATASOURCE_URL
+        sync: false
+      - key: CINEFLOW_DATASOURCE_USERNAME
+        sync: false
+      - key: CINEFLOW_DATASOURCE_PASSWORD
+        sync: false

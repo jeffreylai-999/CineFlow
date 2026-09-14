@@ -27,6 +27,7 @@ spring:
       add-mappings: true
 
 server:
+  port: ${PORT:8080}
   error:
     include-message: never
     include-stacktrace: never
@@ -57,3 +58,12 @@ springdoc:
 logging:
   pattern:
     level: "%5p [${spring.application.name:},%X{correlationId:-}]"
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    hikari:
+      maximum-pool-size: ${CINEFLOW_DB_POOL_SIZE:3}

@@ -1,0 +1,17 @@
+services:
+  db:
+    ports: !override
+      - "55432:5432"
+  app:
+    image: ${CINEFLOW_IMAGE:-cineflow:smoke}
+    mem_limit: 512m
+    memswap_limit: 512m
+    ports: !override
+      - "18080:18080"
+    environment:
+      PORT: "18080"
+      CINEFLOW_DATASOURCE_URL: jdbc:postgresql://db:5432/cineflow
+      CINEFLOW_DATASOURCE_USERNAME: cineflow
+      CINEFLOW_DATASOURCE_PASSWORD: cineflow
+      CINEFLOW_DB_POOL_SIZE: "3"
+      JAVA_TOOL_OPTIONS: -XX:+UseContainerSupport -XX:MaxRAMPercentage=60.0 -XX:+UseSerialGC

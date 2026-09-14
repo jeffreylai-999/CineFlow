@@ -27,6 +27,7 @@ spring:
       add-mappings: true
 
 server:
+  port: ${PORT:8080}
   error:
     include-message: never
     include-stacktrace: never
@@ -42,6 +43,9 @@ management:
       probes:
         enabled: true
       show-details: never
+      group:
+        readiness:
+          include: readinessState,db
   health:
     livenessstate:
       enabled: true
@@ -76,3 +80,12 @@ cineflow:
     administrator:
       username: ${CINEFLOW_BOOTSTRAP_ADMIN_USERNAME:}
       password: ${CINEFLOW_BOOTSTRAP_ADMIN_PASSWORD:}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    hikari:
+      maximum-pool-size: ${CINEFLOW_DB_POOL_SIZE:3}

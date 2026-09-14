@@ -17,6 +17,6 @@ RUN chmod +x ./gradlew && ./gradlew bootJar --no-daemon -x test
 FROM eclipse-temurin:25-jre-jammy AS runtime
 WORKDIR /app
 COPY --from=backend /workspace/backend/build/libs/*.jar /app/app.jar
-ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=60.0"
+ENV JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=60.0 -XX:+UseSerialGC"
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

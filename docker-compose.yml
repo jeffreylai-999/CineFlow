@@ -22,6 +22,7 @@ services:
     ports:
       - "8080:8080"
     environment:
+      PORT: "8080"
       CINEFLOW_DATASOURCE_URL: jdbc:postgresql://db:5432/cineflow
       CINEFLOW_DATASOURCE_USERNAME: cineflow
       CINEFLOW_DATASOURCE_PASSWORD: cineflow
@@ -30,7 +31,7 @@ services:
       CINEFLOW_BOOTSTRAP_ADMIN_USERNAME: ${CINEFLOW_BOOTSTRAP_ADMIN_USERNAME:?Set CINEFLOW_BOOTSTRAP_ADMIN_USERNAME in .env}
       CINEFLOW_BOOTSTRAP_ADMIN_PASSWORD: ${CINEFLOW_BOOTSTRAP_ADMIN_PASSWORD:?Set CINEFLOW_BOOTSTRAP_ADMIN_PASSWORD in .env}
       CINEFLOW_AUTH_COOKIE_SECURE: "${CINEFLOW_AUTH_COOKIE_SECURE:-false}"
-      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=60.0
+      JAVA_TOOL_OPTIONS: -XX:+UseContainerSupport -XX:MaxRAMPercentage=60.0 -XX:+UseSerialGC
     depends_on:
       db:
         condition: service_healthy

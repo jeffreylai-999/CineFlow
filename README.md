@@ -77,6 +77,18 @@ docker compose up --build
 
 Open `http://localhost:8080` for the SPA served from Spring Boot.
 
+## Render and Supabase
+
+Public demonstration hosting is one Render Free Docker service plus Supabase PostgreSQL in Singapore. Secrets stay in the Render dashboard (`sync: false` in `render.yaml`), not in git.
+
+See [`docs/deployment.md`](docs/deployment.md) for the session-pooler JDBC URL, TLS and pool-size guard, cold-start behaviour, and how to resume a paused Free Supabase project.
+
+```bash
+bash scripts/smoke-production-image.sh
+```
+
+That script boots the production image under a 512 MB cap, binds Render's `PORT` contract, and checks that the Movie fixture survives an application restart.
+
 ## Tests and CI
 
 ```bash
@@ -85,7 +97,7 @@ cd frontend && pnpm lint && pnpm typecheck && pnpm test && pnpm build
 docker build -t cineflow:local .
 ```
 
-GitHub Actions runs the same checks on pull requests and `main`.
+GitHub Actions runs the same checks on pull requests and `main`, including the production-image smoke test.
 
 ## Legacy application
 

@@ -7,7 +7,7 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
 compose=(docker compose -p cineflow-smoke -f docker-compose.yml -f docker-compose.smoke.yml)
-export CINEFLOW_IMAGE="${CINEFLOW_IMAGE:-cineflow:smoke}"
+export CINEFLOW_IMAGE="${CINEFLOW_IMAGE:-}"
 base_url="${CINEFLOW_SMOKE_URL:-http://127.0.0.1:18080}"
 
 cleanup() {
@@ -15,7 +15,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if ! docker image inspect "$CINEFLOW_IMAGE" >/dev/null 2>&1; then
+if [ -n "$CINEFLOW_IMAGE" ]; then
+  if ! docker image inspect "$CINEFLOW_IMAGE" >/dev/null 2>&1; then
+    echo "CINEFLOW_IMAGE=$CINEFLOW_IMAGE does not exist locally." >&2
+    exit 1
+  fi
+else
+  export CINEFLOW_IMAGE=cineflow:smoke
   docker build -t "$CINEFLOW_IMAGE" .
 fi
 

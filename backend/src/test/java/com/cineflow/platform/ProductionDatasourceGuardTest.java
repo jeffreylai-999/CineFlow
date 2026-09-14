@@ -49,4 +49,31 @@ class ProductionDatasourceGuardTest {
 			.isInstanceOf(IllegalStateException.class)
 			.hasMessageContaining("5");
 	}
+
+	@Test
+	void rejectsLookalikePoolerHostname() {
+		assertThatThrownBy(() -> ProductionDatasourceGuard.requirePersistentBackend(
+				"jdbc:postgresql://evilpooler.supabase.com:5432/postgres?sslmode=require",
+				3))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessageContaining("pooler.supabase.com");
+	}
+
+	@Test
+	void rejectsPortThatOnlyContainsSessionPortAsAPrefix() {
+		assertThatThrownBy(() -> ProductionDatasourceGuard.requirePersistentBackend(
+				"jdbc:postgresql://aws-0-ap-southeast-1.pooler.supabase.com:54321/postgres?sslmode=require",
+				3))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessageContaining("5432");
+	}
+
+	@Test
+	void rejectsLookalikeSslModeQueryParameter() {
+		assertThatThrownBy(() -> ProductionDatasourceGuard.requirePersistentBackend(
+				"jdbc:postgresql://aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?mysslmode=require",
+				3))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessageContaining("sslmode=require");
+	}
 }

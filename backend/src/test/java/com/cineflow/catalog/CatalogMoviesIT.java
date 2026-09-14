@@ -3,6 +3,7 @@ package com.cineflow.catalog;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -17,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import com.cineflow.TestcontainersConfiguration;
+import com.jayway.jsonpath.JsonPath;
 
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
@@ -58,6 +60,26 @@ class CatalogMoviesIT {
 	@Test
 	void unknownApiRouteReturnsProblemDetails() throws Exception {
 		mockMvc.perform(get("/api/does-not-exist").accept(MediaType.APPLICATION_JSON))
+			.andExpect(status().isUnauthorized())
+			.andExpect(header().exists("X-Correlation-Id"))
+			.andExpect(jsonPath("$.title").value("Unauthorized"))
+			.andExpect(jsonPath("$.status").value(401))
+			.andExpect(jsonPath("$.code").value("auth.unauthorized"));
+
+		String accessToken = mockMvc.perform(post("/api/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"username":"administrator","password":"AdminPassw0rd!"}
+						"""))
+			.andExpect(status().isOk())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		String token = JsonPath.read(accessToken, "$.accessToken");
+
+		mockMvc.perform(get("/api/does-not-exist")
+				.accept(MediaType.APPLICATION_JSON)
+				.header("Authorization", "Bearer " + token))
 			.andExpect(status().isNotFound())
 			.andExpect(header().exists("X-Correlation-Id"))
 			.andExpect(jsonPath("$.title").value("Not Found"))

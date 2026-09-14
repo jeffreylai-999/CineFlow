@@ -32,6 +32,10 @@ Copy `.env.example` values into your shell or a local `.env` (gitignored). Defau
 
 - JDBC URL `jdbc:postgresql://localhost:5432/cineflow`
 - User/password `cineflow` / `cineflow`
+- JWT signing secret and bootstrap Administrator credentials (`administrator` / `AdminPassw0rd!`)
+- Booking Staff fixture `booking.staff` / `StaffPassw0rd!`
+
+Set `CINEFLOW_AUTH_COOKIE_SECURE=false` for local HTTP. Production must use HTTPS and a unique `CINEFLOW_JWT_SECRET`.
 
 ### Backend
 
@@ -46,6 +50,7 @@ cd backend
 Useful URLs once running:
 
 - Catalog API: `http://localhost:8080/api/movies`
+- Staff sign-in: `http://localhost:8080/staff/login`
 - OpenAPI: `http://localhost:8080/v3/api-docs`
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 - Readiness: `http://localhost:8080/actuator/health/readiness`

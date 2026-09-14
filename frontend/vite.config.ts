@@ -22,6 +22,10 @@ export default defineConfig({
       '/v3': 'http://localhost:8080',
       '/swagger-ui': 'http://localhost:8080',
       '/swagger-ui.html': 'http://localhost:8080',
+      '/ws': {
+        target: 'http://localhost:8080',
+        ws: true,
+      },
     },
   },
   optimizeDeps: {

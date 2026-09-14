@@ -57,3 +57,22 @@ springdoc:
 logging:
   pattern:
     level: "%5p [${spring.application.name:},%X{correlationId:-}]"
+
+cineflow:
+  auth:
+    access-token-ttl: PT15M
+    refresh-token-ttl: PT8H
+    cookie:
+      name: cineflow_refresh
+      secure: ${CINEFLOW_AUTH_COOKIE_SECURE:true}
+      same-site: Lax
+      path: /api/auth
+    login-rate-limit: 10
+    refresh-rate-limit: 30
+    rate-limit-window: PT1M
+    jwt:
+      secret: ${CINEFLOW_JWT_SECRET:}
+  bootstrap:
+    administrator:
+      username: ${CINEFLOW_BOOTSTRAP_ADMIN_USERNAME:}
+      password: ${CINEFLOW_BOOTSTRAP_ADMIN_PASSWORD:}

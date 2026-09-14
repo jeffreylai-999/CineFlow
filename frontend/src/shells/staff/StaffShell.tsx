@@ -1,24 +1,72 @@
+import type { StaffRole } from '@/identity/api/identityClient.ts'
 import type { ReactNode } from 'react'
+import { Button } from '@/components/ui/button.tsx'
 
 type StaffShellProps = {
   children: ReactNode
+  role: StaffRole
+  username: string
+  onLogout: () => void
 }
 
-/** Booking Staff / Administrator workspace shell (sidebar arrives with later tickets). */
-export function StaffShell({ children }: StaffShellProps) {
+export function StaffShell({ children, role, username, onLogout }: StaffShellProps) {
   return (
     <div className="min-h-svh bg-background text-foreground">
       <div className="flex min-h-svh">
         <aside
-          className="hidden w-56 shrink-0 border-r border-sidebar-border bg-sidebar p-4 text-sidebar-foreground md:block"
+          className="w-56 shrink-0 border-r border-sidebar-border bg-sidebar p-4 text-sidebar-foreground"
           aria-label="Staff navigation"
         >
-          <p className="text-sm font-semibold tracking-wide text-sidebar-primary uppercase">
-            Staff
-          </p>
+          <p className="text-sm font-semibold tracking-wide text-sidebar-primary uppercase">Staff</p>
+          <nav className="mt-6 flex flex-col gap-2 text-sm">
+            <a className="rounded-md px-2 py-1 hover:bg-sidebar-accent" href="/staff">
+              Overview
+            </a>
+            {showsAdministratorNav(role) ? (
+              <a className="rounded-md px-2 py-1 hover:bg-sidebar-accent" href="/staff">
+                Staff accounts
+              </a>
+            ) : null}
+          </nav>
         </aside>
-        <main className="flex-1">{children}</main>
+        <div className="flex min-w-0 flex-1 flex-col">
+          <header className="flex items-center justify-between border-b border-border px-4 py-3">
+            <p className="text-sm text-muted-foreground">
+              Signed in as <span className="text-foreground">{username}</span> ({roleLabel(role)})
+            </p>
+            <Button type="button" variant="outline" onClick={onLogout}>
+              Sign out
+            </Button>
+          </header>
+          <main className="flex-1">{children}</main>
+        </div>
       </div>
     </div>
   )
+}
+
+function showsAdministratorNav(role: StaffRole): boolean {
+  switch (role) {
+    case 'ADMINISTRATOR':
+      return true
+    case 'BOOKING_STAFF':
+      return false
+    default: {
+      const exhaustive: never = role
+      return exhaustive
+    }
+  }
+}
+
+function roleLabel(role: StaffRole): string {
+  switch (role) {
+    case 'ADMINISTRATOR':
+      return 'Administrator'
+    case 'BOOKING_STAFF':
+      return 'Booking Staff'
+    default: {
+      const exhaustive: never = role
+      return exhaustive
+    }
+  }
 }

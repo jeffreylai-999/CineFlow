@@ -113,6 +113,43 @@ class AuthRateLimiterTest {
 		assertThat(failures.get()).isZero();
 	}
 
+	@Test
+	void concurrentNewKeysDoNotExceedMaxKeys() throws Exception {
+		MutableClock clock = new MutableClock(START);
+		AuthRateLimiter limiter = new AuthRateLimiter(properties(100), clock);
+		int total = AuthRateLimiter.MAX_KEYS + 200;
+		AtomicInteger allowed = new AtomicInteger();
+		ExecutorService pool = Executors.newFixedThreadPool(32);
+		CountDownLatch start = new CountDownLatch(1);
+		CountDownLatch done = new CountDownLatch(total);
+		try {
+			for (int i = 0; i < total; i++) {
+				int n = i;
+				pool.submit(() -> {
+					try {
+						start.await();
+						limiter.checkLogin("flood-" + n);
+						allowed.incrementAndGet();
+					}
+					catch (InterruptedException interrupted) {
+						Thread.currentThread().interrupt();
+					}
+					catch (RateLimitException ignored) {
+					}
+					finally {
+						done.countDown();
+					}
+				});
+			}
+			start.countDown();
+			done.await(30, TimeUnit.SECONDS);
+		}
+		finally {
+			pool.shutdownNow();
+		}
+		assertThat(allowed.get()).isEqualTo(AuthRateLimiter.MAX_KEYS);
+	}
+
 	private static AuthProperties properties(int loginLimit) {
 		return new AuthProperties(
 				Duration.ofMinutes(15),

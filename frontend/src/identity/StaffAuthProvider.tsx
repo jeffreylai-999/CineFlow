@@ -3,6 +3,8 @@ import type { IdentityClient, StaffSession } from '@/identity/api/identityClient
 import type { StaffSocket } from '@/identity/api/staffSocket.ts'
 import { StaffAuthContext, type StaffAuthValue } from '@/identity/staffAuthContext.ts'
 
+const MAX_SOCKET_RECOVERIES = 3
+
 type StaffAuthProviderProps = {
   client: IdentityClient
   socket: StaffSocket
@@ -14,6 +16,7 @@ export function StaffAuthProvider({ client, socket, children }: StaffAuthProvide
   const [ready, setReady] = useState(false)
 
   const retrying = useRef(false)
+  const recoveries = useRef(0)
 
   useEffect(() => {
     let cancelled = false
@@ -67,36 +70,55 @@ export function StaffAuthProvider({ client, socket, children }: StaffAuthProvide
 
   useEffect(() => {
     if (!session) {
+      recoveries.current = 0
       void socket.disconnect()
       return
     }
     let cancelled = false
+    let backoffTimer: number | undefined
 
     function recover() {
       if (cancelled || retrying.current) {
         return
       }
+      if (recoveries.current >= MAX_SOCKET_RECOVERIES) {
+        return
+      }
+      recoveries.current += 1
       retrying.current = true
-      void client
-        .refresh()
-        .then((next) => {
-          if (!cancelled) {
-            setSession(next)
-          }
-        })
-        .catch(() => {
-          if (!cancelled) {
-            setSession(null)
-          }
-        })
-        .finally(() => {
-          retrying.current = false
-        })
+      const delayMs = recoveries.current === 1 ? 0 : Math.min(1000 * 2 ** (recoveries.current - 2), 8_000)
+      backoffTimer = window.setTimeout(() => {
+        void client
+          .refresh()
+          .then((next) => {
+            if (!cancelled) {
+              setSession(next)
+            }
+          })
+          .catch(() => {
+            if (!cancelled) {
+              setSession(null)
+            }
+          })
+          .finally(() => {
+            retrying.current = false
+          })
+      }, delayMs)
     }
 
-    void socket.connect(session.accessToken, recover).catch(recover)
+    void socket
+      .connect(session.accessToken, recover)
+      .then(() => {
+        if (!cancelled) {
+          recoveries.current = 0
+        }
+      })
+      .catch(recover)
     return () => {
       cancelled = true
+      if (backoffTimer !== undefined) {
+        window.clearTimeout(backoffTimer)
+      }
       void socket.disconnect()
     }
   }, [client, session, socket])

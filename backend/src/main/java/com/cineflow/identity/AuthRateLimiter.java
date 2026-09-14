@@ -14,6 +14,7 @@ class AuthRateLimiter {
 	static final int MAX_KEYS = 10_000;
 
 	private final ConcurrentHashMap<String, List<Instant>> attempts = new ConcurrentHashMap<>();
+	private final Object admission = new Object();
 	private final AuthProperties authProperties;
 	private final Clock clock;
 
@@ -33,12 +34,22 @@ class AuthRateLimiter {
 	private void check(String key, int limit) {
 		Instant now = clock.instant();
 		Instant windowStart = now.minus(authProperties.rateLimitWindow());
-		if (!attempts.containsKey(key) && attempts.size() >= MAX_KEYS) {
-			evictExpired(windowStart);
+		if (attempts.containsKey(key)) {
+			recordAttempt(key, now, windowStart, limit);
+			return;
+		}
+		synchronized (admission) {
+			if (!attempts.containsKey(key) && attempts.size() >= MAX_KEYS) {
+				evictExpired(windowStart);
+			}
 			if (!attempts.containsKey(key) && attempts.size() >= MAX_KEYS) {
 				throw new RateLimitException(authProperties.rateLimitWindow());
 			}
+			recordAttempt(key, now, windowStart, limit);
 		}
+	}
+
+	private void recordAttempt(String key, Instant now, Instant windowStart, int limit) {
 		attempts.compute(key, (ignored, existing) -> {
 			List<Instant> stamps = existing == null ? new ArrayList<>() : existing;
 			stamps.removeIf(instant -> instant.isBefore(windowStart));

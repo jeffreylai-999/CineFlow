@@ -127,4 +127,30 @@ describe('StaffAuthProvider', () => {
     onDisconnected?.()
     await expect.element(page.getByText('token:next-token')).toBeInTheDocument()
   })
+
+  it('stops recovering a down socket after a few attempts', async () => {
+    const refresh = vi.fn().mockImplementation(async () => ({
+      ...expired,
+      accessToken: `token-${refresh.mock.calls.length}`,
+    }))
+    const client: IdentityClient = {
+      login: vi.fn(),
+      refresh,
+      logout: vi.fn(),
+    }
+    const socket: StaffSocket = {
+      connect: vi.fn().mockRejectedValue(new Error('ws down')),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+    }
+
+    await render(
+      <StaffAuthProvider client={client} socket={socket}>
+        <TokenProbe />
+      </StaffAuthProvider>,
+    )
+
+    await expect.poll(() => refresh.mock.calls.length, { timeout: 8_000 }).toBe(4)
+    await new Promise((resolve) => window.setTimeout(resolve, 200))
+    expect(refresh.mock.calls.length).toBe(4)
+  })
 })

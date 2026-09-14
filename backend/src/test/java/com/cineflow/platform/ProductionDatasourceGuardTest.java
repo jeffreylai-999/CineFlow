@@ -85,4 +85,13 @@ class ProductionDatasourceGuardTest {
 			.isInstanceOf(IllegalStateException.class)
 			.hasMessageContaining("sslmode");
 	}
+
+	@Test
+	void rejectsSslModeSmuggledInsideAnEncodedQueryValue() {
+		assertThatThrownBy(() -> ProductionDatasourceGuard.requirePersistentBackend(
+				"jdbc:postgresql://aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?extra=%26sslmode%3Drequire",
+				3))
+			.isInstanceOf(IllegalStateException.class)
+			.hasMessageContaining("sslmode=require");
+	}
 }

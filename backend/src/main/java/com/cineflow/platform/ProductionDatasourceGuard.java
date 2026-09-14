@@ -42,7 +42,7 @@ class ProductionDatasourceGuard {
 		if (uri.getPort() != 5432) {
 			throw new IllegalStateException("Production JDBC URL must use session-mode port 5432.");
 		}
-		if (!hasExactSslMode(uri.getQuery())) {
+		if (!hasExactSslMode(uri.getRawQuery())) {
 			throw new IllegalStateException("Production JDBC URL must set sslmode=require.");
 		}
 		if (poolSize < 1 || poolSize > MAX_POOL_SIZE) {

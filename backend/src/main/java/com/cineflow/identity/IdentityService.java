@@ -61,10 +61,10 @@ class IdentityService implements Identity {
 			throw IdentityException.unauthorized();
 		}
 		Instant now = clock.instant();
-		RefreshTokenEntity current = refreshTokens.findByTokenHashForUpdate(RefreshTokenCodec.hash(refreshToken))
-			.orElseThrow(IdentityException::unauthorized);
+		LockedRefresh locked = lockRefresh(refreshToken);
+		RefreshTokenEntity current = locked.token();
 		RefreshTokenFamilyEntity family = current.getFamily();
-		StaffAccountEntity staff = family.getStaff();
+		StaffAccountEntity staff = locked.staff();
 		if (current.isConsumed() || family.isRevoked()) {
 			revokeFamily(family, now);
 			audit.record(staff.getId(), AuditAction.TOKEN_REUSE, "refresh_token_family", Long.toString(family.getId()));
@@ -91,11 +91,10 @@ class IdentityService implements Identity {
 			throw IdentityException.unauthorized();
 		}
 		Instant now = clock.instant();
-		RefreshTokenEntity current = refreshTokens.findByTokenHashForUpdate(RefreshTokenCodec.hash(refreshToken))
-			.orElseThrow(IdentityException::unauthorized);
-		RefreshTokenFamilyEntity family = current.getFamily();
+		LockedRefresh locked = lockRefresh(refreshToken);
+		RefreshTokenFamilyEntity family = locked.token().getFamily();
 		revokeFamily(family, now);
-		audit.record(family.getStaff().getId(), AuditAction.STAFF_LOGOUT, "refresh_token_family", Long.toString(family.getId()));
+		audit.record(locked.staff().getId(), AuditAction.STAFF_LOGOUT, "refresh_token_family", Long.toString(family.getId()));
 	}
 
 	@Override
@@ -181,6 +180,17 @@ class IdentityService implements Identity {
 		refreshTokens.revokeAllForStaff(staffId, now);
 	}
 
+	private LockedRefresh lockRefresh(String refreshToken) {
+		String hash = RefreshTokenCodec.hash(refreshToken);
+		Long staffId = refreshTokens.findStaffIdByTokenHash(hash).orElseThrow(IdentityException::unauthorized);
+		StaffAccountEntity staff = staffAccounts.findByIdForUpdate(staffId).orElseThrow(IdentityException::unauthorized);
+		RefreshTokenEntity token = refreshTokens.findByTokenHashForUpdate(hash).orElseThrow(IdentityException::unauthorized);
+		return new LockedRefresh(staff, token);
+	}
+
 	private record IssuedRefreshToken(String plaintext, RefreshTokenEntity entity) {
+	}
+
+	private record LockedRefresh(StaffAccountEntity staff, RefreshTokenEntity token) {
 	}
 }

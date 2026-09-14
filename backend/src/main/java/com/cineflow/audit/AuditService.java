@@ -4,7 +4,6 @@ import java.time.Clock;
 
 import org.slf4j.MDC;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.cineflow.platform.CorrelationIdFilter;
@@ -21,7 +20,7 @@ class AuditService implements Audit {
 	}
 
 	@Override
-	@Transactional(propagation = Propagation.REQUIRES_NEW)
+	@Transactional
 	public void record(Long actorStaffId, AuditAction action, String subjectType, String subjectId) {
 		auditEventRepository.save(new AuditEventEntity(
 				clock.instant(),

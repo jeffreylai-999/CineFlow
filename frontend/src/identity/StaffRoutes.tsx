@@ -1,9 +1,15 @@
 import { Navigate, Route, Routes, useNavigate } from 'react-router'
+import type { IdentityClient } from '@/identity/api/identityClient.ts'
+import { StaffAccountsPage } from '@/identity/StaffAccountsPage.tsx'
 import { StaffHomePage } from '@/identity/StaffHomePage.tsx'
 import { StaffLoginPage } from '@/identity/StaffLoginPage.tsx'
 import { useStaffAuth } from '@/identity/staffAuthContext.ts'
 
-export function StaffRoutes() {
+type StaffRoutesProps = {
+  client: IdentityClient
+}
+
+export function StaffRoutes({ client }: StaffRoutesProps) {
   const auth = useStaffAuth()
   const navigate = useNavigate()
 
@@ -28,6 +34,22 @@ export function StaffRoutes() {
         element={
           auth.session ? (
             <StaffHomePage session={auth.session} onLogout={() => void auth.signOut()} />
+          ) : (
+            <Navigate to="/staff/login" replace />
+          )
+        }
+      />
+      <Route
+        path="accounts"
+        element={
+          auth.session?.staff.role === 'ADMINISTRATOR' ? (
+            <StaffAccountsPage
+              session={auth.session}
+              client={client}
+              onLogout={() => void auth.signOut()}
+            />
+          ) : auth.session ? (
+            <Navigate to="/staff" replace />
           ) : (
             <Navigate to="/staff/login" replace />
           )

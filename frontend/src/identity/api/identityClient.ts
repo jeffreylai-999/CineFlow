@@ -12,10 +12,21 @@ export type StaffSession = {
   staff: StaffProfile
 }
 
+export type StaffAccount = {
+  id: number
+  username: string
+  role: StaffRole
+  active: boolean
+}
+
 export type IdentityClient = {
   login: (username: string, password: string) => Promise<StaffSession>
   refresh: () => Promise<StaffSession>
   logout: () => Promise<void>
+  listStaffAccounts: () => Promise<StaffAccount[]>
+  createStaffAccount: (username: string, password: string) => Promise<StaffAccount>
+  deactivateStaffAccount: (id: number) => Promise<void>
+  resetStaffPassword: (id: number, password: string) => Promise<void>
 }
 
 export class IdentityRequestError extends Error {
@@ -96,6 +107,22 @@ export function createIdentityClient(fetcher: typeof fetch = fetch): IdentityCli
           throw new IdentityRequestError(response.status, undefined)
         }
       })
+    },
+    listStaffAccounts() {
+      return readJson<StaffAccount[]>(authorized(fetcher, 'GET', '/api/staff/accounts'))
+    },
+    createStaffAccount(username, password) {
+      return readJson<StaffAccount>(
+        authorized(fetcher, 'POST', '/api/staff/accounts', { username, password }),
+      )
+    },
+    deactivateStaffAccount(id) {
+      return readEmpty(authorized(fetcher, 'POST', `/api/staff/accounts/${id}/deactivate`))
+    },
+    resetStaffPassword(id, password) {
+      return readEmpty(
+        authorized(fetcher, 'POST', `/api/staff/accounts/${id}/password-reset`, { password }),
+      )
     },
   }
 }
@@ -238,7 +265,45 @@ function parseHandoff(data: unknown): HandoffMessage | null {
   return null
 }
 
+function accessToken(): string {
+  const token = memoryCache?.session.accessToken
+  if (!token) {
+    throw new IdentityRequestError(401, 'auth.unauthorized')
+  }
+  return token
+}
+
+function authorized(
+  fetcher: typeof fetch,
+  method: string,
+  path: string,
+  body?: unknown,
+): Promise<Response> {
+  return fetcher(path, {
+    method,
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${accessToken()}`,
+      ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+}
+
 async function readSession(response: Response): Promise<StaffSession> {
+  return readJson<StaffSession>(response)
+}
+
+async function readEmpty(response: Promise<Response>): Promise<void> {
+  await readJson<undefined>(response, { empty: true })
+}
+
+async function readJson<T>(
+  responseOrPromise: Response | Promise<Response>,
+  options: { empty?: boolean } = {},
+): Promise<T> {
+  const response = await responseOrPromise
   if (!response.ok) {
     let code: string | undefined
     try {
@@ -249,7 +314,10 @@ async function readSession(response: Response): Promise<StaffSession> {
     }
     throw new IdentityRequestError(response.status, code)
   }
-  return (await response.json()) as StaffSession
+  if (options.empty || response.status === 204) {
+    return undefined as T
+  }
+  return (await response.json()) as T
 }
 
 export function isIdentityRequestError(error: unknown): error is IdentityRequestError {

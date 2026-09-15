@@ -1,5 +1,7 @@
 package com.cineflow.identity;
 
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -30,6 +32,21 @@ public class StaffController {
 	@Operation(summary = "Return the authenticated Staff profile")
 	public StaffProfile me(@AuthenticationPrincipal Jwt jwt) {
 		return identity.me(Long.parseLong(jwt.getSubject()));
+	}
+
+	@GetMapping("/accounts")
+	@Operation(summary = "List Staff accounts")
+	public List<StaffAccountSummary> list(@AuthenticationPrincipal Jwt jwt) {
+		return identity.listStaffAccounts(Long.parseLong(jwt.getSubject()));
+	}
+
+	@PostMapping("/accounts")
+	@ResponseStatus(HttpStatus.CREATED)
+	@Operation(summary = "Create a Booking Staff account")
+	public StaffAccountSummary create(
+			@Valid @RequestBody CreateStaffAccountRequest request,
+			@AuthenticationPrincipal Jwt jwt) {
+		return identity.createBookingStaff(Long.parseLong(jwt.getSubject()), request.username(), request.password());
 	}
 
 	@PostMapping("/accounts/{id}/deactivate")

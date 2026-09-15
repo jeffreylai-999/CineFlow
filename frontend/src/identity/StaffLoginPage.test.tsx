@@ -2,10 +2,11 @@ import { render } from 'vitest-browser-react'
 import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import axe from 'axe-core'
-import type { IdentityClient, StaffSession } from '@/identity/api/identityClient.ts'
+import type { StaffSession } from '@/identity/api/identityClient.ts'
 import type { StaffSocket } from '@/identity/api/staffSocket.ts'
 import { StaffAuthProvider } from '@/identity/StaffAuthProvider.tsx'
 import { StaffLoginPage } from '@/identity/StaffLoginPage.tsx'
+import { fakeIdentityClient } from '@/identity/test/fakeIdentityClient.ts'
 
 const administrator: StaffSession = {
   accessToken: 'memory-access-token',
@@ -22,11 +23,9 @@ function silentSocket(): StaffSocket {
 
 describe('StaffLoginPage', () => {
   it('signs Staff in and keeps the access token out of localStorage', async () => {
-    const client: IdentityClient = {
+    const client = fakeIdentityClient({
       login: vi.fn().mockResolvedValue(administrator),
-      refresh: vi.fn().mockRejectedValue(new Error('no cookie')),
-      logout: vi.fn().mockResolvedValue(undefined),
-    }
+    })
     const onSignedIn = vi.fn()
 
     await render(
@@ -48,11 +47,9 @@ describe('StaffLoginPage', () => {
   })
 
   it('shows a safe error when sign-in is rejected', async () => {
-    const client: IdentityClient = {
+    const client = fakeIdentityClient({
       login: vi.fn().mockRejectedValue(new Error('invalid')),
-      refresh: vi.fn().mockRejectedValue(new Error('no cookie')),
-      logout: vi.fn().mockResolvedValue(undefined),
-    }
+    })
 
     await render(
       <StaffAuthProvider client={client} socket={silentSocket()}>
@@ -70,11 +67,9 @@ describe('StaffLoginPage', () => {
   })
 
   it('has no serious axe violations on the login route', async () => {
-    const client: IdentityClient = {
+    const client = fakeIdentityClient({
       login: vi.fn(),
-      refresh: vi.fn().mockRejectedValue(new Error('no cookie')),
-      logout: vi.fn(),
-    }
+    })
 
     const screen = await render(
       <StaffAuthProvider client={client} socket={silentSocket()}>

@@ -77,4 +77,8 @@ class StaffAccountEntity {
 	StaffProfile toProfile() {
 		return new StaffProfile(id, username, role);
 	}
+
+	StaffAccountSummary toSummary() {
+		return new StaffAccountSummary(id, username, role, active);
+	}
 }

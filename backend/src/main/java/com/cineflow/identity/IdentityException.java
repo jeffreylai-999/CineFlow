@@ -31,6 +31,14 @@ public class IdentityException extends RuntimeException {
 		return new IdentityException(HttpStatus.FORBIDDEN, "auth.forbidden", "Forbidden");
 	}
 
+	public static IdentityException usernameConflict() {
+		return new IdentityException(HttpStatus.CONFLICT, "staff.username_conflict", "Username already exists");
+	}
+
+	public static IdentityException invalidRequest() {
+		return new IdentityException(HttpStatus.BAD_REQUEST, "request.invalid", "Bad Request");
+	}
+
 	public HttpStatus status() {
 		return status;
 	}

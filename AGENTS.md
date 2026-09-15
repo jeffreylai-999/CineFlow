@@ -1,5 +1,11 @@
 ## Agent skills
 
+### Matt Pocock skills
+
+The invokable [Matt Pocock skill pack](https://github.com/mattpocock/skills) is vendored at `.agents/skills/` (Cursor's project skill path). Cloud and Project agents load those `SKILL.md` files; they are not on the laptop-only `~/.cursor/skills/` list.
+
+Type `/ask-matt` to route, or invoke a skill by name (`/setup-matt-pocock-skills`, `/grill-with-docs`, `/triage`, `/implement`, …). `docs/agents/` is setup output from `/setup-matt-pocock-skills`, not the skills themselves.
+
 ### Issue tracker
 
 Issues are tracked with GitHub Issues. See `docs/agents/issue-tracker.md`.
@@ -30,7 +36,7 @@ Use OpenJDK **25** (current LTS) for the modern Spring Boot / Gradle stack. Do n
 
 ### Triage labels
 
-The canonical Matt Pocock triage labels are used unchanged. See `docs/agents/triage-labels.md`.
+The canonical Matt Pocock triage labels are used unchanged. See `docs/agents/triage-labels.md`. Those labels are vocabulary for `/triage`, not a substitute for the skill files under `.agents/skills/`.
 
 ### Domain docs
 

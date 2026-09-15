@@ -30,15 +30,23 @@ export class IdentityRequestError extends Error {
 }
 
 const REFRESH_LOCK = 'cineflow-staff-refresh'
-const SESSION_CACHE_KEY = 'cineflow.staff.session'
+const SESSION_CHANNEL = 'cineflow.staff.session'
 const REFRESH_EARLY_MS = 60_000
+const HANDOFF_WAIT_MS = 50
 
 type CachedSession = {
   at: number
   session: StaffSession
 }
 
+type HandoffMessage =
+  | { kind: 'session'; at: number; session: StaffSession }
+  | { kind: 'clear' }
+  | { kind: 'request' }
+
+let memoryCache: CachedSession | null = null
 let fallbackLock: Promise<unknown> = Promise.resolve()
+const channel = createSessionChannel()
 
 export function createIdentityClient(fetcher: typeof fetch = fetch): IdentityClient {
   let refreshInFlight: Promise<StaffSession> | null = null
@@ -58,7 +66,7 @@ export function createIdentityClient(fetcher: typeof fetch = fetch): IdentityCli
     refresh() {
       if (!refreshInFlight) {
         refreshInFlight = withRefreshLock(async () => {
-          const cached = readCachedSession()
+          const cached = await takeCachedSession(Date.now())
           if (cached) {
             return cached
           }
@@ -92,6 +100,10 @@ export function createIdentityClient(fetcher: typeof fetch = fetch): IdentityCli
   }
 }
 
+export function resetStaffSessionHandoff(): void {
+  memoryCache = null
+}
+
 async function withRefreshLock<T>(work: () => Promise<T>): Promise<T> {
   const locks = globalThis.navigator?.locks
   if (typeof locks?.request === 'function') {
@@ -105,42 +117,125 @@ async function withRefreshLock<T>(work: () => Promise<T>): Promise<T> {
   return next
 }
 
-function readCachedSession(now = Date.now()): StaffSession | null {
+async function takeCachedSession(now: number): Promise<StaffSession | null> {
+  const local = remainingSession(memoryCache, now)
+  if (local) {
+    return local
+  }
+  return requestCachedSession()
+}
+
+function remainingSession(cached: CachedSession | null, now: number): StaffSession | null {
+  if (!cached || typeof cached.at !== 'number' || typeof cached.session?.accessToken !== 'string') {
+    return null
+  }
+  const remainingMs = cached.at + cached.session.expiresInSeconds * 1000 - now
+  if (remainingMs <= REFRESH_EARLY_MS) {
+    return null
+  }
+  return {
+    ...cached.session,
+    expiresInSeconds: Math.max(1, Math.floor(remainingMs / 1000)),
+  }
+}
+
+function requestCachedSession(): Promise<StaffSession | null> {
+  if (!channel) {
+    return Promise.resolve(null)
+  }
+  return waitForHandoff(channel)
+}
+
+function waitForHandoff(handoff: BroadcastChannel): Promise<StaffSession | null> {
+  return new Promise((resolve) => {
+    const finish = () => resolve(remainingSession(memoryCache, Date.now()))
+    const timer = window.setTimeout(() => {
+      handoff.removeEventListener('message', onMessage)
+      finish()
+    }, HANDOFF_WAIT_MS)
+    function onMessage(event: MessageEvent<unknown>) {
+      const data = parseHandoff(event.data)
+      if (data?.kind !== 'session') {
+        return
+      }
+      window.clearTimeout(timer)
+      handoff.removeEventListener('message', onMessage)
+      finish()
+    }
+    handoff.addEventListener('message', onMessage)
+    handoff.postMessage({ kind: 'request' } satisfies HandoffMessage)
+  })
+}
+
+function writeCachedSession(session: StaffSession, now = Date.now()): void {
+  memoryCache = { at: now, session }
+  channel?.postMessage({ kind: 'session', at: now, session } satisfies HandoffMessage)
+}
+
+function clearCachedSession(): void {
+  memoryCache = null
+  channel?.postMessage({ kind: 'clear' } satisfies HandoffMessage)
+}
+
+function createSessionChannel(): BroadcastChannel | null {
   try {
-    const raw = localStorage.getItem(SESSION_CACHE_KEY)
-    if (!raw) {
+    if (typeof BroadcastChannel === 'undefined') {
       return null
     }
-    const cached = JSON.parse(raw) as CachedSession
-    if (typeof cached.at !== 'number' || typeof cached.session?.accessToken !== 'string') {
-      clearCachedSession()
-      return null
-    }
-    const remainingMs = cached.at + cached.session.expiresInSeconds * 1000 - now
-    if (remainingMs <= REFRESH_EARLY_MS) {
-      return null
-    }
-    return cached.session
+    const next = new BroadcastChannel(SESSION_CHANNEL)
+    next.addEventListener('message', (event: MessageEvent<unknown>) => {
+      applyHandoff(parseHandoff(event.data))
+    })
+    return next
   } catch {
     return null
   }
 }
 
-function writeCachedSession(session: StaffSession, now = Date.now()): void {
-  try {
-    const cached: CachedSession = { at: now, session }
-    localStorage.setItem(SESSION_CACHE_KEY, JSON.stringify(cached))
-  } catch {
-    // Private mode can throw; the next refresh will hit the network.
+function applyHandoff(data: HandoffMessage | null): void {
+  if (!data) {
+    return
+  }
+  switch (data.kind) {
+    case 'session':
+      if (typeof data.at === 'number' && typeof data.session?.accessToken === 'string') {
+        memoryCache = { at: data.at, session: data.session }
+      }
+      return
+    case 'clear':
+      memoryCache = null
+      return
+    case 'request':
+      if (memoryCache && remainingSession(memoryCache, Date.now())) {
+        channel?.postMessage({
+          kind: 'session',
+          at: memoryCache.at,
+          session: memoryCache.session,
+        } satisfies HandoffMessage)
+      }
+      return
+    default: {
+      const exhausted: never = data
+      return exhausted
+    }
   }
 }
 
-function clearCachedSession(): void {
-  try {
-    localStorage.removeItem(SESSION_CACHE_KEY)
-  } catch {
-    // Ignore quota / access errors on teardown.
+function parseHandoff(data: unknown): HandoffMessage | null {
+  if (!data || typeof data !== 'object' || !('kind' in data)) {
+    return null
   }
+  const kind = (data as { kind: unknown }).kind
+  if (kind === 'clear' || kind === 'request') {
+    return { kind }
+  }
+  if (kind === 'session') {
+    const message = data as { at?: unknown; session?: StaffSession }
+    if (typeof message.at === 'number' && typeof message.session?.accessToken === 'string') {
+      return { kind: 'session', at: message.at, session: message.session }
+    }
+  }
+  return null
 }
 
 async function readSession(response: Response): Promise<StaffSession> {

@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createIdentityClient, type StaffSession } from '@/identity/api/identityClient.ts'
-
-const SESSION_CACHE_KEY = 'cineflow.staff.session'
+import {
+  createIdentityClient,
+  resetStaffSessionHandoff,
+  type StaffSession,
+} from '@/identity/api/identityClient.ts'
 
 const session: StaffSession = {
   accessToken: 'access-token',
@@ -26,7 +28,8 @@ function refreshFetcher(handler: () => Promise<Response> | Response) {
 }
 
 afterEach(() => {
-  localStorage.removeItem(SESSION_CACHE_KEY)
+  resetStaffSessionHandoff()
+  vi.restoreAllMocks()
 })
 
 describe('createIdentityClient refresh coordination', () => {
@@ -75,6 +78,31 @@ describe('createIdentityClient refresh coordination', () => {
     await expect(client.refresh()).rejects.toMatchObject({ status: 401 })
     await expect(client.refresh()).resolves.toEqual(session)
     expect(fetcher).toHaveBeenCalledTimes(2)
+  })
+
+  it('does not persist the access token in web storage', async () => {
+    const fetcher = refreshFetcher(() => jsonResponse(session))
+    await createIdentityClient(fetcher).refresh()
+
+    expect(window.localStorage.getItem('cineflow.staff.session')).toBeNull()
+    expect(window.localStorage.getItem('accessToken')).toBeNull()
+    expect(window.sessionStorage.getItem('accessToken')).toBeNull()
+  })
+
+  it('returns remaining lifetime for a handed-off access token', async () => {
+    const now = vi.spyOn(Date, 'now')
+    now.mockReturnValue(1_000_000)
+    const fetcher = refreshFetcher(() => jsonResponse(session))
+    const first = createIdentityClient(fetcher)
+    const second = createIdentityClient(fetcher)
+
+    await first.refresh()
+    now.mockReturnValue(1_000_000 + 10 * 60 * 1000)
+    const handedOff = await second.refresh()
+
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    expect(handedOff.accessToken).toBe('access-token')
+    expect(handedOff.expiresInSeconds).toBe(300)
   })
 
   it('clears the shared session on logout so the next refresh hits the network', async () => {

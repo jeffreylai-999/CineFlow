@@ -21,6 +21,7 @@ class IdentityService implements Identity {
 	private final AuthProperties authProperties;
 	private final Audit audit;
 	private final Clock clock;
+	private final String dummyPasswordHash;
 
 	IdentityService(
 			StaffAccountRepository staffAccounts,
@@ -39,13 +40,16 @@ class IdentityService implements Identity {
 		this.authProperties = authProperties;
 		this.audit = audit;
 		this.clock = clock;
+		this.dummyPasswordHash = passwordEncoder.encode("cineflow-unused-dummy-password");
 	}
 
 	@Override
 	@Transactional(noRollbackFor = IdentityException.class)
 	public StaffSession login(String username, String password) {
 		StaffAccountEntity staff = staffAccounts.findByUsernameForUpdate(username).orElse(null);
-		if (staff == null || !staff.isActive() || !passwordEncoder.matches(password, staff.getPasswordHash())) {
+		String hash = staff != null && staff.isActive() ? staff.getPasswordHash() : dummyPasswordHash;
+		boolean credentialsMatch = passwordEncoder.matches(password, hash);
+		if (staff == null || !staff.isActive() || !credentialsMatch) {
 			audit.record(staff == null ? null : staff.getId(), AuditAction.STAFF_LOGIN_FAILURE, "staff", username);
 			throw IdentityException.invalidCredentials();
 		}

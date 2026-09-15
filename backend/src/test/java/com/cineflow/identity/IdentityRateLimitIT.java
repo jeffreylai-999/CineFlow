@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 import com.cineflow.TestcontainersConfiguration;
 
@@ -47,11 +48,39 @@ class IdentityRateLimitIT {
 			.andExpect(jsonPath("$.code").value("auth.rate_limited"));
 	}
 
+	@Test
+	void refreshRateLimitUsesTheForwardedClientAddress() throws Exception {
+		mockMvc.perform(post("/api/auth/refresh").header("X-Forwarded-For", "203.0.113.10"))
+			.andExpect(status().isUnauthorized());
+		mockMvc.perform(post("/api/auth/refresh").header("X-Forwarded-For", "203.0.113.10"))
+			.andExpect(status().isUnauthorized());
+		mockMvc.perform(post("/api/auth/refresh").header("X-Forwarded-For", "203.0.113.10"))
+			.andExpect(status().isTooManyRequests());
+		mockMvc.perform(post("/api/auth/refresh").header("X-Forwarded-For", "198.51.100.20"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void loginRateLimitUsesTheForwardedClientAddress() throws Exception {
+		attemptLogin("203.0.113.10").andExpect(status().isUnauthorized());
+		attemptLogin("203.0.113.10").andExpect(status().isUnauthorized());
+		attemptLogin("203.0.113.10").andExpect(status().isTooManyRequests());
+		attemptLogin("198.51.100.20").andExpect(status().isUnauthorized());
+	}
+
 	private ResultActions attemptLogin() throws Exception {
-		return mockMvc.perform(post("/api/auth/login")
+		return attemptLogin(null);
+	}
+
+	private ResultActions attemptLogin(String forwardedFor) throws Exception {
+		MockHttpServletRequestBuilder request = post("/api/auth/login")
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("""
 					{"username":"administrator","password":"wrong"}
-					"""));
+					""");
+		if (forwardedFor != null) {
+			request.header("X-Forwarded-For", forwardedFor);
+		}
+		return mockMvc.perform(request);
 	}
 }

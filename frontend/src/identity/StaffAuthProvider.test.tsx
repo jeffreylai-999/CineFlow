@@ -128,6 +128,38 @@ describe('StaffAuthProvider', () => {
     await expect.element(page.getByText('token:next-token')).toBeInTheDocument()
   })
 
+  it('recovers again after a session refresh cancels a pending backoff', async () => {
+    const refresh = vi
+      .fn()
+      .mockResolvedValueOnce({ ...expired, accessToken: 't1', expiresInSeconds: 900 })
+      .mockResolvedValueOnce({ ...expired, accessToken: 't2', expiresInSeconds: 60 })
+      .mockResolvedValueOnce({ ...expired, accessToken: 't3', expiresInSeconds: 900 })
+      .mockResolvedValue({ ...expired, accessToken: 't4', expiresInSeconds: 900 })
+    const client: IdentityClient = {
+      login: vi.fn(),
+      refresh,
+      logout: vi.fn(),
+    }
+    const socket: StaffSocket = {
+      connect: vi.fn(async (token: string) => {
+        if (token === 't4') {
+          return
+        }
+        throw new Error('ws down')
+      }),
+      disconnect: vi.fn().mockResolvedValue(undefined),
+    }
+
+    await render(
+      <StaffAuthProvider client={client} socket={socket}>
+        <TokenProbe />
+      </StaffAuthProvider>,
+    )
+
+    await expect.element(page.getByText('token:t4'), { timeout: 8_000 }).toBeInTheDocument()
+    expect(socket.connect).toHaveBeenCalledWith('t4', expect.any(Function))
+  })
+
   it('stops recovering a down socket after a few attempts', async () => {
     const refresh = vi.fn().mockImplementation(async () => ({
       ...expired,

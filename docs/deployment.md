@@ -15,9 +15,15 @@ Do not commit database passwords, JDBC URLs with credentials, or `.env` files. R
 | `CINEFLOW_DATASOURCE_USERNAME` | `postgres.<project-ref>` |
 | `CINEFLOW_DATASOURCE_PASSWORD` | Database password from Supabase |
 | `CINEFLOW_DB_POOL_SIZE` | `3` (must stay between 1 and 5) |
+| `CINEFLOW_JWT_SECRET` | Unique HS256 secret, at least 32 bytes |
+| `CINEFLOW_BOOTSTRAP_ADMIN_USERNAME` | Initial Administrator username |
+| `CINEFLOW_BOOTSTRAP_ADMIN_PASSWORD` | Initial Administrator password, at least 12 characters |
+| `CINEFLOW_AUTH_COOKIE_SECURE` | `true` (set by `render.yaml`) |
 | `PORT` | Set by Render; Spring Boot binds `server.port` to it |
 
 The `prod` profile refuses to start if the JDBC URL uses the transaction pooler (`:6543`), omits TLS, or points at the IPv6-only direct host `db.<ref>.supabase.co`. Render's Free web services are IPv4-only, so the persistent-backend endpoint is Supavisor's **session** pooler.
+
+Staff login and refresh rate limits use the first `X-Forwarded-For` address so callers behind Render's proxy do not share one bucket.
 
 Example URL shape (password is a separate env var, not embedded):
 
@@ -47,8 +53,8 @@ pg_dump "postgresql://postgres.<project-ref>@aws-0-ap-southeast-1.pooler.supabas
 ## Apply the Render Blueprint
 
 1. In the Render Dashboard, create a Blueprint from this repository. `render.yaml` defines a Free Docker web service named `cineflow` in Singapore, with readiness checks at `/actuator/health/readiness`.
-2. When prompted, paste the three `CINEFLOW_DATASOURCE_*` values. Leave them out of git.
-3. Wait for the first deploy. Flyway applies `V1__movie_catalog.sql` once; later deploys reuse the same rows.
+2. When prompted, paste the three `CINEFLOW_DATASOURCE_*` values plus `CINEFLOW_JWT_SECRET` and the bootstrap Administrator username and password. Leave them out of git. The Blueprint sets `CINEFLOW_AUTH_COOKIE_SECURE=true`.
+3. Wait for the first deploy. Flyway applies `V1__movie_catalog.sql` and `V2__staff_identity.sql` once; later deploys reuse the same rows.
 4. Confirm one HTTPS origin:
    - `https://<service>.onrender.com/` serves the Movie catalog page
    - `https://<service>.onrender.com/api/movies` returns the sanitized Movie

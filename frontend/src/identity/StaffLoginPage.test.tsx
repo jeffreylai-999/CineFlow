@@ -43,6 +43,7 @@ describe('StaffLoginPage', () => {
     await expect.poll(() => onSignedIn.mock.calls.length).toBe(1)
     expect(client.login).toHaveBeenCalledWith('administrator', 'AdminPassw0rd!')
     expect(window.localStorage.getItem('accessToken')).toBeNull()
+    expect(window.localStorage.getItem('cineflow.staff.session')).toBeNull()
     expect(window.sessionStorage.getItem('accessToken')).toBeNull()
   })
 

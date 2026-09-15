@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -148,6 +150,66 @@ class AuthRateLimiterTest {
 			pool.shutdownNow();
 		}
 		assertThat(allowed.get()).isEqualTo(AuthRateLimiter.MAX_KEYS);
+	}
+
+	@Test
+	void expiredExistingKeysCannotBypassTheCapWhenNewKeysArrive() throws Exception {
+		MutableClock clock = new MutableClock(START);
+		AuthRateLimiter limiter = new AuthRateLimiter(properties(100), clock);
+		for (int i = 0; i < AuthRateLimiter.MAX_KEYS; i++) {
+			limiter.checkLogin("flood-" + i);
+		}
+		clock.set(START.plus(Duration.ofMinutes(2)));
+		int extra = 200;
+		int total = AuthRateLimiter.MAX_KEYS + extra;
+		Set<String> admitted = ConcurrentHashMap.newKeySet();
+		ExecutorService pool = Executors.newFixedThreadPool(32);
+		CountDownLatch start = new CountDownLatch(1);
+		CountDownLatch done = new CountDownLatch(total);
+		try {
+			for (int i = 0; i < AuthRateLimiter.MAX_KEYS; i++) {
+				int n = i;
+				pool.submit(() -> {
+					try {
+						start.await();
+						limiter.checkLogin("flood-" + n);
+						admitted.add("flood-" + n);
+					}
+					catch (InterruptedException interrupted) {
+						Thread.currentThread().interrupt();
+					}
+					catch (RateLimitException ignored) {
+					}
+					finally {
+						done.countDown();
+					}
+				});
+			}
+			for (int i = 0; i < extra; i++) {
+				int n = i;
+				pool.submit(() -> {
+					try {
+						start.await();
+						limiter.checkLogin("fresh-" + n);
+						admitted.add("fresh-" + n);
+					}
+					catch (InterruptedException interrupted) {
+						Thread.currentThread().interrupt();
+					}
+					catch (RateLimitException ignored) {
+					}
+					finally {
+						done.countDown();
+					}
+				});
+			}
+			start.countDown();
+			done.await(30, TimeUnit.SECONDS);
+		}
+		finally {
+			pool.shutdownNow();
+		}
+		assertThat(admitted).hasSizeLessThanOrEqualTo(AuthRateLimiter.MAX_KEYS);
 	}
 
 	private static AuthProperties properties(int loginLimit) {

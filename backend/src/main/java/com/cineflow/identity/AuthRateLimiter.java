@@ -34,10 +34,6 @@ class AuthRateLimiter {
 	private void check(String key, int limit) {
 		Instant now = clock.instant();
 		Instant windowStart = now.minus(authProperties.rateLimitWindow());
-		if (attempts.containsKey(key)) {
-			recordAttempt(key, now, windowStart, limit);
-			return;
-		}
 		synchronized (admission) {
 			if (!attempts.containsKey(key) && attempts.size() >= MAX_KEYS) {
 				evictExpired(windowStart);

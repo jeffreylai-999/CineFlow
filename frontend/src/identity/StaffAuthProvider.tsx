@@ -116,6 +116,7 @@ export function StaffAuthProvider({ client, socket, children }: StaffAuthProvide
       .catch(recover)
     return () => {
       cancelled = true
+      retrying.current = false
       if (backoffTimer !== undefined) {
         window.clearTimeout(backoffTimer)
       }

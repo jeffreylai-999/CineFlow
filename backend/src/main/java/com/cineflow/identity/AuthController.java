@@ -42,7 +42,7 @@ public class AuthController {
 	@PostMapping("/refresh")
 	@Operation(summary = "Rotate the refresh-token family and issue a new access token")
 	public ResponseEntity<StaffSessionResponse> refresh(HttpServletRequest httpRequest) {
-		rateLimiter.checkRefresh(httpRequest.getRemoteAddr());
+		rateLimiter.checkRefresh(ClientAddresses.of(httpRequest));
 		StaffSession session = identity.refresh(readRefreshCookie(httpRequest));
 		return withRefreshCookie(session);
 	}
@@ -100,6 +100,6 @@ public class AuthController {
 
 	private static String clientKey(HttpServletRequest request, String username) {
 		String value = username == null ? "" : username.toLowerCase();
-		return request.getRemoteAddr() + ":" + value;
+		return ClientAddresses.of(request) + ":" + value;
 	}
 }

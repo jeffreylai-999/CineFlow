@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -44,7 +45,7 @@ class CatalogAdministrationIT {
 	@Autowired
 	JdbcTemplate jdbcTemplate;
 
-	@MockitoBean
+	@MockitoBean(name = "tmdbMovieMetadataProvider")
 	MovieMetadataProvider movieMetadataProvider;
 
 	@Test
@@ -231,6 +232,34 @@ class CatalogAdministrationIT {
 	}
 
 	@Test
+	void administratorCannotSelectAnUnconfiguredProvider() throws Exception {
+		mockMvc.perform(put("/api/admin/movie-providers/active")
+				.header("Authorization", "Bearer " + adminToken())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"providerId":"omdb"}
+						"""))
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.code").value("catalog.provider_not_configured"));
+		assertThat(jdbcTemplate.queryForObject(
+				"select active_provider from cineflow.catalog_settings where id = 1",
+				String.class)).isEqualTo("tmdb");
+	}
+
+	@Test
+	void portalListsOnlyTheConfiguredProvider() throws Exception {
+		mockMvc.perform(get("/api/admin/movie-providers")
+				.header("Authorization", "Bearer " + adminToken()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.activeProviderId").value("tmdb"))
+			.andExpect(jsonPath("$.providers.length()").value(1))
+			.andExpect(jsonPath("$.providers[0].id").value("tmdb"))
+			.andExpect(jsonPath("$.providers[0].displayName").value("TMDB"))
+			.andExpect(content().string(not(containsString("omdb"))))
+			.andExpect(content().string(not(containsString("tmdb-token"))));
+	}
+
+	@Test
 	void publicCatalogStaysAvailableWhenTheProviderFails() throws Exception {
 		when(movieMetadataProvider.search(anyString())).thenThrow(MovieProviderException.unavailable());
 		when(movieMetadataProvider.fetch(anyString())).thenThrow(MovieProviderException.unavailable());
@@ -245,6 +274,18 @@ class CatalogAdministrationIT {
 			.andExpect(status().isServiceUnavailable())
 			.andExpect(jsonPath("$.code").value("catalog.provider_unavailable"))
 			.andExpect(jsonPath("$.detail").doesNotExist());
+	}
+
+	@Test
+	void refreshOfAFixtureMovieIsRejectedWithoutLookingLikeAnOutage() throws Exception {
+		Long movieId = jdbcTemplate.queryForObject(
+				"select id from cineflow.movies where source_provider = 'fixture' and external_id = 'nebula-express'",
+				Long.class);
+
+		mockMvc.perform(post("/api/admin/movies/" + movieId + "/refresh")
+				.header("Authorization", "Bearer " + adminToken()))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("catalog.invalid_request"));
 	}
 
 	private static MovieSearchHit courierHit() {
@@ -272,12 +313,18 @@ class CatalogAdministrationIT {
 				ageRating);
 	}
 
+	private String cachedAdminToken;
+
 	private String adminToken() throws Exception {
 		return accessToken("administrator", "AdminPassw0rd!");
 	}
 
 	private String accessToken(String username, String password) throws Exception {
+		if ("administrator".equals(username) && cachedAdminToken != null) {
+			return cachedAdminToken;
+		}
 		String body = mockMvc.perform(post("/api/auth/login")
+				.header("X-Forwarded-For", "198.51.100.40")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 						{"username":"%s","password":"%s"}
@@ -286,7 +333,11 @@ class CatalogAdministrationIT {
 			.andReturn()
 			.getResponse()
 			.getContentAsString();
-		return JsonPath.read(body, "$.accessToken");
+		String token = JsonPath.read(body, "$.accessToken");
+		if ("administrator".equals(username)) {
+			cachedAdminToken = token;
+		}
+		return token;
 	}
 
 	private List<String> auditActions() {

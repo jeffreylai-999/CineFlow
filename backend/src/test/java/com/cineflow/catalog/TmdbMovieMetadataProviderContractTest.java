@@ -98,6 +98,12 @@ class TmdbMovieMetadataProviderContractTest extends MovieMetadataProviderContrac
 	}
 
 	@Override
+	void givenSearchCredentialsRejected() {
+		tmdb.expect(requestTo("https://api.themoviedb.org/3/search/movie?query=courier%20gate"))
+			.andRespond(withStatus(HttpStatus.UNAUTHORIZED));
+	}
+
+	@Override
 	void givenQuotaExceeded() {
 		tmdb.expect(requestTo("https://api.themoviedb.org/3/movie/4242?append_to_response=release_dates"))
 			.andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS));

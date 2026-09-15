@@ -2,10 +2,12 @@ import { useEffect, useState, type FormEvent } from 'react'
 import type {
   CatalogAdminClient,
   ManagedMovie,
+  MovieProviderSettings,
   MovieSearchHit,
 } from '@/catalog/api/catalogAdminClient.ts'
 import { catalogAdminErrorMessage } from '@/catalog/catalogAdminErrorMessage.ts'
 import { Button } from '@/components/ui/button.tsx'
+import { FieldLegend, FieldSet } from '@/components/ui/field.tsx'
 import { Input } from '@/components/ui/input.tsx'
 import { Label } from '@/components/ui/label.tsx'
 import { StaffShell } from '@/shells/staff/StaffShell.tsx'
@@ -26,6 +28,7 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
   const [query, setQuery] = useState('')
   const [hits, setHits] = useState<MovieSearchHit[]>([])
   const [movies, setMovies] = useState<ManagedMovie[]>([])
+  const [providers, setProviders] = useState<MovieProviderSettings | null>(null)
   const [drafts, setDrafts] = useState<Record<number, SchedulingDraft>>({})
   const [importRuntimeMinutes, setImportRuntimeMinutes] = useState('')
   const [importAgeRating, setImportAgeRating] = useState('')
@@ -35,6 +38,13 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
 
   useEffect(() => {
     let cancelled = false
+    let remaining = 2
+    function settle() {
+      remaining -= 1
+      if (!cancelled && remaining === 0) {
+        setBusy(false)
+      }
+    }
     client
       .listMovies(session.accessToken)
       .then((next) => {
@@ -48,15 +58,41 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
           setError(catalogAdminErrorMessage(cause))
         }
       })
-      .finally(() => {
+      .finally(settle)
+    client
+      .listProviders(session.accessToken)
+      .then((next) => {
         if (!cancelled) {
-          setBusy(false)
+          setProviders(next)
         }
       })
+      .catch((cause: unknown) => {
+        if (!cancelled) {
+          setError(catalogAdminErrorMessage(cause))
+        }
+      })
+      .finally(settle)
     return () => {
       cancelled = true
     }
   }, [client, session.accessToken])
+
+  async function onSelectProvider(providerId: string) {
+    setBusy(true)
+    setError(null)
+    setMessage(null)
+    try {
+      const next = await client.selectProvider(providerId, session.accessToken)
+      setProviders(next)
+      setHits([])
+      const selected = next.providers.find((provider) => provider.id === next.activeProviderId)
+      setMessage(`Now searching ${selected?.displayName ?? next.activeProviderId}.`)
+    } catch (cause) {
+      setError(catalogAdminErrorMessage(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function onSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -162,13 +198,39 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
         <header className="space-y-2">
           <h1 className="text-2xl font-semibold">Movies</h1>
           <p className="text-sm text-muted-foreground">
-            Search TMDB, import a Movie, then keep runtime and age rating locally.
+            Search the selected provider, import a Movie, then keep runtime and age rating locally.
+            Existing Movies keep their source and refresh from that provider only.
           </p>
         </header>
 
+        {providers ? (
+          <FieldSet className="gap-3 rounded-md border border-border/60 p-4">
+            <FieldLegend>Active metadata provider</FieldLegend>
+            <p className="text-sm text-muted-foreground">
+              The stored selection stays selected even if that provider has no credentials. CineFlow
+              does not fail over automatically.
+            </p>
+            <div className="flex flex-col gap-2">
+              {providers.providers.map((provider) => (
+                <label key={provider.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="radio"
+                    name="active-provider"
+                    value={provider.id}
+                    checked={providers.activeProviderId === provider.id}
+                    disabled={busy}
+                    onChange={() => void onSelectProvider(provider.id)}
+                  />
+                  {provider.displayName}
+                </label>
+              ))}
+            </div>
+          </FieldSet>
+        ) : null}
+
         <form className="flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={onSearch}>
           <div className="grid flex-1 gap-2">
-            <Label htmlFor="movie-search">Search TMDB</Label>
+            <Label htmlFor="movie-search">{searchLabel(providers)}</Label>
             <Input
               id="movie-search"
               name="query"
@@ -248,14 +310,16 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
                       </p>
                       <p className="mt-2 max-w-2xl text-sm">{movie.synopsis}</p>
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={busy || movie.sourceProvider !== 'tmdb'}
-                      onClick={() => void onRefresh(movie.id)}
-                    >
-                      Refresh metadata
-                    </Button>
+                    {canRefreshFromSource(movie.sourceProvider) ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => void onRefresh(movie.id)}
+                      >
+                        Refresh metadata
+                      </Button>
+                    ) : null}
                   </div>
                   <div className="grid gap-3 sm:grid-cols-[8rem_8rem_auto] sm:items-end">
                     <div className="grid gap-2">
@@ -324,6 +388,18 @@ function importInput(
     runtimeMinutes,
     ageRating: ageRating.trim() === '' ? undefined : ageRating.trim(),
   }
+}
+
+function canRefreshFromSource(sourceProvider: string): boolean {
+  return sourceProvider === 'tmdb' || sourceProvider === 'omdb'
+}
+
+function searchLabel(providers: MovieProviderSettings | null): string {
+  if (providers == null) {
+    return 'Search movies'
+  }
+  const active = providers.providers.find((provider) => provider.id === providers.activeProviderId)
+  return `Search ${active?.displayName ?? providers.activeProviderId}`
 }
 
 function toDrafts(movies: ManagedMovie[]): Record<number, SchedulingDraft> {

@@ -26,16 +26,20 @@ import com.cineflow.audit.Audit;
 class CatalogAdministrationServiceTest {
 
 	private MovieMetadataProvider provider;
+	private MovieMetadataProviders providers;
 	private MovieRepository movieRepository;
 	private CatalogAdministrationService service;
 
 	@BeforeEach
 	void createService() {
 		provider = mock(MovieMetadataProvider.class);
+		providers = mock(MovieMetadataProviders.class);
 		movieRepository = mock(MovieRepository.class);
 		when(provider.providerId()).thenReturn("tmdb");
+		when(providers.active()).thenReturn(provider);
+		when(providers.source("tmdb")).thenReturn(provider);
 		service = new CatalogAdministrationService(
-				provider,
+				providers,
 				movieRepository,
 				mock(Audit.class),
 				Clock.fixed(Instant.parse("2026-09-15T00:00:00Z"), ZoneOffset.UTC),
@@ -81,6 +85,22 @@ class CatalogAdministrationServiceTest {
 	}
 
 	@Test
+	void refreshUsesTheMovieSourceProviderInsteadOfTheActiveSelection() {
+		MovieMetadataProvider omdb = mock(MovieMetadataProvider.class);
+		when(omdb.providerId()).thenReturn("omdb");
+		when(providers.active()).thenReturn(omdb);
+		when(providers.source("tmdb")).thenReturn(provider);
+		when(movieRepository.findById(8L)).thenReturn(Optional.of(existingMovie()));
+		when(provider.fetch("4242")).thenReturn(providerRecord());
+
+		MovieAdminResponse refreshed = service.refresh(2L, 8L);
+
+		assertThat(refreshed.title()).isEqualTo("The Courier Gate");
+		verify(provider).fetch("4242");
+		verify(omdb, never()).fetch(any());
+	}
+
+	@Test
 	void providerIdentityConflictLooksAtTheConstraintName() {
 		assertThat(CatalogAdministrationService.isProviderIdentityConflict(new DataIntegrityViolationException(
 				"could not execute statement [movies_provider_external_unique]"))).isTrue();
@@ -89,7 +109,7 @@ class CatalogAdministrationServiceTest {
 	}
 
 	private static MovieEntity existingMovie() {
-		return MovieEntity.imported(
+		MovieEntity movie = MovieEntity.imported(
 				"The Courier Gate",
 				"",
 				"Adventure",
@@ -99,6 +119,15 @@ class CatalogAdministrationServiceTest {
 				"tmdb",
 				"4242",
 				Instant.parse("2026-09-15T00:00:00Z"));
+		try {
+			var id = MovieEntity.class.getDeclaredField("id");
+			id.setAccessible(true);
+			id.set(movie, 8L);
+		}
+		catch (ReflectiveOperationException exception) {
+			throw new IllegalStateException(exception);
+		}
+		return movie;
 	}
 
 	private static MovieProviderRecord providerRecord() {

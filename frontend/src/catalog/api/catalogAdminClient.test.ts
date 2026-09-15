@@ -20,4 +20,33 @@ describe('createCatalogAdminClient', () => {
       retryAfterSeconds: 12,
     })
   })
+
+  it('selects the active provider through PUT', async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          activeProviderId: 'omdb',
+          providers: [
+            { id: 'tmdb', displayName: 'TMDB' },
+            { id: 'omdb', displayName: 'OMDb' },
+          ],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    const client = createCatalogAdminClient(fetcher)
+
+    await expect(client.selectProvider('omdb', 'admin-token')).resolves.toMatchObject({
+      activeProviderId: 'omdb',
+    })
+    expect(fetcher).toHaveBeenCalledWith('/api/admin/movie-providers/active', {
+      method: 'PUT',
+      headers: {
+        Accept: 'application/json',
+        Authorization: 'Bearer admin-token',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ providerId: 'omdb' }),
+    })
+  })
 })

@@ -22,6 +22,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -37,6 +38,7 @@ import com.jayway.jsonpath.JsonPath;
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @AutoConfigureMockMvc
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class CatalogAdministrationIT {
 
 	@Autowired
@@ -47,6 +49,8 @@ class CatalogAdministrationIT {
 
 	@MockitoBean
 	MovieMetadataProvider movieMetadataProvider;
+
+	private String cachedAdminToken;
 
 	@Test
 	void administratorCanSearchWithoutReceivingProviderCredentials() throws Exception {
@@ -364,7 +368,11 @@ class CatalogAdministrationIT {
 	}
 
 	private String accessToken(String username, String password) throws Exception {
+		if ("administrator".equals(username) && cachedAdminToken != null) {
+			return cachedAdminToken;
+		}
 		String body = mockMvc.perform(post("/api/auth/login")
+				.header("X-Forwarded-For", "198.51.100.81")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 						{"username":"%s","password":"%s"}
@@ -373,7 +381,11 @@ class CatalogAdministrationIT {
 			.andReturn()
 			.getResponse()
 			.getContentAsString();
-		return JsonPath.read(body, "$.accessToken");
+		String token = JsonPath.read(body, "$.accessToken");
+		if ("administrator".equals(username)) {
+			cachedAdminToken = token;
+		}
+		return token;
 	}
 
 	private List<String> auditActions() {

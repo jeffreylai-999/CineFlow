@@ -35,7 +35,6 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
 
   useEffect(() => {
     let cancelled = false
-    setBusy(true)
     client
       .listMovies(session.accessToken)
       .then((next) => {

@@ -124,3 +124,47 @@ describe('createIdentityClient refresh coordination', () => {
     expect(fetcher.mock.calls.filter(([url]) => url === '/api/auth/refresh')).toHaveLength(2)
   })
 })
+
+describe('createIdentityClient Staff accounts', () => {
+  it('authorizes list and create with the in-memory access token', async () => {
+    const created = {
+      id: 9,
+      username: 'counter.staff',
+      role: 'BOOKING_STAFF' as const,
+      active: true,
+    }
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (typeof input === 'string' && input === '/api/auth/refresh' && init?.method === 'POST') {
+        return jsonResponse(session)
+      }
+      if (typeof input === 'string' && input === '/api/staff/accounts' && init?.method === 'GET') {
+        return jsonResponse([created])
+      }
+      if (typeof input === 'string' && input === '/api/staff/accounts' && init?.method === 'POST') {
+        return jsonResponse(created, 201)
+      }
+      throw new Error(`unexpected ${init?.method} ${String(input)}`)
+    })
+    const client = createIdentityClient(fetcher)
+    await client.refresh()
+
+    await expect(client.listStaffAccounts()).resolves.toEqual([created])
+    await expect(client.createStaffAccount('counter.staff', 'CounterPass1!')).resolves.toEqual(created)
+
+    expect(fetcher).toHaveBeenCalledWith(
+      '/api/staff/accounts',
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+      }),
+    )
+    expect(fetcher).toHaveBeenCalledWith(
+      '/api/staff/accounts',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ username: 'counter.staff', password: 'CounterPass1!' }),
+        headers: expect.objectContaining({ Authorization: 'Bearer access-token' }),
+      }),
+    )
+  })
+})

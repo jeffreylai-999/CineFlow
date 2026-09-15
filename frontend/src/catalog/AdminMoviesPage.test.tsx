@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react'
+import { MemoryRouter } from 'react-router'
 import { render } from 'vitest-browser-react'
 import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
@@ -32,6 +34,10 @@ const hit: MovieSearchHit = {
   posterUrl: imported.posterUrl,
 }
 
+function renderMovies(ui: ReactElement) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>)
+}
+
 function client(overrides: Partial<CatalogAdminClient> = {}): CatalogAdminClient {
   return {
     listMovies: vi.fn().mockResolvedValue([]),
@@ -49,7 +55,7 @@ describe('AdminMoviesPage', () => {
       listMovies: vi.fn().mockResolvedValueOnce([]).mockResolvedValue([imported]),
     })
 
-    await render(
+    await renderMovies(
       <AdminMoviesPage session={administrator} client={catalogClient} onLogout={() => undefined} />,
     )
 
@@ -88,7 +94,7 @@ describe('AdminMoviesPage', () => {
       listMovies: vi.fn().mockResolvedValue([imported]),
     })
 
-    await render(
+    await renderMovies(
       <AdminMoviesPage session={administrator} client={catalogClient} onLogout={() => undefined} />,
     )
     await expect.element(page.getByRole('button', { name: 'Refresh metadata' })).toBeEnabled()
@@ -102,7 +108,7 @@ describe('AdminMoviesPage', () => {
       search: vi.fn().mockRejectedValue(new CatalogAdminRequestError(429, 'catalog.rate_limited', 12)),
     })
 
-    await render(
+    await renderMovies(
       <AdminMoviesPage session={administrator} client={catalogClient} onLogout={() => undefined} />,
     )
     await page.getByLabelText('Search TMDB').fill('courier gate')
@@ -121,7 +127,7 @@ describe('AdminMoviesPage', () => {
         .mockRejectedValue(new CatalogAdminRequestError(503, 'catalog.provider_unavailable')),
     })
 
-    await render(
+    await renderMovies(
       <AdminMoviesPage session={administrator} client={catalogClient} onLogout={() => undefined} />,
     )
     await page.getByLabelText('Search TMDB').fill('courier gate')
@@ -146,7 +152,7 @@ describe('AdminMoviesPage', () => {
       ),
     })
 
-    await render(
+    await renderMovies(
       <AdminMoviesPage session={administrator} client={catalogClient} onLogout={() => undefined} />,
     )
     await page.getByLabelText('Search TMDB').fill('courier gate')
@@ -164,7 +170,7 @@ describe('AdminMoviesPage', () => {
         .mockRejectedValueOnce(new CatalogAdminRequestError(429, 'catalog.rate_limited', 12)),
     })
 
-    await render(
+    await renderMovies(
       <AdminMoviesPage session={administrator} client={catalogClient} onLogout={() => undefined} />,
     )
     await page.getByLabelText('Search TMDB').fill('courier gate')
@@ -190,7 +196,7 @@ describe('AdminMoviesPage', () => {
         .mockRejectedValueOnce(new CatalogAdminRequestError(503, 'catalog.provider_unavailable')),
     })
 
-    await render(
+    await renderMovies(
       <AdminMoviesPage session={administrator} client={catalogClient} onLogout={() => undefined} />,
     )
     await page.getByLabelText('Search TMDB').fill('courier gate')
@@ -208,7 +214,7 @@ describe('AdminMoviesPage', () => {
   it('rejects a non-integer import runtime before calling the catalog client', async () => {
     const catalogClient = client()
 
-    await render(
+    await renderMovies(
       <AdminMoviesPage session={administrator} client={catalogClient} onLogout={() => undefined} />,
     )
     await page.getByLabelText('Search TMDB').fill('courier gate')
@@ -227,7 +233,7 @@ describe('AdminMoviesPage', () => {
   })
 
   it('has no serious axe violations on the administrator movie route', async () => {
-    const screen = await render(
+    const screen = await renderMovies(
       <AdminMoviesPage
         session={administrator}
         client={client({ listMovies: vi.fn().mockResolvedValue([imported]) })}

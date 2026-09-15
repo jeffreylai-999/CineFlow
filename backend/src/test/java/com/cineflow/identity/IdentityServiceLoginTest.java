@@ -66,6 +66,21 @@ class IdentityServiceLoginTest {
 	}
 
 	@Test
+	void rejectsPasswordsLongerThanTheBcryptByteLimit() {
+		StaffAccountEntity administrator = new StaffAccountEntity(
+				"administrator",
+				STORED_HASH,
+				StaffRole.ADMINISTRATOR,
+				Instant.parse("2026-09-15T00:00:00Z"));
+		when(staffAccounts.findById(2L)).thenReturn(Optional.of(administrator));
+
+		assertThatThrownBy(() -> identity.createBookingStaff(2L, "new.staff", "x".repeat(73)))
+				.isInstanceOf(IdentityException.class);
+
+		verify(passwordEncoder, never()).encode("x".repeat(73));
+	}
+
+	@Test
 	void verifiesADummyHashWhenTheAccountIsInactive() {
 		StaffAccountEntity staff = new StaffAccountEntity(
 				"alice",

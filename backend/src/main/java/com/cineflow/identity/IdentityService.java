@@ -1,9 +1,12 @@
 package com.cineflow.identity;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -127,9 +130,43 @@ class IdentityService implements Identity {
 		if (target.getRole() != StaffRole.BOOKING_STAFF) {
 			throw IdentityException.forbidden();
 		}
+		requireStrongPassword(newPassword);
 		target.setPasswordHash(passwordEncoder.encode(newPassword));
 		revokeAllForStaff(target.getId());
 		audit.record(actor.getId(), AuditAction.STAFF_PASSWORD_RESET, "staff", Long.toString(target.getId()));
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<StaffAccountSummary> listStaffAccounts(long actorStaffId) {
+		requireAdministrator(actorStaffId);
+		return staffAccounts.findAllByOrderByUsernameAsc().stream()
+			.map(StaffAccountEntity::toSummary)
+			.toList();
+	}
+
+	@Override
+	@Transactional
+	public StaffAccountSummary createBookingStaff(long actorStaffId, String username, String password) {
+		StaffAccountEntity actor = requireAdministrator(actorStaffId);
+		String normalized = username.trim();
+		requireStrongPassword(password);
+		if (staffAccounts.findByUsername(normalized).isPresent()) {
+			throw IdentityException.usernameConflict();
+		}
+		StaffAccountEntity created;
+		try {
+			created = staffAccounts.saveAndFlush(new StaffAccountEntity(
+					normalized,
+					passwordEncoder.encode(password),
+					StaffRole.BOOKING_STAFF,
+					clock.instant()));
+		}
+		catch (DataIntegrityViolationException ex) {
+			throw IdentityException.usernameConflict();
+		}
+		audit.record(actor.getId(), AuditAction.STAFF_CREATED, "staff", Long.toString(created.getId()));
+		return created.toSummary();
 	}
 
 	@Override
@@ -148,6 +185,14 @@ class IdentityService implements Identity {
 			throw IdentityException.forbidden();
 		}
 		return actor;
+	}
+
+	private static void requireStrongPassword(String password) {
+		if (password == null
+				|| password.length() < PasswordResetRequest.MIN_LENGTH
+				|| password.getBytes(StandardCharsets.UTF_8).length > PasswordResetRequest.MAX_BCRYPT_BYTES) {
+			throw IdentityException.invalidRequest();
+		}
 	}
 
 	private StaffSession issueNewFamily(StaffAccountEntity staff) {

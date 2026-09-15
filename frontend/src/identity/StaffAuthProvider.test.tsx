@@ -1,10 +1,11 @@
 import { render } from 'vitest-browser-react'
 import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
-import type { IdentityClient, StaffSession } from '@/identity/api/identityClient.ts'
+import type { StaffSession } from '@/identity/api/identityClient.ts'
 import type { StaffSocket } from '@/identity/api/staffSocket.ts'
 import { StaffAuthProvider } from '@/identity/StaffAuthProvider.tsx'
 import { useStaffAuth } from '@/identity/staffAuthContext.ts'
+import { fakeIdentityClient } from '@/identity/test/fakeIdentityClient.ts'
 
 const expired: StaffSession = {
   accessToken: 'expired-token',
@@ -39,14 +40,14 @@ function TokenProbe() {
 
 describe('StaffAuthProvider', () => {
   it('reconnects STOMP after refresh when the access token is rejected', async () => {
-    const client: IdentityClient = {
+    const client = fakeIdentityClient({
       login: vi.fn(),
       refresh: vi
         .fn()
         .mockResolvedValueOnce(expired)
         .mockResolvedValueOnce(refreshed),
       logout: vi.fn(),
-    }
+    })
     const socket: StaffSocket = {
       connect: vi.fn(async (token: string) => {
         if (token === 'expired-token') {
@@ -78,11 +79,11 @@ describe('StaffAuthProvider', () => {
             finishRefresh = resolve
           }),
       )
-    const client: IdentityClient = {
+    const client = fakeIdentityClient({
       login: vi.fn(),
       refresh,
       logout: vi.fn().mockResolvedValue(undefined),
-    }
+    })
     const socket: StaffSocket = {
       connect: vi.fn().mockResolvedValue(undefined),
       disconnect: vi.fn().mockResolvedValue(undefined),
@@ -104,11 +105,11 @@ describe('StaffAuthProvider', () => {
 
   it('refreshes and reconnects after a live socket drops', async () => {
     let onDisconnected: (() => void) | undefined
-    const client: IdentityClient = {
+    const client = fakeIdentityClient({
       login: vi.fn(),
       refresh: vi.fn().mockResolvedValueOnce(expired).mockResolvedValueOnce(refreshed),
       logout: vi.fn(),
-    }
+    })
     const socket: StaffSocket = {
       connect: vi.fn(async (_token, disconnected) => {
         onDisconnected = disconnected
@@ -135,11 +136,11 @@ describe('StaffAuthProvider', () => {
       .mockResolvedValueOnce({ ...expired, accessToken: 't2', expiresInSeconds: 60 })
       .mockResolvedValueOnce({ ...expired, accessToken: 't3', expiresInSeconds: 900 })
       .mockResolvedValue({ ...expired, accessToken: 't4', expiresInSeconds: 900 })
-    const client: IdentityClient = {
+    const client = fakeIdentityClient({
       login: vi.fn(),
       refresh,
       logout: vi.fn(),
-    }
+    })
     const socket: StaffSocket = {
       connect: vi.fn(async (token: string) => {
         if (token === 't4') {
@@ -165,11 +166,11 @@ describe('StaffAuthProvider', () => {
       ...expired,
       accessToken: `token-${refresh.mock.calls.length}`,
     }))
-    const client: IdentityClient = {
+    const client = fakeIdentityClient({
       login: vi.fn(),
       refresh,
       logout: vi.fn(),
-    }
+    })
     const socket: StaffSocket = {
       connect: vi.fn().mockRejectedValue(new Error('ws down')),
       disconnect: vi.fn().mockResolvedValue(undefined),

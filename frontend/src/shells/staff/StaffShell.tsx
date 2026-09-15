@@ -1,6 +1,8 @@
 import type { StaffRole } from '@/identity/api/identityClient.ts'
 import type { ReactNode } from 'react'
+import { NavLink } from 'react-router'
 import { Button } from '@/components/ui/button.tsx'
+import { staffRoleLabel } from '@/identity/staffRoleLabel.ts'
 
 type StaffShellProps = {
   children: ReactNode
@@ -19,20 +21,28 @@ export function StaffShell({ children, role, username, onLogout }: StaffShellPro
         >
           <p className="text-sm font-semibold tracking-wide text-sidebar-primary uppercase">Staff</p>
           <nav className="mt-6 flex flex-col gap-2 text-sm">
-            <a className="rounded-md px-2 py-1 hover:bg-sidebar-accent" href="/staff">
+            <NavLink className="rounded-md px-2 py-1 hover:bg-sidebar-accent" to="/staff">
               Overview
-            </a>
+            </NavLink>
             {role === 'ADMINISTRATOR' ? (
-              <a className="rounded-md px-2 py-1 hover:bg-sidebar-accent" href="/staff/movies">
-                Movies
-              </a>
+              <>
+                <NavLink className="rounded-md px-2 py-1 hover:bg-sidebar-accent" to="/staff/movies">
+                  Movies
+                </NavLink>
+                <NavLink className="rounded-md px-2 py-1 hover:bg-sidebar-accent" to="/staff/halls">
+                  Halls
+                </NavLink>
+                <NavLink className="rounded-md px-2 py-1 hover:bg-sidebar-accent" to="/staff/accounts">
+                  Staff accounts
+                </NavLink>
+              </>
             ) : null}
           </nav>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex items-center justify-between border-b border-border px-4 py-3">
             <p className="text-sm text-muted-foreground">
-              Signed in as <span className="text-foreground">{username}</span> ({roleLabel(role)})
+              Signed in as <span className="text-foreground">{username}</span> ({staffRoleLabel(role)})
             </p>
             <Button type="button" variant="outline" onClick={onLogout}>
               Sign out
@@ -43,17 +53,4 @@ export function StaffShell({ children, role, username, onLogout }: StaffShellPro
       </div>
     </div>
   )
-}
-
-function roleLabel(role: StaffRole): string {
-  switch (role) {
-    case 'ADMINISTRATOR':
-      return 'Administrator'
-    case 'BOOKING_STAFF':
-      return 'Booking Staff'
-    default: {
-      const exhaustive: never = role
-      return exhaustive
-    }
-  }
 }

@@ -230,7 +230,37 @@ describe('StaffRoutes staff administration', () => {
     await page.getByRole('button', { name: 'Reset password for booking.staff' }).click()
     await expect.element(page.getByRole('button', { name: 'Reset password for other.staff' })).toBeDisabled()
     await expect.element(page.getByRole('button', { name: 'Deactivate other.staff' })).toBeDisabled()
+    await expect.element(page.getByRole('button', { name: 'Create Booking Staff' })).toBeDisabled()
     finishReset()
+  })
+
+  it('disables row actions while create is pending', async () => {
+    let finishCreate: (account: StaffAccount) => void = () => {}
+    const client = fakeIdentityClient({
+      refresh: vi.fn().mockResolvedValue(administrator),
+      listStaffAccounts: vi.fn().mockResolvedValue(accounts),
+      createStaffAccount: vi.fn(
+        () =>
+          new Promise<StaffAccount>((resolve) => {
+            finishCreate = resolve
+          }),
+      ),
+    })
+
+    await renderStaffRoutes({ session: administrator, path: '/staff/accounts', client })
+    await expect.element(page.getByRole('heading', { name: 'Staff accounts' })).toBeInTheDocument()
+
+    await page.getByLabelText('New username').fill('counter.staff')
+    await page.getByLabelText('New password').fill('CounterPass1!')
+    await page.getByRole('button', { name: 'Create Booking Staff' }).click()
+    await expect.element(page.getByRole('button', { name: 'Reset password for booking.staff' })).toBeDisabled()
+    await expect.element(page.getByRole('button', { name: 'Deactivate booking.staff' })).toBeDisabled()
+    finishCreate({
+      id: 9,
+      username: 'counter.staff',
+      role: 'BOOKING_STAFF',
+      active: true,
+    })
   })
 
   it('has no serious axe violations on the Staff accounts route', async () => {

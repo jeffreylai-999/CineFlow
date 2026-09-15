@@ -26,6 +26,7 @@ export function StaffAccountsPage({ session, client, onLogout }: StaffAccountsPa
   const [creating, setCreating] = useState(false)
   const [resetPasswords, setResetPasswords] = useState<Record<number, string>>({})
   const [pendingId, setPendingId] = useState<number | null>(null)
+  const mutating = creating || pendingId !== null
 
   async function reload() {
     try {
@@ -151,7 +152,7 @@ export function StaffAccountsPage({ session, client, onLogout }: StaffAccountsPa
                   required
                 />
               </Field>
-              <Button type="submit" disabled={creating}>
+              <Button type="submit" disabled={mutating}>
                 {creating ? 'Creating…' : 'Create Booking Staff'}
               </Button>
             </FieldGroup>
@@ -198,7 +199,7 @@ export function StaffAccountsPage({ session, client, onLogout }: StaffAccountsPa
                     <td className="py-3">
                       <AccountActions
                         account={account}
-                        pending={pendingId !== null}
+                        pending={mutating}
                         resetPassword={resetPasswords[account.id] ?? ''}
                         onResetPasswordChange={(value) =>
                           setResetPasswords((current) => ({ ...current, [account.id]: value }))

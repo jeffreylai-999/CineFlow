@@ -114,6 +114,28 @@ class IdentityStompIT {
 		}
 	}
 
+	@Test
+	void deactivatedSubscriberDoesNotReceiveTopicBroadcasts() throws Exception {
+		StaffAccess staff = bookingStaffSession();
+		StompSession inactive = connect(staff.accessToken()).get(5, TimeUnit.SECONDS);
+		CompletableFuture<Map<String, Object>> inactivePong = new CompletableFuture<>();
+		inactive.subscribe("/topic/staff/pong", pongHandler(inactivePong));
+		deactivate(staff.id());
+
+		StompSession active = connect(loginAccessToken()).get(5, TimeUnit.SECONDS);
+		CompletableFuture<Map<String, Object>> activePong = new CompletableFuture<>();
+		active.subscribe("/topic/staff/pong", pongHandler(activePong));
+		active.send("/app/staff/ping", Map.of());
+
+		assertThat(activePong.get(5, TimeUnit.SECONDS)).containsEntry("status", "ok");
+		assertThatThrownBy(() -> inactivePong.get(2, TimeUnit.SECONDS))
+			.isInstanceOf(TimeoutException.class);
+		active.disconnect();
+		if (inactive.isConnected()) {
+			inactive.disconnect();
+		}
+	}
+
 	private CompletableFuture<StompSession> connect(String accessToken) {
 		StompHeaders connectHeaders = new StompHeaders();
 		if (accessToken != null) {

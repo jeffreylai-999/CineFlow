@@ -50,17 +50,3 @@ CREATE TABLE cineflow.audit_events (
 
 CREATE INDEX audit_events_occurred_at_idx
     ON cineflow.audit_events (occurred_at DESC);
-
-INSERT INTO cineflow.staff_accounts (
-    username,
-    password_hash,
-    role,
-    active,
-    created_at
-) VALUES (
-    'booking.staff',
-    '$2b$12$fjuTfnbHHQpXBdhjGl6NZ.j9dyjTLrCRr87JskFhkr1cUduAbhW6S',
-    'BOOKING_STAFF',
-    TRUE,
-    TIMESTAMPTZ '2026-01-15 10:00:00+00'
-);

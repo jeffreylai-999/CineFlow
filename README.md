@@ -33,7 +33,7 @@ Copy `.env.example` values into your shell or a local `.env` (gitignored). Defau
 - JDBC URL `jdbc:postgresql://localhost:5432/cineflow`
 - User/password `cineflow` / `cineflow`
 - JWT signing secret and bootstrap Administrator credentials (`administrator` / `AdminPassw0rd!`)
-- Booking Staff fixture `booking.staff` / `StaffPassw0rd!`
+- Local/dev Booking Staff fixture `booking.staff` / `StaffPassw0rd!` (not seeded in production)
 
 Set `CINEFLOW_AUTH_COOKIE_SECURE=false` for local HTTP. Production must use HTTPS and a unique `CINEFLOW_JWT_SECRET`.
 

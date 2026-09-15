@@ -1,5 +1,6 @@
 package com.cineflow.identity;
 
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -22,4 +23,6 @@ interface StaffAccountRepository extends JpaRepository<StaffAccountEntity, Long>
 	Optional<StaffAccountEntity> findByIdForUpdate(@Param("id") Long id);
 
 	long countByRole(StaffRole role);
+
+	List<StaffAccountEntity> findAllByOrderByUsernameAsc();
 }

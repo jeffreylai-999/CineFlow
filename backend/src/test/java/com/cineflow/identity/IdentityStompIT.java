@@ -20,6 +20,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.messaging.MessageDeliveryException;
 import org.springframework.messaging.converter.MappingJackson2MessageConverter;
 import org.springframework.messaging.simp.stomp.StompFrameHandler;
 import org.springframework.messaging.simp.stomp.StompHeaders;
@@ -111,7 +112,7 @@ class IdentityStompIT {
 		assertThatThrownBy(() -> {
 			session.send("/app/staff/ping", Map.of());
 			pong.get(2, TimeUnit.SECONDS);
-		}).isInstanceOfAny(IllegalStateException.class, TimeoutException.class);
+		}).isInstanceOfAny(IllegalStateException.class, TimeoutException.class, MessageDeliveryException.class);
 		if (session.isConnected()) {
 			session.disconnect();
 		}

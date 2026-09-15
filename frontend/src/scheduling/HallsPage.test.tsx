@@ -1,3 +1,5 @@
+import type { ReactElement } from 'react'
+import { MemoryRouter } from 'react-router'
 import { render } from 'vitest-browser-react'
 import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
@@ -43,6 +45,10 @@ function clientStub(overrides: Partial<SchedulingClient> = {}): SchedulingClient
   }
 }
 
+function renderHalls(ui: ReactElement) {
+  return render(<MemoryRouter>{ui}</MemoryRouter>)
+}
+
 function deferred<T>() {
   let resolve!: (value: T) => void
   const promise = new Promise<T>((next) => {
@@ -60,7 +66,7 @@ describe('HallsPage', () => {
       archiveHall: vi.fn().mockResolvedValue({ ...created, archivedAt: '2026-09-15T12:00:00Z' }),
     })
 
-    await render(<HallsPage session={administrator} client={client} onLogout={() => undefined} />)
+    await renderHalls(<HallsPage session={administrator} client={client} onLogout={() => undefined} />)
 
     await expect.element(page.getByRole('heading', { name: 'Halls' })).toBeInTheDocument()
     await expect.element(page.getByText('No Halls yet.')).toBeInTheDocument()
@@ -93,7 +99,7 @@ describe('HallsPage', () => {
         .mockRejectedValue(new SchedulingRequestError(409, 'scheduling.seat_not_disableable')),
     })
 
-    await render(<HallsPage session={administrator} client={client} onLogout={() => undefined} />)
+    await renderHalls(<HallsPage session={administrator} client={client} onLogout={() => undefined} />)
     await page.getByRole('button', { name: 'Hall 1' }).click()
     await page.getByRole('button', { name: 'Seat A1, enabled' }).click()
 
@@ -109,7 +115,7 @@ describe('HallsPage', () => {
       listHalls: vi.fn().mockResolvedValue([hallOne]),
       getHall: vi.fn().mockResolvedValue(hallOne),
     })
-    const screen = await render(
+    const screen = await renderHalls(
       <HallsPage session={administrator} client={client} onLogout={() => undefined} />,
     )
     await page.getByRole('button', { name: 'Hall 1' }).click()
@@ -127,7 +133,7 @@ describe('HallsPage', () => {
       listHalls: vi.fn().mockReturnValue(pending.promise),
     })
 
-    await render(<HallsPage session={administrator} client={client} onLogout={() => undefined} />)
+    await renderHalls(<HallsPage session={administrator} client={client} onLogout={() => undefined} />)
 
     await expect.element(page.getByRole('button', { name: 'Create Hall' })).toBeDisabled()
 
@@ -146,7 +152,7 @@ describe('HallsPage', () => {
       setSeatDisabled: vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise),
     })
 
-    await render(<HallsPage session={administrator} client={client} onLogout={() => undefined} />)
+    await renderHalls(<HallsPage session={administrator} client={client} onLogout={() => undefined} />)
     await page.getByRole('button', { name: 'Hall 1' }).click()
     await page.getByRole('button', { name: 'Seat A1, enabled' }).click()
     await page.getByRole('button', { name: 'Seat A2, enabled' }).click()
@@ -168,7 +174,7 @@ describe('HallsPage', () => {
       getHall: vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise),
     })
 
-    await render(<HallsPage session={administrator} client={client} onLogout={() => undefined} />)
+    await renderHalls(<HallsPage session={administrator} client={client} onLogout={() => undefined} />)
     await page.getByRole('button', { name: 'Hall 1' }).click()
     await page.getByRole('button', { name: 'Hall 2' }).click()
 

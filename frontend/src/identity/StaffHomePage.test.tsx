@@ -2,6 +2,7 @@ import { render } from 'vitest-browser-react'
 import { describe, expect, it } from 'vitest'
 import { page } from 'vitest/browser'
 import axe from 'axe-core'
+import { MemoryRouter } from 'react-router'
 import type { StaffSession } from '@/identity/api/identityClient.ts'
 import { StaffHomePage } from '@/identity/StaffHomePage.tsx'
 
@@ -19,7 +20,11 @@ const administrator: StaffSession = {
 
 describe('StaffHomePage', () => {
   it('hides Administrator navigation from Booking Staff', async () => {
-    await render(<StaffHomePage session={bookingStaff} onLogout={() => undefined} />)
+    await render(
+      <MemoryRouter>
+        <StaffHomePage session={bookingStaff} onLogout={() => undefined} />
+      </MemoryRouter>,
+    )
 
     await expect.element(page.getByRole('heading', { name: 'Staff portal' })).toBeInTheDocument()
     await expect.element(page.getByText(/booking.staff/)).toBeInTheDocument()
@@ -28,16 +33,24 @@ describe('StaffHomePage', () => {
     await expect.element(page.getByRole('link', { name: 'Halls' })).not.toBeInTheDocument()
   })
 
-  it('identifies an Administrator in the portal shell without a Staff accounts route', async () => {
-    await render(<StaffHomePage session={administrator} onLogout={() => undefined} />)
+  it('shows Staff accounts navigation to an Administrator', async () => {
+    await render(
+      <MemoryRouter>
+        <StaffHomePage session={administrator} onLogout={() => undefined} />
+      </MemoryRouter>,
+    )
 
     await expect.element(page.getByText(/Administrator/)).toBeInTheDocument()
     await expect.element(page.getByRole('link', { name: 'Halls' })).toBeInTheDocument()
-    await expect.element(page.getByRole('link', { name: 'Staff accounts' })).not.toBeInTheDocument()
+    await expect.element(page.getByRole('link', { name: 'Staff accounts' })).toBeInTheDocument()
   })
 
   it('has no serious axe violations on the staff portal', async () => {
-    const screen = await render(<StaffHomePage session={administrator} onLogout={() => undefined} />)
+    const screen = await render(
+      <MemoryRouter>
+        <StaffHomePage session={administrator} onLogout={() => undefined} />
+      </MemoryRouter>,
+    )
     await expect.element(page.getByRole('heading', { name: 'Staff portal' })).toBeInTheDocument()
 
     const results = await axe.run(screen.container)

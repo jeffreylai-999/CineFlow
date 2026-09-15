@@ -32,6 +32,10 @@ Copy `.env.example` values into your shell or a local `.env` (gitignored). Defau
 
 - JDBC URL `jdbc:postgresql://localhost:5432/cineflow`
 - User/password `cineflow` / `cineflow`
+- JWT signing secret and bootstrap Administrator credentials (`administrator` / `AdminPassw0rd!`)
+- Local/dev Booking Staff fixture `booking.staff` / `StaffPassw0rd!` (not seeded in production)
+
+Set `CINEFLOW_AUTH_COOKIE_SECURE=false` for local HTTP. Production must use HTTPS and a unique `CINEFLOW_JWT_SECRET`.
 
 ### Backend
 
@@ -46,6 +50,7 @@ cd backend
 Useful URLs once running:
 
 - Catalog API: `http://localhost:8080/api/movies`
+- Staff sign-in: `http://localhost:8080/staff/login`
 - OpenAPI: `http://localhost:8080/v3/api-docs`
 - Swagger UI: `http://localhost:8080/swagger-ui.html`
 - Readiness: `http://localhost:8080/actuator/health/readiness`
@@ -63,6 +68,8 @@ Vite proxies `/api` to the Spring Boot process on port 8080. Component tests use
 Frontend UI: Tailwind v4 (`@tailwindcss/vite`) and shadcn on Base UI (ADR 0004). `components.json` keeps `style: "new-york"`, `tailwind.baseColor: "zinc"`, and `tailwind.cssVariables: true` after verifying those values against shadcn CLI 4.21.0 (`new-york` is in the schema enum and styles index; `zinc` resolves at the colors registry; `--css-variables` is the CLI default). Interactive `init -t vite` only offers Nova-family presets, so init is recorded via that checked `components.json` plus Base UI component adds from the `base-nova` registry. Vendor each component in its own commit.
 
 ### Full stack in containers
+
+Copy `.env.example` to `.env` first. Compose interpolates the JWT signing secret, bootstrap Administrator credentials, and `CINEFLOW_AUTH_COOKIE_SECURE` from that file (cookie Secure defaults to `false` for local HTTP).
 
 ```bash
 docker compose up --build

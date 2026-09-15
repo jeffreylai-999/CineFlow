@@ -15,6 +15,6 @@ public class OpenApiConfiguration {
 			.info(new Info()
 				.title("CineFlow API")
 				.version("0.1.0")
-				.description("Movie catalog tracer and future cinema booking interfaces."));
+				.description("Movie catalog, Staff authentication, and future cinema booking interfaces."));
 	}
 }

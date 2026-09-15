@@ -1,0 +1,12 @@
+package com.cineflow.audit;
+
+public enum AuditAction {
+
+	STAFF_LOGIN,
+	STAFF_LOGIN_FAILURE,
+	STAFF_LOGOUT,
+	TOKEN_REFRESH,
+	TOKEN_REUSE,
+	STAFF_DEACTIVATED,
+	STAFF_PASSWORD_RESET
+}

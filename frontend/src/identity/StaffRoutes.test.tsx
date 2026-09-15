@@ -129,9 +129,7 @@ describe('StaffRoutes staff administration', () => {
     await page.getByLabelText('New username').fill('valid.staff')
     await page.getByLabelText('New password').fill('ValidPassw0rd!')
     await page.getByRole('button', { name: 'Create Booking Staff' }).click()
-    await expect
-      .element(page.getByRole('alert'))
-      .toHaveTextContent('Check the details. Passwords need at least 12 characters.')
+    await expect.element(page.getByRole('alert')).toHaveTextContent('Those details are not valid.')
 
     await page.getByLabelText('New username').fill('booking.staff')
     await page.getByLabelText('New password').fill('AnotherPassw0rd!')
@@ -151,7 +149,10 @@ describe('StaffRoutes staff administration', () => {
           account.id === id ? { ...account, active: false } : account,
         )
       }),
-      resetStaffPassword: vi.fn().mockResolvedValue(undefined),
+      resetStaffPassword: vi
+        .fn()
+        .mockRejectedValueOnce(new IdentityRequestError(400, 'request.invalid'))
+        .mockResolvedValue(undefined),
     })
 
     await renderStaffRoutes({ session: administrator, path: '/staff/accounts', client })
@@ -163,6 +164,13 @@ describe('StaffRoutes staff administration', () => {
     await page.getByLabelText('New password for booking.staff').fill('ResetPassw0rd!')
     await page.getByRole('button', { name: 'Reset password for booking.staff' }).click()
     expect(client.resetStaffPassword).toHaveBeenCalledWith(1, 'ResetPassw0rd!')
+    await expect.element(page.getByRole('alert')).toHaveTextContent('Those details are not valid.')
+    await expect
+      .element(page.getByRole('group', { name: 'Create Booking Staff' }).getByRole('alert'))
+      .not.toBeInTheDocument()
+
+    await page.getByRole('button', { name: 'Reset password for booking.staff' }).click()
+    expect(client.resetStaffPassword).toHaveBeenCalledTimes(2)
 
     await page.getByRole('button', { name: 'Deactivate booking.staff' }).click()
     expect(client.deactivateStaffAccount).toHaveBeenCalledWith(1)

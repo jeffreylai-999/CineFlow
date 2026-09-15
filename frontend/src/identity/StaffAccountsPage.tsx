@@ -3,14 +3,7 @@ import type { IdentityClient, StaffAccount, StaffSession } from '@/identity/api/
 import { staffAccountErrorMessage } from '@/identity/staffAccountErrorMessage.ts'
 import { staffRoleLabel } from '@/identity/staffRoleLabel.ts'
 import { Button } from '@/components/ui/button.tsx'
-import {
-  Field,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from '@/components/ui/field.tsx'
+import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field.tsx'
 import { Input } from '@/components/ui/input.tsx'
 import { StaffShell } from '@/shells/staff/StaffShell.tsx'
 
@@ -113,6 +106,12 @@ export function StaffAccountsPage({ session, client, onLogout }: StaffAccountsPa
           sessions.
         </p>
 
+        {actionError ? (
+          <p className="mt-4 text-sm text-destructive" role="alert">
+            {actionError}
+          </p>
+        ) : null}
+
         <form className="mt-8 max-w-md" onSubmit={(event) => void handleCreate(event)}>
           <FieldSet>
             <FieldLegend>Create Booking Staff</FieldLegend>
@@ -145,7 +144,6 @@ export function StaffAccountsPage({ session, client, onLogout }: StaffAccountsPa
                   required
                 />
               </Field>
-              {actionError ? <FieldError>{actionError}</FieldError> : null}
               <Button type="submit" disabled={creating}>
                 {creating ? 'Creating…' : 'Create Booking Staff'}
               </Button>

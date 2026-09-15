@@ -4,7 +4,6 @@ import java.security.Principal;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.Message;
@@ -19,13 +18,10 @@ import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
-import org.springframework.web.socket.CloseStatus;
-import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
-import org.springframework.web.socket.handler.WebSocketHandlerDecorator;
 
 @Configuration
 @EnableWebSocketMessageBroker
@@ -34,12 +30,17 @@ class StaffStompConfiguration implements WebSocketMessageBrokerConfigurer {
 	private final AccessTokens accessTokens;
 	private final StaffAccountRepository staffAccounts;
 	private final Clock clock;
-	private final ConcurrentHashMap<String, Principal> principals = new ConcurrentHashMap<>();
+	private final StaffStompSessions sessions;
 
-	StaffStompConfiguration(AccessTokens accessTokens, StaffAccountRepository staffAccounts, Clock clock) {
+	StaffStompConfiguration(
+			AccessTokens accessTokens,
+			StaffAccountRepository staffAccounts,
+			Clock clock,
+			StaffStompSessions sessions) {
 		this.accessTokens = accessTokens;
 		this.staffAccounts = staffAccounts;
 		this.clock = clock;
+		this.sessions = sessions;
 	}
 
 	@Override
@@ -55,13 +56,7 @@ class StaffStompConfiguration implements WebSocketMessageBrokerConfigurer {
 
 	@Override
 	public void configureWebSocketTransport(WebSocketTransportRegistration registration) {
-		registration.addDecoratorFactory(handler -> new WebSocketHandlerDecorator(handler) {
-			@Override
-			public void afterConnectionClosed(WebSocketSession session, CloseStatus closeStatus) throws Exception {
-				principals.remove(session.getId());
-				super.afterConnectionClosed(session, closeStatus);
-			}
-		});
+		registration.addDecoratorFactory(sessions::decorate);
 	}
 
 	@Override
@@ -76,14 +71,10 @@ class StaffStompConfiguration implements WebSocketMessageBrokerConfigurer {
 				if (StompCommand.CONNECT.equals(accessor.getCommand())) {
 					Principal user = authenticate(accessor);
 					accessor.setUser(user);
-					if (accessor.getSessionId() != null) {
-						principals.put(accessor.getSessionId(), user);
-					}
+					sessions.remember(message, user);
 				}
 				else if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
-					if (accessor.getSessionId() != null) {
-						principals.remove(accessor.getSessionId());
-					}
+					sessions.forget(message);
 				}
 				else if (accessor.getCommand() != null) {
 					requireActiveSession(accessor.getUser());
@@ -102,7 +93,10 @@ class StaffStompConfiguration implements WebSocketMessageBrokerConfigurer {
 				if (accessor == null || !isOutboundPayload(accessor)) {
 					return message;
 				}
-				Principal user = userOf(accessor);
+				Principal user = accessor.getUser();
+				if (user == null) {
+					user = sessions.principal(message);
+				}
 				if (user == null) {
 					return message;
 				}
@@ -137,15 +131,6 @@ class StaffStompConfiguration implements WebSocketMessageBrokerConfigurer {
 				? List.of()
 				: List.of(new SimpleGrantedAuthority("ROLE_" + role));
 		return new JwtAuthenticationToken(jwt, authorities);
-	}
-
-	private Principal userOf(StompHeaderAccessor accessor) {
-		Principal user = accessor.getUser();
-		if (user != null) {
-			return user;
-		}
-		String sessionId = accessor.getSessionId();
-		return sessionId == null ? null : principals.get(sessionId);
 	}
 
 	private void requireActiveSession(Principal user) {

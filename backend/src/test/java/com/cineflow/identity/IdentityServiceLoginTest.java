@@ -16,6 +16,7 @@ import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.cineflow.audit.Audit;
@@ -50,7 +51,8 @@ class IdentityServiceLoginTest {
 						Duration.ofMinutes(1),
 						new AuthProperties.Jwt("local-dev-only-jwt-secret-key-32b")),
 				mock(Audit.class),
-				Clock.fixed(Instant.parse("2026-09-15T00:00:00Z"), ZoneOffset.UTC));
+				Clock.fixed(Instant.parse("2026-09-15T00:00:00Z"), ZoneOffset.UTC),
+				mock(ApplicationEventPublisher.class));
 	}
 
 	@Test

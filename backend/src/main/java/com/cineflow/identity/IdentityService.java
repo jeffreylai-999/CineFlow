@@ -3,6 +3,7 @@ package com.cineflow.identity;
 import java.time.Clock;
 import java.time.Instant;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +22,7 @@ class IdentityService implements Identity {
 	private final AuthProperties authProperties;
 	private final Audit audit;
 	private final Clock clock;
+	private final ApplicationEventPublisher events;
 	private final String dummyPasswordHash;
 
 	IdentityService(
@@ -31,7 +33,8 @@ class IdentityService implements Identity {
 			AccessTokens accessTokens,
 			AuthProperties authProperties,
 			Audit audit,
-			Clock clock) {
+			Clock clock,
+			ApplicationEventPublisher events) {
 		this.staffAccounts = staffAccounts;
 		this.families = families;
 		this.refreshTokens = refreshTokens;
@@ -40,6 +43,7 @@ class IdentityService implements Identity {
 		this.authProperties = authProperties;
 		this.audit = audit;
 		this.clock = clock;
+		this.events = events;
 		this.dummyPasswordHash = passwordEncoder.encode("cineflow-unused-dummy-password");
 	}
 
@@ -112,6 +116,7 @@ class IdentityService implements Identity {
 		target.deactivate();
 		revokeAllForStaff(target.getId());
 		audit.record(actor.getId(), AuditAction.STAFF_DEACTIVATED, "staff", Long.toString(target.getId()));
+		events.publishEvent(new StaffDeactivated(target.getId()));
 	}
 
 	@Override

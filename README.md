@@ -37,6 +37,10 @@ Copy `.env.example` values into your shell or a local `.env` (gitignored). Defau
 
 Set `CINEFLOW_AUTH_COOKIE_SECURE=false` for local HTTP. Production must use HTTPS and a unique `CINEFLOW_JWT_SECRET`.
 
+Administrator Movie search and import use a TMDB API Read Access Token in `CINEFLOW_TMDB_ACCESS_TOKEN`. That secret stays in Spring Boot and never reaches the React bundle. Without it, the public catalog still lists stored Movies and provider calls return a safe error.
+
+TMDB use is non-commercial. The public catalog Credits footer uses the official TMDB short logo and the required attribution notice. Cached descriptive metadata is refreshed from the original source rather than treated as a permanent local copy.
+
 ### Backend
 
 Build the SPA once so Spring Boot can serve it from the same origin (optional for API-only work; required for `bootJar`/`bootRun` with the UI):

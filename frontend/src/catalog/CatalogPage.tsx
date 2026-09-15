@@ -90,6 +90,20 @@ export function CatalogPage({ client }: CatalogPageProps) {
           ))}
         </ul>
       ) : null}
+
+      <footer className="mt-4 border-t border-border/60 pt-6">
+        <h2 className="text-sm font-medium text-muted-foreground">Credits</h2>
+        <a
+          className="mt-3 inline-flex items-center"
+          href="https://www.themoviedb.org"
+          rel="noreferrer"
+        >
+          <img className="h-6 w-auto" src="/tmdb-logo.svg" alt="The Movie Database" />
+        </a>
+        <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
+          This product uses the TMDB API but is not endorsed or certified by TMDB.
+        </p>
+      </footer>
     </div>
   )
 }

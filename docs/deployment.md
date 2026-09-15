@@ -19,11 +19,12 @@ Do not commit database passwords, JDBC URLs with credentials, or `.env` files. R
 | `CINEFLOW_BOOTSTRAP_ADMIN_USERNAME` | Initial Administrator username |
 | `CINEFLOW_BOOTSTRAP_ADMIN_PASSWORD` | Initial Administrator password, at least 12 characters |
 | `CINEFLOW_AUTH_COOKIE_SECURE` | `true` (set by `render.yaml`) |
+| `CINEFLOW_TMDB_ACCESS_TOKEN` | TMDB API Read Access Token. Stays in Spring Boot; never shipped to React |
 | `PORT` | Set by Render; Spring Boot binds `server.port` to it |
 
 The `prod` profile refuses to start if the JDBC URL uses the transaction pooler (`:6543`), omits TLS, or points at the IPv6-only direct host `db.<ref>.supabase.co`. Render's Free web services are IPv4-only, so the persistent-backend endpoint is Supavisor's **session** pooler.
 
-Staff login and refresh rate limits use the first `X-Forwarded-For` address so callers behind Render's proxy do not share one bucket.
+Staff login and refresh rate limits use the first `X-Forwarded-For` address so callers behind Render's proxy do not share one bucket. Administrator Movie search is rate-limited per signed-in staff account.
 
 Example URL shape (password is a separate env var, not embedded):
 
@@ -53,7 +54,7 @@ pg_dump "postgresql://postgres.<project-ref>@aws-0-ap-southeast-1.pooler.supabas
 ## Apply the Render Blueprint
 
 1. In the Render Dashboard, create a Blueprint from this repository. `render.yaml` defines a Free Docker web service named `cineflow` in Singapore, with readiness checks at `/actuator/health/readiness`.
-2. When prompted, paste the three `CINEFLOW_DATASOURCE_*` values plus `CINEFLOW_JWT_SECRET` and the bootstrap Administrator username and password. Leave them out of git. The Blueprint sets `CINEFLOW_AUTH_COOKIE_SECURE=true`.
+2. When prompted, paste the three `CINEFLOW_DATASOURCE_*` values plus `CINEFLOW_JWT_SECRET`, the bootstrap Administrator username and password, and `CINEFLOW_TMDB_ACCESS_TOKEN`. Leave them out of git. The Blueprint sets `CINEFLOW_AUTH_COOKIE_SECURE=true`.
 3. Wait for the first deploy. Flyway applies `V1__movie_catalog.sql` and `V2__staff_identity.sql` once; later deploys reuse the same rows. Production does not seed Booking Staff; the first Administrator comes from the bootstrap secrets.
 4. Confirm one HTTPS origin:
    - `https://<service>.onrender.com/` serves the Movie catalog page

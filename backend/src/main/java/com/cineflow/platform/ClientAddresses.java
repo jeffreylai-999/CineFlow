@@ -1,13 +1,13 @@
-package com.cineflow.identity;
+package com.cineflow.platform;
 
 import jakarta.servlet.http.HttpServletRequest;
 
-final class ClientAddresses {
+public final class ClientAddresses {
 
 	private ClientAddresses() {
 	}
 
-	static String of(HttpServletRequest request) {
+	public static String of(HttpServletRequest request) {
 		String forwarded = request.getHeader("X-Forwarded-For");
 		if (forwarded != null && !forwarded.isBlank()) {
 			int comma = forwarded.indexOf(',');

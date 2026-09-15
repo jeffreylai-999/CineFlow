@@ -29,11 +29,12 @@ describe('StaffHomePage', () => {
     await expect.element(page.getByRole('heading', { name: 'Staff portal' })).toBeInTheDocument()
     await expect.element(page.getByText(/booking.staff/)).toBeInTheDocument()
     await expect.element(page.getByRole('link', { name: 'Overview' })).toBeInTheDocument()
+    await expect.element(page.getByRole('link', { name: 'Movies' })).not.toBeInTheDocument()
     await expect.element(page.getByRole('link', { name: 'Staff accounts' })).not.toBeInTheDocument()
     await expect.element(page.getByRole('link', { name: 'Halls' })).not.toBeInTheDocument()
   })
 
-  it('shows Staff accounts navigation to an Administrator', async () => {
+  it('shows Administrator navigation for Movies, Halls, and Staff accounts', async () => {
     await render(
       <MemoryRouter>
         <StaffHomePage session={administrator} onLogout={() => undefined} />
@@ -41,8 +42,11 @@ describe('StaffHomePage', () => {
     )
 
     await expect.element(page.getByText(/Administrator/)).toBeInTheDocument()
-    await expect.element(page.getByRole('link', { name: 'Halls' })).toBeInTheDocument()
-    await expect.element(page.getByRole('link', { name: 'Staff accounts' })).toBeInTheDocument()
+    await expect.element(page.getByRole('link', { name: 'Movies' })).toHaveAttribute('href', '/staff/movies')
+    await expect.element(page.getByRole('link', { name: 'Halls' })).toHaveAttribute('href', '/staff/halls')
+    await expect
+      .element(page.getByRole('link', { name: 'Staff accounts' }))
+      .toHaveAttribute('href', '/staff/accounts')
   })
 
   it('has no serious axe violations on the staff portal', async () => {

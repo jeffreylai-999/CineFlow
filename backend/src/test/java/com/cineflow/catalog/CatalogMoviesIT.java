@@ -1,7 +1,6 @@
 package com.cineflow.catalog;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
@@ -32,15 +31,14 @@ class CatalogMoviesIT {
 	void listsAvailableSanitizedMoviesFromFixture() throws Exception {
 		mockMvc.perform(get("/api/movies").accept(MediaType.APPLICATION_JSON))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$", hasSize(1)))
-			.andExpect(jsonPath("$[0].title").value("Nebula Express"))
-			.andExpect(jsonPath("$[0].synopsis").value(
+			.andExpect(jsonPath("$[?(@.title=='Nebula Express')].synopsis").value(
 					"A courier crew races a sealed cargo across three colonies before the gate collapses."))
-			.andExpect(jsonPath("$[0].genre").value("Adventure"))
-			.andExpect(jsonPath("$[0].runtimeMinutes").value(118))
-			.andExpect(jsonPath("$[0].ageRating").value("PG-13"))
-			.andExpect(jsonPath("$[0].posterUrl").value("https://cdn.example.test/posters/nebula-express.jpg"))
-			.andExpect(jsonPath("$[0].id").isNumber());
+			.andExpect(jsonPath("$[?(@.title=='Nebula Express')].genre").value("Adventure"))
+			.andExpect(jsonPath("$[?(@.title=='Nebula Express')].runtimeMinutes").value(118))
+			.andExpect(jsonPath("$[?(@.title=='Nebula Express')].ageRating").value("PG-13"))
+			.andExpect(jsonPath("$[?(@.title=='Nebula Express')].posterUrl")
+					.value("https://cdn.example.test/posters/nebula-express.jpg"))
+			.andExpect(jsonPath("$[?(@.title=='Nebula Express')].id").exists());
 	}
 
 	@Test

@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
 import { Navigate, Route, Routes, useNavigate } from 'react-router'
+import { AdminMoviesPage } from '@/catalog/AdminMoviesPage.tsx'
+import type { CatalogAdminClient } from '@/catalog/api/catalogAdminClient.ts'
 import type { IdentityClient } from '@/identity/api/identityClient.ts'
 import { StaffAccountsPage } from '@/identity/StaffAccountsPage.tsx'
 import { StaffHomePage } from '@/identity/StaffHomePage.tsx'
@@ -9,10 +11,11 @@ import { HallsPage } from '@/scheduling/HallsPage.tsx'
 import { createSchedulingClient } from '@/scheduling/api/schedulingClient.ts'
 
 type StaffRoutesProps = {
+  catalogAdminClient: CatalogAdminClient
   client: IdentityClient
 }
 
-export function StaffRoutes({ client }: StaffRoutesProps) {
+export function StaffRoutes({ catalogAdminClient, client }: StaffRoutesProps) {
   const auth = useStaffAuth()
   const navigate = useNavigate()
   const accessToken = auth.session?.accessToken
@@ -42,6 +45,22 @@ export function StaffRoutes({ client }: StaffRoutesProps) {
         element={
           auth.session ? (
             <StaffHomePage session={auth.session} onLogout={() => void auth.signOut()} />
+          ) : (
+            <Navigate to="/staff/login" replace />
+          )
+        }
+      />
+      <Route
+        path="movies"
+        element={
+          auth.session?.staff.role === 'ADMINISTRATOR' ? (
+            <AdminMoviesPage
+              session={auth.session}
+              client={catalogAdminClient}
+              onLogout={() => void auth.signOut()}
+            />
+          ) : auth.session ? (
+            <Navigate to="/staff" replace />
           ) : (
             <Navigate to="/staff/login" replace />
           )

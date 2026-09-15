@@ -1,0 +1,20 @@
+import { describe, expect, it } from 'vitest'
+import { CatalogAdminRequestError } from '@/catalog/api/catalogAdminClient.ts'
+import { catalogAdminErrorMessage } from '@/catalog/catalogAdminErrorMessage.ts'
+
+describe('catalogAdminErrorMessage', () => {
+  it('includes Retry-After seconds for search and provider quota limits', () => {
+    expect(catalogAdminErrorMessage(new CatalogAdminRequestError(429, 'catalog.rate_limited', 12))).toBe(
+      'Search is temporarily limited. Try again in 12 seconds.',
+    )
+    expect(catalogAdminErrorMessage(new CatalogAdminRequestError(429, 'catalog.provider_quota', 8))).toBe(
+      'The movie metadata provider is temporarily limited. Try again in 8 seconds.',
+    )
+  })
+
+  it('keeps the fallback wording when Retry-After is absent', () => {
+    expect(catalogAdminErrorMessage(new CatalogAdminRequestError(429, 'catalog.rate_limited'))).toBe(
+      'Search is temporarily limited. Wait a moment and try again.',
+    )
+  })
+})

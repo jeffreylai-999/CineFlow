@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import axe from 'axe-core'
 import { MemoryRouter, Route, Routes } from 'react-router'
+import type { CatalogAdminClient } from '@/catalog/api/catalogAdminClient.ts'
 import type { StaffAccount, StaffSession } from '@/identity/api/identityClient.ts'
 import { IdentityRequestError } from '@/identity/api/identityClient.ts'
 import type { StaffSocket } from '@/identity/api/staffSocket.ts'
@@ -34,6 +35,16 @@ function silentSocket(): StaffSocket {
   }
 }
 
+function silentCatalogAdminClient(): CatalogAdminClient {
+  return {
+    listMovies: vi.fn().mockResolvedValue([]),
+    search: vi.fn().mockResolvedValue([]),
+    importMovie: vi.fn(),
+    refresh: vi.fn(),
+    updateSchedulingFields: vi.fn(),
+  }
+}
+
 async function renderStaffRoutes(options: {
   session: StaffSession
   path?: string
@@ -52,7 +63,7 @@ async function renderStaffRoutes(options: {
           path="/staff/*"
           element={
             <StaffAuthProvider client={client} socket={silentSocket()}>
-              <StaffRoutes client={client} />
+              <StaffRoutes catalogAdminClient={silentCatalogAdminClient()} client={client} />
             </StaffAuthProvider>
           }
         />
@@ -294,7 +305,7 @@ describe('StaffRoutes staff administration', () => {
             path="/staff/*"
             element={
               <StaffAuthProvider client={client} socket={silentSocket()}>
-                <StaffRoutes client={client} />
+                <StaffRoutes catalogAdminClient={silentCatalogAdminClient()} client={client} />
               </StaffAuthProvider>
             }
           />

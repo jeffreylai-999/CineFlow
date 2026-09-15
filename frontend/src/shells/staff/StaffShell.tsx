@@ -26,6 +26,9 @@ export function StaffShell({ children, role, username, onLogout }: StaffShellPro
             </NavLink>
             {role === 'ADMINISTRATOR' ? (
               <>
+                <NavLink className="rounded-md px-2 py-1 hover:bg-sidebar-accent" to="/staff/movies">
+                  Movies
+                </NavLink>
                 <NavLink className="rounded-md px-2 py-1 hover:bg-sidebar-accent" to="/staff/halls">
                   Halls
                 </NavLink>

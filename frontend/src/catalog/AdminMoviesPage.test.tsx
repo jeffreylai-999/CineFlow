@@ -5,7 +5,13 @@ import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import axe from 'axe-core'
 import { AdminMoviesPage } from '@/catalog/AdminMoviesPage.tsx'
-import { CatalogAdminRequestError, type CatalogAdminClient, type ManagedMovie, type MovieSearchHit } from '@/catalog/api/catalogAdminClient.ts'
+import {
+  CatalogAdminRequestError,
+  type CatalogAdminClient,
+  type ManagedMovie,
+  type MovieProviderSettings,
+  type MovieSearchHit,
+} from '@/catalog/api/catalogAdminClient.ts'
 import type { StaffSession } from '@/identity/api/identityClient.ts'
 
 const administrator: StaffSession = {
@@ -34,6 +40,19 @@ const hit: MovieSearchHit = {
   posterUrl: imported.posterUrl,
 }
 
+const tmdbOnly: MovieProviderSettings = {
+  activeProviderId: 'tmdb',
+  providers: [{ id: 'tmdb', displayName: 'TMDB' }],
+}
+
+const bothProviders: MovieProviderSettings = {
+  activeProviderId: 'tmdb',
+  providers: [
+    { id: 'tmdb', displayName: 'TMDB' },
+    { id: 'omdb', displayName: 'OMDb' },
+  ],
+}
+
 function renderMovies(ui: ReactElement) {
   return render(<MemoryRouter>{ui}</MemoryRouter>)
 }
@@ -41,6 +60,8 @@ function renderMovies(ui: ReactElement) {
 function client(overrides: Partial<CatalogAdminClient> = {}): CatalogAdminClient {
   return {
     listMovies: vi.fn().mockResolvedValue([]),
+    listProviders: vi.fn().mockResolvedValue(tmdbOnly),
+    selectProvider: vi.fn().mockResolvedValue({ ...bothProviders, activeProviderId: 'omdb' }),
     search: vi.fn().mockResolvedValue([hit]),
     importMovie: vi.fn().mockResolvedValue(imported),
     refresh: vi.fn().mockResolvedValue({ ...imported, title: 'Refreshed Gate' }),
@@ -87,6 +108,34 @@ describe('AdminMoviesPage', () => {
       { runtimeMinutes: 130, ageRating: 'NC-16' },
       'admin-token',
     )
+  })
+
+  it('lets an Administrator select OMDb without remapping existing Movies', async () => {
+    const catalogClient = client({
+      listMovies: vi.fn().mockResolvedValue([imported]),
+      listProviders: vi.fn().mockResolvedValue(bothProviders),
+    })
+
+    await renderMovies(
+      <AdminMoviesPage session={administrator} client={catalogClient} onLogout={() => undefined} />,
+    )
+
+    await expect.element(page.getByRole('group', { name: 'Active metadata provider' })).toBeInTheDocument()
+    await expect.element(page.getByRole('radio', { name: 'OMDb' })).toBeEnabled()
+    await page.getByRole('radio', { name: 'OMDb' }).click()
+    await expect.element(page.getByRole('status')).toHaveTextContent('Now searching OMDb.')
+    await expect.element(page.getByLabelText('Search OMDb')).toBeInTheDocument()
+    await expect.element(page.getByText('Adventure · tmdb 4242')).toBeInTheDocument()
+    expect(catalogClient.selectProvider).toHaveBeenCalledWith('omdb', 'admin-token')
+    expect(catalogClient.refresh).not.toHaveBeenCalled()
+  })
+
+  it('lists only the providers the catalog client returns', async () => {
+    await renderMovies(
+      <AdminMoviesPage session={administrator} client={client()} onLogout={() => undefined} />,
+    )
+    await expect.element(page.getByRole('radio', { name: 'TMDB' })).toBeInTheDocument()
+    await expect.element(page.getByRole('radio', { name: 'OMDb' })).not.toBeInTheDocument()
   })
 
   it('refreshes descriptive metadata through the catalog client', async () => {

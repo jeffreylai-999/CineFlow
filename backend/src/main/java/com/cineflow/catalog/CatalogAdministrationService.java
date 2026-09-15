@@ -18,19 +18,19 @@ class CatalogAdministrationService implements CatalogAdministration {
 
 	private static final String PROVIDER_IDENTITY_CONSTRAINT = "movies_provider_external_unique";
 
-	private final MovieMetadataProvider movieMetadataProvider;
+	private final MovieMetadataProviders movieMetadataProviders;
 	private final MovieRepository movieRepository;
 	private final Audit audit;
 	private final Clock clock;
 	private final TransactionTemplate transactions;
 
 	CatalogAdministrationService(
-			MovieMetadataProvider movieMetadataProvider,
+			MovieMetadataProviders movieMetadataProviders,
 			MovieRepository movieRepository,
 			Audit audit,
 			Clock clock,
 			PlatformTransactionManager transactionManager) {
-		this.movieMetadataProvider = movieMetadataProvider;
+		this.movieMetadataProviders = movieMetadataProviders;
 		this.movieRepository = movieRepository;
 		this.audit = audit;
 		this.clock = clock;
@@ -42,15 +42,16 @@ class CatalogAdministrationService implements CatalogAdministration {
 		if (query == null || query.isBlank()) {
 			throw CatalogException.invalidRequest();
 		}
-		return movieMetadataProvider.search(query);
+		return movieMetadataProviders.active().search(query);
 	}
 
 	@Override
 	public MovieAdminResponse importMovie(long actorStaffId, String externalId, Integer runtimeMinutes, String ageRating) {
-		if (alreadyImported(movieMetadataProvider.providerId(), externalId)) {
+		MovieMetadataProvider provider = movieMetadataProviders.active();
+		if (alreadyImported(provider.providerId(), externalId)) {
 			throw CatalogException.duplicateImport();
 		}
-		MovieProviderRecord record = movieMetadataProvider.fetch(externalId);
+		MovieProviderRecord record = provider.fetch(externalId);
 		return Objects.requireNonNull(
 				transactions.execute(status -> persistImportedMovie(actorStaffId, record, runtimeMinutes, ageRating)));
 	}
@@ -58,10 +59,7 @@ class CatalogAdministrationService implements CatalogAdministration {
 	@Override
 	public MovieAdminResponse refresh(long actorStaffId, long movieId) {
 		MovieEntity movie = movieRepository.findById(movieId).orElseThrow(CatalogException::movieNotFound);
-		if (!movieMetadataProvider.providerId().equals(movie.getSourceProvider())) {
-			throw CatalogException.providerUnavailable();
-		}
-		MovieProviderRecord record = movieMetadataProvider.fetch(movie.getExternalId());
+		MovieProviderRecord record = movieMetadataProviders.source(movie.getSourceProvider()).fetch(movie.getExternalId());
 		return Objects.requireNonNull(transactions.execute(status -> applyRefresh(actorStaffId, movieId, record)));
 	}
 
@@ -80,6 +78,17 @@ class CatalogAdministrationService implements CatalogAdministration {
 	@Transactional(readOnly = true)
 	public List<MovieAdminResponse> listMovies() {
 		return movieRepository.findAllByOrderByTitleAsc().stream().map(MovieEntity::toAdminResponse).toList();
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public MovieProviderSettingsResponse providers() {
+		return movieMetadataProviders.current();
+	}
+
+	@Override
+	public MovieProviderSettingsResponse selectProvider(long actorStaffId, String providerId) {
+		return movieMetadataProviders.select(actorStaffId, providerId);
 	}
 
 	private MovieAdminResponse persistImportedMovie(

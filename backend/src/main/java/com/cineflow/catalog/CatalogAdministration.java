@@ -13,4 +13,8 @@ public interface CatalogAdministration {
 	MovieAdminResponse updateSchedulingFields(long movieId, int runtimeMinutes, String ageRating);
 
 	List<MovieAdminResponse> listMovies();
+
+	MovieProviderSettingsResponse providers();
+
+	MovieProviderSettingsResponse selectProvider(long actorStaffId, String providerId);
 }

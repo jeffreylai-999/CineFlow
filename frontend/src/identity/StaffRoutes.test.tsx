@@ -38,6 +38,11 @@ function silentSocket(): StaffSocket {
 function silentCatalogAdminClient(): CatalogAdminClient {
   return {
     listMovies: vi.fn().mockResolvedValue([]),
+    listProviders: vi.fn().mockResolvedValue({
+      activeProviderId: 'tmdb',
+      providers: [{ id: 'tmdb', displayName: 'TMDB' }],
+    }),
+    selectProvider: vi.fn(),
     search: vi.fn().mockResolvedValue([]),
     importMovie: vi.fn(),
     refresh: vi.fn(),

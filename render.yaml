@@ -31,3 +31,5 @@ services:
         value: "true"
       - key: CINEFLOW_TMDB_ACCESS_TOKEN
         sync: false
+      - key: CINEFLOW_OMDB_API_KEY
+        sync: false

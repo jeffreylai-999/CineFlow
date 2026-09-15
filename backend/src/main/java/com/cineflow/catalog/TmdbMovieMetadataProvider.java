@@ -3,6 +3,7 @@ package com.cineflow.catalog;
 import java.util.List;
 import java.util.function.Supplier;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -18,7 +19,7 @@ class TmdbMovieMetadataProvider implements MovieMetadataProvider {
 	private final RestClient tmdbRestClient;
 	private final TmdbProperties properties;
 
-	TmdbMovieMetadataProvider(RestClient tmdbRestClient, TmdbProperties properties) {
+	TmdbMovieMetadataProvider(@Qualifier("tmdbRestClient") RestClient tmdbRestClient, TmdbProperties properties) {
 		this.tmdbRestClient = tmdbRestClient;
 		this.properties = properties;
 	}

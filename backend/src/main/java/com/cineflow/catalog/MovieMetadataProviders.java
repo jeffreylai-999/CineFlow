@@ -1,0 +1,98 @@
+package com.cineflow.catalog;
+
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.cineflow.audit.Audit;
+import com.cineflow.audit.AuditAction;
+
+@Service
+class MovieMetadataProviders {
+
+	static final String TMDB = "tmdb";
+	static final String OMDB = "omdb";
+
+	private final MovieMetadataProvider tmdb;
+	private final MovieMetadataProvider omdb;
+	private final TmdbProperties tmdbProperties;
+	private final OmdbProperties omdbProperties;
+	private final CatalogSettingsRepository settings;
+	private final Audit audit;
+
+	MovieMetadataProviders(
+			@Qualifier("tmdbMovieMetadataProvider") MovieMetadataProvider tmdb,
+			@Qualifier("omdbMovieMetadataProvider") MovieMetadataProvider omdb,
+			TmdbProperties tmdbProperties,
+			OmdbProperties omdbProperties,
+			CatalogSettingsRepository settings,
+			Audit audit) {
+		this.tmdb = tmdb;
+		this.omdb = omdb;
+		this.tmdbProperties = tmdbProperties;
+		this.omdbProperties = omdbProperties;
+		this.settings = settings;
+		this.audit = audit;
+	}
+
+	MovieMetadataProvider active() {
+		return requireConfigured(activeProviderId());
+	}
+
+	MovieMetadataProvider source(String providerId) {
+		if (TMDB.equals(providerId)) {
+			return tmdb;
+		}
+		if (OMDB.equals(providerId)) {
+			return omdb;
+		}
+		throw CatalogException.providerUnavailable();
+	}
+
+	String activeProviderId() {
+		return settings.findById(1).map(CatalogSettingsEntity::getActiveProvider).orElse(TMDB);
+	}
+
+	List<MovieProviderOption> configured() {
+		List<MovieProviderOption> options = new ArrayList<>();
+		if (tmdbProperties.configured()) {
+			options.add(new MovieProviderOption(TMDB, "TMDB"));
+		}
+		if (omdbProperties.configured()) {
+			options.add(new MovieProviderOption(OMDB, "OMDb"));
+		}
+		return List.copyOf(options);
+	}
+
+	MovieProviderSettingsResponse current() {
+		return new MovieProviderSettingsResponse(activeProviderId(), configured());
+	}
+
+	@Transactional
+	MovieProviderSettingsResponse select(long actorStaffId, String providerId) {
+		if (providerId == null || providerId.isBlank()) {
+			throw CatalogException.invalidRequest();
+		}
+		if (!TMDB.equals(providerId) && !OMDB.equals(providerId)) {
+			throw CatalogException.invalidRequest();
+		}
+		if (configured().stream().noneMatch(option -> option.id().equals(providerId))) {
+			throw CatalogException.providerNotConfigured();
+		}
+		CatalogSettingsEntity row = settings.findById(1).orElseThrow(CatalogException::saveFailed);
+		row.setActiveProvider(providerId);
+		settings.save(row);
+		audit.record(actorStaffId, AuditAction.MOVIE_PROVIDER_SELECTED, "movie_provider", providerId);
+		return current();
+	}
+
+	private MovieMetadataProvider requireConfigured(String providerId) {
+		if (configured().stream().noneMatch(option -> option.id().equals(providerId))) {
+			throw CatalogException.providerNotConfigured();
+		}
+		return source(providerId);
+	}
+}

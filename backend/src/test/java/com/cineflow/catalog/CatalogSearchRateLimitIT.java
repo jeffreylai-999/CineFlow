@@ -37,7 +37,7 @@ class CatalogSearchRateLimitIT {
 	@Autowired
 	JdbcTemplate jdbcTemplate;
 
-	@MockitoBean
+	@MockitoBean(name = "tmdbMovieMetadataProvider")
 	MovieMetadataProvider movieMetadataProvider;
 
 	@Test

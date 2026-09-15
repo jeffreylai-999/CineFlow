@@ -156,6 +156,55 @@ describe('AdminMoviesPage', () => {
     await expect.element(page.getByRole('button', { name: 'Search' })).toBeEnabled()
   })
 
+  it('clears previous search results when a later search fails', async () => {
+    const catalogClient = client({
+      search: vi
+        .fn()
+        .mockResolvedValueOnce([hit])
+        .mockRejectedValueOnce(new CatalogAdminRequestError(429, 'catalog.rate_limited', 12)),
+    })
+
+    await render(
+      <AdminMoviesPage session={administrator} client={catalogClient} onLogout={() => undefined} />,
+    )
+    await page.getByLabelText('Search TMDB').fill('courier gate')
+    await expect.element(page.getByRole('button', { name: 'Search' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Search' }).click()
+    await expect.element(page.getByRole('button', { name: 'Import' })).toBeInTheDocument()
+
+    await page.getByLabelText('Search TMDB').fill('other query')
+    await expect.element(page.getByRole('button', { name: 'Search' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Search' }).click()
+
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent('Search is temporarily limited. Try again in 12 seconds.')
+    await expect.element(page.getByRole('button', { name: 'Import' })).not.toBeInTheDocument()
+  })
+
+  it('keeps an imported movie when the follow-up list fails', async () => {
+    const catalogClient = client({
+      listMovies: vi
+        .fn()
+        .mockResolvedValueOnce([])
+        .mockRejectedValueOnce(new CatalogAdminRequestError(503, 'catalog.provider_unavailable')),
+    })
+
+    await render(
+      <AdminMoviesPage session={administrator} client={catalogClient} onLogout={() => undefined} />,
+    )
+    await page.getByLabelText('Search TMDB').fill('courier gate')
+    await expect.element(page.getByRole('button', { name: 'Search' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Search' }).click()
+    await expect.element(page.getByRole('button', { name: 'Import' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Import' }).click()
+
+    await expect.element(page.getByRole('status')).toHaveTextContent('Imported The Courier Gate.')
+    await expect.element(page.getByRole('heading', { name: 'The Courier Gate' })).toBeInTheDocument()
+    await expect.element(page.getByRole('alert')).not.toBeInTheDocument()
+    expect(catalogClient.importMovie).toHaveBeenCalledTimes(1)
+  })
+
   it('rejects a non-integer import runtime before calling the catalog client', async () => {
     const catalogClient = client()
 

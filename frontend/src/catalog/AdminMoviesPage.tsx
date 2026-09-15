@@ -63,6 +63,7 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
     setBusy(true)
     setError(null)
     setMessage(null)
+    setHits([])
     try {
       setHits(await client.search(query, session.accessToken))
     } catch (cause) {
@@ -89,10 +90,15 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
         importInput(externalId, runtimeMinutes, importAgeRating),
         session.accessToken,
       )
-      const next = await client.listMovies(session.accessToken)
-      setMovies(next)
-      setDrafts(toDrafts(next))
+      upsertMovie(imported)
       setMessage(`Imported ${imported.title}.`)
+      try {
+        const next = await client.listMovies(session.accessToken)
+        setMovies(next)
+        setDrafts(toDrafts(next))
+      } catch {
+        // Import already committed; keep the returned Movie in local state.
+      }
     } catch (cause) {
       setError(catalogAdminErrorMessage(cause))
     } finally {
@@ -106,7 +112,7 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
     setMessage(null)
     try {
       const refreshed = await client.refresh(movieId, session.accessToken)
-      replaceMovie(refreshed)
+      upsertMovie(refreshed)
       setMessage(`Refreshed ${refreshed.title}.`)
     } catch (cause) {
       setError(catalogAdminErrorMessage(cause))
@@ -128,7 +134,7 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
         { runtimeMinutes, ageRating },
         session.accessToken,
       )
-      replaceMovie(updated)
+      upsertMovie(updated)
       setMessage(`Updated runtime and age rating for ${updated.title}.`)
     } catch (cause) {
       setError(catalogAdminErrorMessage(cause))
@@ -137,8 +143,13 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
     }
   }
 
-  function replaceMovie(next: ManagedMovie) {
-    setMovies((current) => current.map((movie) => (movie.id === next.id ? next : movie)))
+  function upsertMovie(next: ManagedMovie) {
+    setMovies((current) => {
+      if (current.some((movie) => movie.id === next.id)) {
+        return current.map((movie) => (movie.id === next.id ? next : movie))
+      }
+      return [...current, next]
+    })
     setDrafts((current) => ({
       ...current,
       [next.id]: { runtimeMinutes: String(next.runtimeMinutes), ageRating: next.ageRating },

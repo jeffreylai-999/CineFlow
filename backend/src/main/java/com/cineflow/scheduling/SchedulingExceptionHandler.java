@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.cineflow.platform.CorrelationIdFilter;
 
-@RestControllerAdvice(assignableTypes = HallController.class)
+@RestControllerAdvice(basePackages = "com.cineflow.scheduling")
 class SchedulingExceptionHandler {
 
 	@ExceptionHandler(SchedulingException.class)
@@ -24,6 +24,34 @@ class SchedulingExceptionHandler {
 		if (message.contains("scheduling.seat_not_disableable")) {
 			return problem(
 					HttpStatus.CONFLICT, "scheduling.seat_not_disableable", "Seat cannot be disabled");
+		}
+		if (message.contains("showtimes_hall_occupancy_excl")) {
+			return problem(
+					HttpStatus.CONFLICT,
+					"scheduling.showtime_overlap",
+					"That Hall is occupied through the movie runtime and Cleaning Buffer");
+		}
+		if (message.contains("scheduling.hall_archived")) {
+			return problem(
+					HttpStatus.CONFLICT, "scheduling.hall_archived", "Archived Halls cannot receive new Showtimes");
+		}
+		if (message.contains("scheduling.movie_archived")) {
+			return problem(
+					HttpStatus.CONFLICT,
+					"scheduling.movie_archived",
+					"Archived Movies cannot receive new Showtimes");
+		}
+		if (message.contains("scheduling.showtime_has_bookings")) {
+			return problem(
+					HttpStatus.CONFLICT,
+					"scheduling.showtime_has_bookings",
+					"Showtimes with Bookings cannot be removed");
+		}
+		if (message.contains("seat_claims_showtime_hall_fk")) {
+			return problem(
+					HttpStatus.CONFLICT,
+					"scheduling.showtime_not_removable",
+					"Only unused future Showtimes can be removed");
 		}
 		throw exception;
 	}

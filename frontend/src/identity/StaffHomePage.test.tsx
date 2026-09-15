@@ -32,9 +32,10 @@ describe('StaffHomePage', () => {
     await expect.element(page.getByRole('link', { name: 'Movies' })).not.toBeInTheDocument()
     await expect.element(page.getByRole('link', { name: 'Staff accounts' })).not.toBeInTheDocument()
     await expect.element(page.getByRole('link', { name: 'Halls' })).not.toBeInTheDocument()
+    await expect.element(page.getByRole('link', { name: 'Showtimes' })).not.toBeInTheDocument()
   })
 
-  it('shows Administrator navigation for Movies, Halls, and Staff accounts', async () => {
+  it('shows Administrator navigation for Movies, Showtimes, Halls, and Staff accounts', async () => {
     await render(
       <MemoryRouter>
         <StaffHomePage session={administrator} onLogout={() => undefined} />
@@ -43,6 +44,7 @@ describe('StaffHomePage', () => {
 
     await expect.element(page.getByText(/Administrator/)).toBeInTheDocument()
     await expect.element(page.getByRole('link', { name: 'Movies' })).toHaveAttribute('href', '/staff/movies')
+    await expect.element(page.getByRole('link', { name: 'Showtimes' })).toHaveAttribute('href', '/staff/showtimes')
     await expect.element(page.getByRole('link', { name: 'Halls' })).toHaveAttribute('href', '/staff/halls')
     await expect
       .element(page.getByRole('link', { name: 'Staff accounts' }))

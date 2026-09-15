@@ -1,20 +1,27 @@
 package com.cineflow.scheduling;
 
+import java.math.BigDecimal;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.cineflow.audit.Audit;
 import com.cineflow.audit.AuditAction;
+import com.cineflow.catalog.Catalog;
+import com.cineflow.catalog.MovieForSchedule;
 
 @Service
 class SchedulingService implements Scheduling {
 
 	private final HallRepository halls;
 	private final SeatRepository seats;
+	private final ShowtimeRepository showtimes;
+	private final Catalog catalog;
 	private final JdbcTemplate jdbcTemplate;
 	private final Audit audit;
 	private final Clock clock;
@@ -22,11 +29,15 @@ class SchedulingService implements Scheduling {
 	SchedulingService(
 			HallRepository halls,
 			SeatRepository seats,
+			ShowtimeRepository showtimes,
+			Catalog catalog,
 			JdbcTemplate jdbcTemplate,
 			Audit audit,
 			Clock clock) {
 		this.halls = halls;
 		this.seats = seats;
+		this.showtimes = showtimes;
+		this.catalog = catalog;
 		this.jdbcTemplate = jdbcTemplate;
 		this.audit = audit;
 		this.clock = clock;
@@ -96,9 +107,175 @@ class SchedulingService implements Scheduling {
 		return hall.toResponse();
 	}
 
+	@Override
+	@Transactional(readOnly = true)
+	public List<ShowtimeResponse> listShowtimes() {
+		return jdbcTemplate.query(
+				"""
+						select s.id, s.movie_id, m.title, m.runtime_minutes, s.hall_id, h.name,
+						       s.starts_at, s.adult_price_myr, s.child_price_myr
+						from cineflow.showtimes s
+						join cineflow.movies m on m.id = s.movie_id
+						join cineflow.halls h on h.id = s.hall_id
+						order by s.starts_at, s.id
+						""",
+				(rs, rowNum) -> toResponse(
+						rs.getLong("id"),
+						rs.getLong("movie_id"),
+						rs.getString("title"),
+						rs.getInt("runtime_minutes"),
+						rs.getLong("hall_id"),
+						rs.getString("name"),
+						rs.getTimestamp("starts_at").toInstant(),
+						rs.getBigDecimal("adult_price_myr"),
+						rs.getBigDecimal("child_price_myr")));
+	}
+
+	@Override
+	@Transactional
+	public ShowtimeResponse createShowtime(
+			long actorStaffId,
+			long movieId,
+			long hallId,
+			String startsAtLocal,
+			String timeZone,
+			BigDecimal adultPriceMyr,
+			BigDecimal childPriceMyr) {
+		Instant startsAt = CinemaTime.toInstant(startsAtLocal, timeZone);
+		requirePositivePrices(adultPriceMyr, childPriceMyr);
+		HallEntity hall = halls.findById(hallId).orElseThrow(SchedulingException::hallNotFound);
+		if (hall.getArchivedAt() != null) {
+			throw SchedulingException.hallArchived();
+		}
+		MovieForSchedule movie = catalog.findMovieForSchedule(movieId).orElseThrow(SchedulingException::movieNotFound);
+		if (movie.archived()) {
+			throw SchedulingException.movieArchived();
+		}
+		ShowtimeEntity saved;
+		try {
+			saved = showtimes.saveAndFlush(new ShowtimeEntity(hallId, movieId, startsAt, adultPriceMyr, childPriceMyr));
+		}
+		catch (DataIntegrityViolationException exception) {
+			throw mapShowtimeWriteFailure(exception);
+		}
+		audit.record(actorStaffId, AuditAction.SHOWTIME_CREATED, "showtime", Long.toString(saved.getId()));
+		return toResponse(
+				saved.getId(),
+				movie.id(),
+				movie.title(),
+				movie.runtimeMinutes(),
+				hall.getId(),
+				hall.getName(),
+				saved.getStartsAt(),
+				saved.getAdultPriceMyr(),
+				saved.getChildPriceMyr());
+	}
+
+	@Override
+	@Transactional
+	public ShowtimeResponse updateShowtimePrices(
+			long actorStaffId,
+			long showtimeId,
+			BigDecimal adultPriceMyr,
+			BigDecimal childPriceMyr) {
+		requirePositivePrices(adultPriceMyr, childPriceMyr);
+		ShowtimeEntity showtime = showtimes.findById(showtimeId).orElseThrow(SchedulingException::showtimeNotFound);
+		showtime.setPrices(adultPriceMyr, childPriceMyr);
+		showtimes.flush();
+		audit.record(actorStaffId, AuditAction.SHOWTIME_PRICES_UPDATED, "showtime", Long.toString(showtime.getId()));
+		return requireResponse(showtime.getId());
+	}
+
+	@Override
+	@Transactional
+	public void removeShowtime(long actorStaffId, long showtimeId) {
+		ShowtimeEntity showtime = showtimes.findById(showtimeId).orElseThrow(SchedulingException::showtimeNotFound);
+		if (!showtime.getStartsAt().isAfter(clock.instant())) {
+			throw SchedulingException.showtimeNotRemovable();
+		}
+		if (hasBookings(showtimeId)) {
+			throw SchedulingException.showtimeHasBookings();
+		}
+		jdbcTemplate.update(
+				"delete from cineflow.seat_claims where showtime_id = ? and claim_kind = 'HOLD'",
+				showtimeId);
+		try {
+			showtimes.delete(showtime);
+			showtimes.flush();
+		}
+		catch (DataIntegrityViolationException exception) {
+			throw mapShowtimeWriteFailure(exception);
+		}
+		audit.record(actorStaffId, AuditAction.SHOWTIME_REMOVED, "showtime", Long.toString(showtimeId));
+	}
+
 	private boolean seatNotDisableable(long seatId) {
 		Boolean blocked = jdbcTemplate.queryForObject(
 				"select cineflow.seat_not_disableable(?)", Boolean.class, seatId);
 		return Boolean.TRUE.equals(blocked);
+	}
+
+	private boolean hasBookings(long showtimeId) {
+		Integer count = jdbcTemplate.queryForObject(
+				"select count(*) from cineflow.seat_claims where showtime_id = ? and claim_kind = 'BOOKING'",
+				Integer.class,
+				showtimeId);
+		return count != null && count > 0;
+	}
+
+	private ShowtimeResponse requireResponse(long showtimeId) {
+		return listShowtimes().stream()
+			.filter(showtime -> showtime.id() == showtimeId)
+			.findFirst()
+			.orElseThrow(SchedulingException::showtimeNotFound);
+	}
+
+	private static void requirePositivePrices(BigDecimal adultPriceMyr, BigDecimal childPriceMyr) {
+		if (adultPriceMyr == null || childPriceMyr == null
+				|| adultPriceMyr.signum() <= 0 || childPriceMyr.signum() <= 0) {
+			throw SchedulingException.invalidPrice();
+		}
+	}
+
+	private static SchedulingException mapShowtimeWriteFailure(DataIntegrityViolationException exception) {
+		String message = String.valueOf(exception.getMostSpecificCause().getMessage());
+		if (message.contains("showtimes_hall_occupancy_excl")) {
+			return SchedulingException.showtimeOverlap();
+		}
+		if (message.contains("scheduling.hall_archived")) {
+			return SchedulingException.hallArchived();
+		}
+		if (message.contains("scheduling.movie_archived")) {
+			return SchedulingException.movieArchived();
+		}
+		if (message.contains("scheduling.showtime_has_bookings")) {
+			return SchedulingException.showtimeHasBookings();
+		}
+		throw exception;
+	}
+
+	private static ShowtimeResponse toResponse(
+			long id,
+			long movieId,
+			String movieTitle,
+			int runtimeMinutes,
+			long hallId,
+			String hallName,
+			Instant startsAt,
+			BigDecimal adultPriceMyr,
+			BigDecimal childPriceMyr) {
+		return new ShowtimeResponse(
+				id,
+				movieId,
+				movieTitle,
+				runtimeMinutes,
+				hallId,
+				hallName,
+				startsAt,
+				CinemaTime.formatLocal(startsAt),
+				CinemaTime.ZONE.getId(),
+				CinemaTime.occupancyEnd(startsAt, runtimeMinutes),
+				adultPriceMyr,
+				childPriceMyr);
 	}
 }

@@ -2,20 +2,23 @@ import { useMemo } from 'react'
 import { Navigate, Route, Routes, useNavigate } from 'react-router'
 import { AdminMoviesPage } from '@/catalog/AdminMoviesPage.tsx'
 import type { CatalogAdminClient } from '@/catalog/api/catalogAdminClient.ts'
+import type { CatalogClient } from '@/catalog/api/catalogClient.ts'
 import type { IdentityClient } from '@/identity/api/identityClient.ts'
 import { StaffAccountsPage } from '@/identity/StaffAccountsPage.tsx'
 import { StaffHomePage } from '@/identity/StaffHomePage.tsx'
 import { StaffLoginPage } from '@/identity/StaffLoginPage.tsx'
 import { useStaffAuth } from '@/identity/staffAuthContext.ts'
 import { HallsPage } from '@/scheduling/HallsPage.tsx'
+import { ShowtimesPage } from '@/scheduling/ShowtimesPage.tsx'
 import { createSchedulingClient } from '@/scheduling/api/schedulingClient.ts'
 
 type StaffRoutesProps = {
   catalogAdminClient: CatalogAdminClient
+  catalogClient: CatalogClient
   client: IdentityClient
 }
 
-export function StaffRoutes({ catalogAdminClient, client }: StaffRoutesProps) {
+export function StaffRoutes({ catalogAdminClient, catalogClient, client }: StaffRoutesProps) {
   const auth = useStaffAuth()
   const navigate = useNavigate()
   const accessToken = auth.session?.accessToken
@@ -57,6 +60,23 @@ export function StaffRoutes({ catalogAdminClient, client }: StaffRoutesProps) {
             <AdminMoviesPage
               session={auth.session}
               client={catalogAdminClient}
+              onLogout={() => void auth.signOut()}
+            />
+          ) : auth.session ? (
+            <Navigate to="/staff" replace />
+          ) : (
+            <Navigate to="/staff/login" replace />
+          )
+        }
+      />
+      <Route
+        path="showtimes"
+        element={
+          auth.session?.staff.role === 'ADMINISTRATOR' && hallsClient ? (
+            <ShowtimesPage
+              session={auth.session}
+              client={hallsClient}
+              catalogClient={catalogClient}
               onLogout={() => void auth.signOut()}
             />
           ) : auth.session ? (

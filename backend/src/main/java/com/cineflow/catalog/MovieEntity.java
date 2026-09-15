@@ -80,6 +80,18 @@ class MovieEntity {
 		return id;
 	}
 
+	String getTitle() {
+		return title;
+	}
+
+	int getRuntimeMinutes() {
+		return runtimeMinutes;
+	}
+
+	Instant getArchivedAt() {
+		return archivedAt;
+	}
+
 	String getSourceProvider() {
 		return sourceProvider;
 	}

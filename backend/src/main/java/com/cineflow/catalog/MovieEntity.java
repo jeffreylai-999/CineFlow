@@ -2,6 +2,8 @@ package com.cineflow.catalog;
 
 import java.time.Instant;
 
+import org.hibernate.annotations.DynamicUpdate;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -10,6 +12,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 @Entity
+@DynamicUpdate
 @Table(name = "movies", schema = "cineflow")
 class MovieEntity {
 

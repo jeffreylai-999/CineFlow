@@ -85,6 +85,8 @@ cineflow:
     access-token: ${CINEFLOW_TMDB_ACCESS_TOKEN:}
     base-url: ${CINEFLOW_TMDB_BASE_URL:https://api.themoviedb.org/3}
     image-base-url: ${CINEFLOW_TMDB_IMAGE_BASE_URL:https://image.tmdb.org/t/p/w500}
+    connect-timeout: PT3S
+    read-timeout: PT5S
   catalog:
     search-rate-limit: 20
     rate-limit-window: PT1M

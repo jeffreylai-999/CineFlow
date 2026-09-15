@@ -19,7 +19,9 @@ class TmdbMovieMetadataProviderContractTest extends MovieMetadataProviderContrac
 	private static final TmdbProperties PROPERTIES = new TmdbProperties(
 			"test-tmdb-token",
 			"https://api.themoviedb.org/3",
-			"https://image.tmdb.org/t/p/w500");
+			"https://image.tmdb.org/t/p/w500",
+			null,
+			null);
 
 	private static final String SEARCH_BODY = """
 			{
@@ -86,7 +88,7 @@ class TmdbMovieMetadataProviderContractTest extends MovieMetadataProviderContrac
 	MovieMetadataProvider unconfiguredProvider() {
 		return new TmdbMovieMetadataProvider(
 				RestClient.builder().baseUrl(PROPERTIES.baseUrl()).build(),
-				new TmdbProperties("", PROPERTIES.baseUrl(), PROPERTIES.imageBaseUrl()));
+				new TmdbProperties("", PROPERTIES.baseUrl(), PROPERTIES.imageBaseUrl(), null, null));
 	}
 
 	@Override

@@ -56,6 +56,7 @@ describe('AdminMoviesPage', () => {
     await expect.element(page.getByRole('heading', { name: 'Movies' })).toBeInTheDocument()
     const search = page.getByLabelText('Search TMDB')
     await search.fill('courier gate')
+    await expect.element(page.getByRole('button', { name: 'Search' })).toBeEnabled()
     await page.getByRole('button', { name: 'Search' }).click()
     await expect.element(page.getByText('2024 · 4242')).toBeInTheDocument()
 
@@ -90,9 +91,27 @@ describe('AdminMoviesPage', () => {
     await render(
       <AdminMoviesPage session={administrator} client={catalogClient} onLogout={() => undefined} />,
     )
+    await expect.element(page.getByRole('button', { name: 'Refresh metadata' })).toBeEnabled()
     await page.getByRole('button', { name: 'Refresh metadata' }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Refreshed Refreshed Gate.')
     expect(catalogClient.refresh).toHaveBeenCalledWith(8, 'admin-token')
+  })
+
+  it('surfaces Retry-After when search is rate limited', async () => {
+    const catalogClient = client({
+      search: vi.fn().mockRejectedValue(new CatalogAdminRequestError(429, 'catalog.rate_limited', 12)),
+    })
+
+    await render(
+      <AdminMoviesPage session={administrator} client={catalogClient} onLogout={() => undefined} />,
+    )
+    await page.getByLabelText('Search TMDB').fill('courier gate')
+    await expect.element(page.getByRole('button', { name: 'Search' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Search' }).click()
+
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent('Search is temporarily limited. Try again in 12 seconds.')
   })
 
   it('shows a safe error when the provider is unavailable', async () => {
@@ -106,6 +125,7 @@ describe('AdminMoviesPage', () => {
       <AdminMoviesPage session={administrator} client={catalogClient} onLogout={() => undefined} />,
     )
     await page.getByLabelText('Search TMDB').fill('courier gate')
+    await expect.element(page.getByRole('button', { name: 'Search' })).toBeEnabled()
     await page.getByRole('button', { name: 'Search' }).click()
 
     await expect
@@ -113,6 +133,48 @@ describe('AdminMoviesPage', () => {
       .toHaveTextContent(
         'The movie metadata provider is unavailable. Existing Movies remain in the catalog.',
       )
+  })
+
+  it('keeps search disabled until the initial catalog list settles', async () => {
+    let resolveMovies!: (movies: ManagedMovie[]) => void
+    const catalogClient = client({
+      listMovies: vi.fn(
+        () =>
+          new Promise<ManagedMovie[]>((resolve) => {
+            resolveMovies = resolve
+          }),
+      ),
+    })
+
+    await render(
+      <AdminMoviesPage session={administrator} client={catalogClient} onLogout={() => undefined} />,
+    )
+    await page.getByLabelText('Search TMDB').fill('courier gate')
+    await expect.element(page.getByRole('button', { name: 'Search' })).toBeDisabled()
+
+    resolveMovies([])
+    await expect.element(page.getByRole('button', { name: 'Search' })).toBeEnabled()
+  })
+
+  it('rejects a non-integer import runtime before calling the catalog client', async () => {
+    const catalogClient = client()
+
+    await render(
+      <AdminMoviesPage session={administrator} client={catalogClient} onLogout={() => undefined} />,
+    )
+    await page.getByLabelText('Search TMDB').fill('courier gate')
+    await expect.element(page.getByRole('button', { name: 'Search' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Search' }).click()
+    await expect.element(page.getByRole('button', { name: 'Import' })).toBeEnabled()
+    await page.getByLabelText('Import runtime').fill('abc')
+    await page.getByRole('button', { name: 'Import' }).click()
+
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent(
+        'Enter a whole number of minutes for import runtime, or leave it blank to use the provider value.',
+      )
+    expect(catalogClient.importMovie).not.toHaveBeenCalled()
   })
 
   it('has no serious axe violations on the administrator movie route', async () => {

@@ -24,7 +24,7 @@ Do not commit database passwords, JDBC URLs with credentials, or `.env` files. R
 
 The `prod` profile refuses to start if the JDBC URL uses the transaction pooler (`:6543`), omits TLS, or points at the IPv6-only direct host `db.<ref>.supabase.co`. Render's Free web services are IPv4-only, so the persistent-backend endpoint is Supavisor's **session** pooler.
 
-Staff login and refresh rate limits use the first `X-Forwarded-For` address so callers behind Render's proxy do not share one bucket.
+Staff login and refresh rate limits use the first `X-Forwarded-For` address so callers behind Render's proxy do not share one bucket. Administrator Movie search is rate-limited per signed-in staff account.
 
 Example URL shape (password is a separate env var, not embedded):
 

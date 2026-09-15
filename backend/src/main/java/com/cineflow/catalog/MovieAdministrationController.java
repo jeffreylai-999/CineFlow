@@ -16,11 +16,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.cineflow.platform.ClientAddresses;
-
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 @RestController
@@ -46,8 +43,8 @@ public class MovieAdministrationController {
 
 	@GetMapping("/search")
 	@Operation(summary = "Search the active Movie metadata provider")
-	public List<MovieSearchHit> search(@RequestParam String query, HttpServletRequest request) {
-		searchRateLimiter.check(ClientAddresses.of(request));
+	public List<MovieSearchHit> search(@RequestParam String query, Authentication authentication) {
+		searchRateLimiter.check("staff:" + staffId(authentication));
 		return catalogAdministration.search(query);
 	}
 

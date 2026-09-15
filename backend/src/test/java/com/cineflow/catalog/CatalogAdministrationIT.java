@@ -4,15 +4,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -77,7 +83,9 @@ class CatalogAdministrationIT {
 	@Test
 	void administratorCanImportWithoutDuplicatingAProviderIdentifier() throws Exception {
 		when(movieMetadataProvider.providerId()).thenReturn("tmdb");
-		when(movieMetadataProvider.fetch("9001")).thenReturn(providerRecord("9001", "Imported Gate", "Adventure", 101, "PG"));
+		when(movieMetadataProvider.fetch("9001"))
+			.thenReturn(providerRecord("9001", "Imported Gate", "Adventure", 101, "PG"))
+			.thenThrow(MovieProviderException.unavailable());
 
 		String created = mockMvc.perform(post("/api/admin/movies/import")
 				.header("Authorization", "Bearer " + adminToken())
@@ -108,6 +116,7 @@ class CatalogAdministrationIT {
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("catalog.duplicate_import"));
 
+		verify(movieMetadataProvider, times(1)).fetch("9001");
 		assertThat(auditActions()).contains("MOVIE_IMPORTED");
 		assertThat(created).doesNotContain("tmdb-token");
 	}
@@ -153,6 +162,72 @@ class CatalogAdministrationIT {
 			.andExpect(jsonPath("$.title").value("Refreshed Gate"));
 
 		assertThat(auditActions()).contains("MOVIE_IMPORTED", "MOVIE_REFRESHED");
+	}
+
+	@Test
+	void refreshDoesNotOverwriteAConcurrentSchedulingPatch() throws Exception {
+		CountDownLatch fetchStarted = new CountDownLatch(1);
+		CountDownLatch allowFetch = new CountDownLatch(1);
+		when(movieMetadataProvider.providerId()).thenReturn("tmdb");
+		when(movieMetadataProvider.fetch("9004"))
+			.thenReturn(providerRecord("9004", "Original Race", "Adventure", 110, "PG"))
+			.thenAnswer(invocation -> {
+				fetchStarted.countDown();
+				assertThat(allowFetch.await(5, TimeUnit.SECONDS)).isTrue();
+				return providerRecord("9004", "Refreshed Race", "Science Fiction", 999, "R");
+			});
+
+		String created = mockMvc.perform(post("/api/admin/movies/import")
+				.header("Authorization", "Bearer " + adminToken())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"externalId":"9004","runtimeMinutes":121,"ageRating":"PG-13"}
+						"""))
+			.andExpect(status().isCreated())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		int movieId = JsonPath.read(created, "$.id");
+		String token = adminToken();
+		var refresh = Executors.newSingleThreadExecutor();
+		try {
+			var pending = refresh.submit(() -> mockMvc.perform(post("/api/admin/movies/" + movieId + "/refresh")
+					.header("Authorization", "Bearer " + token))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.title").value("Refreshed Race"))
+				.andExpect(jsonPath("$.runtimeMinutes").value(140))
+				.andExpect(jsonPath("$.ageRating").value("NC-16")));
+			assertThat(fetchStarted.await(5, TimeUnit.SECONDS)).isTrue();
+			mockMvc.perform(patch("/api/admin/movies/" + movieId)
+					.header("Authorization", "Bearer " + token)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("""
+							{"runtimeMinutes":140,"ageRating":"NC-16"}
+							"""))
+				.andExpect(status().isOk());
+			allowFetch.countDown();
+			pending.get(10, TimeUnit.SECONDS);
+		}
+		finally {
+			refresh.shutdownNow();
+		}
+	}
+
+	@Test
+	void importSurfacesProviderQuotaWithoutDetails() throws Exception {
+		when(movieMetadataProvider.providerId()).thenReturn("tmdb");
+		when(movieMetadataProvider.fetch("4290")).thenThrow(MovieProviderException.quota());
+
+		mockMvc.perform(post("/api/admin/movies/import")
+				.header("Authorization", "Bearer " + adminToken())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"externalId":"4290"}
+						"""))
+			.andExpect(status().isTooManyRequests())
+			.andExpect(jsonPath("$.code").value("catalog.provider_quota"))
+			.andExpect(jsonPath("$.detail").doesNotExist())
+			.andExpect(header().exists("Retry-After"));
 	}
 
 	@Test

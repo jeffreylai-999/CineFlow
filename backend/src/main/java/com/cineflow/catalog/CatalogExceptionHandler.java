@@ -44,6 +44,10 @@ class CatalogExceptionHandler {
 		if (correlationId != null && !correlationId.isBlank()) {
 			problem.setProperty("correlationId", correlationId);
 		}
-		return ResponseEntity.status(exception.status()).body(problem);
+		ResponseEntity.BodyBuilder response = ResponseEntity.status(exception.status());
+		if (exception.retryAfter() != null) {
+			response.header(HttpHeaders.RETRY_AFTER, Long.toString(exception.retryAfter().toSeconds()));
+		}
+		return response.body(problem);
 	}
 }

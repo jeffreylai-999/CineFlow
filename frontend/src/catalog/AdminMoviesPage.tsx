@@ -29,12 +29,13 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
   const [drafts, setDrafts] = useState<Record<number, SchedulingDraft>>({})
   const [importRuntimeMinutes, setImportRuntimeMinutes] = useState('')
   const [importAgeRating, setImportAgeRating] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [busy, setBusy] = useState(true)
   const [message, setMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
+    setBusy(true)
     client
       .listMovies(session.accessToken)
       .then((next) => {
@@ -46,6 +47,11 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
       .catch((cause: unknown) => {
         if (!cancelled) {
           setError(catalogAdminErrorMessage(cause))
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setBusy(false)
         }
       })
     return () => {
@@ -68,12 +74,20 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
   }
 
   async function onImport(externalId: string) {
+    const runtimeMinutes = parseOptionalRuntime(importRuntimeMinutes)
+    if (runtimeMinutes === 'invalid') {
+      setMessage(null)
+      setError(
+        'Enter a whole number of minutes for import runtime, or leave it blank to use the provider value.',
+      )
+      return
+    }
     setBusy(true)
     setError(null)
     setMessage(null)
     try {
       const imported = await client.importMovie(
-        importInput(externalId, importRuntimeMinutes, importAgeRating),
+        importInput(externalId, runtimeMinutes, importAgeRating),
         session.accessToken,
       )
       const next = await client.listMovies(session.accessToken)
@@ -275,9 +289,20 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
   )
 }
 
+function parseOptionalRuntime(raw: string): number | undefined | 'invalid' {
+  const trimmed = raw.trim()
+  if (trimmed === '') {
+    return undefined
+  }
+  if (!/^[1-9]\d*$/.test(trimmed)) {
+    return 'invalid'
+  }
+  return Number(trimmed)
+}
+
 function importInput(
   externalId: string,
-  runtimeMinutes: string,
+  runtimeMinutes: number | undefined,
   ageRating: string,
 ): {
   externalId: string
@@ -286,7 +311,7 @@ function importInput(
 } {
   return {
     externalId,
-    runtimeMinutes: runtimeMinutes.trim() === '' ? undefined : Number(runtimeMinutes),
+    runtimeMinutes,
     ageRating: ageRating.trim() === '' ? undefined : ageRating.trim(),
   }
 }

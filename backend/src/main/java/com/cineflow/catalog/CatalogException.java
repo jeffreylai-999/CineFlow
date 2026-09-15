@@ -1,18 +1,28 @@
 package com.cineflow.catalog;
 
+import java.time.Duration;
+
 import org.springframework.http.HttpStatus;
 
 public class CatalogException extends RuntimeException {
 
+	private static final Duration PROVIDER_QUOTA_RETRY_AFTER = Duration.ofSeconds(60);
+
 	private final HttpStatus status;
 	private final String code;
 	private final String title;
+	private final Duration retryAfter;
 
 	private CatalogException(HttpStatus status, String code, String title) {
+		this(status, code, title, null);
+	}
+
+	private CatalogException(HttpStatus status, String code, String title, Duration retryAfter) {
 		super(title);
 		this.status = status;
 		this.code = code;
 		this.title = title;
+		this.retryAfter = retryAfter;
 	}
 
 	public HttpStatus status() {
@@ -25,6 +35,10 @@ public class CatalogException extends RuntimeException {
 
 	public String title() {
 		return title;
+	}
+
+	public Duration retryAfter() {
+		return retryAfter;
 	}
 
 	public static CatalogException invalidRequest() {
@@ -63,8 +77,16 @@ public class CatalogException extends RuntimeException {
 	public static CatalogException providerQuota() {
 		return new CatalogException(
 				HttpStatus.TOO_MANY_REQUESTS,
-				"catalog.provider_unavailable",
-				"Movie metadata provider is unavailable");
+				"catalog.provider_quota",
+				"Movie metadata provider is temporarily limited",
+				PROVIDER_QUOTA_RETRY_AFTER);
+	}
+
+	public static CatalogException saveFailed() {
+		return new CatalogException(
+				HttpStatus.SERVICE_UNAVAILABLE,
+				"catalog.save_failed",
+				"Unable to save the Movie");
 	}
 
 	static CatalogException from(MovieProviderException exception) {

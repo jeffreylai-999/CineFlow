@@ -2,10 +2,13 @@ package com.cineflow.catalog;
 
 import java.time.Clock;
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.cineflow.audit.Audit;
 import com.cineflow.audit.AuditAction;
@@ -13,20 +16,25 @@ import com.cineflow.audit.AuditAction;
 @Service
 class CatalogAdministrationService implements CatalogAdministration {
 
+	private static final String PROVIDER_IDENTITY_CONSTRAINT = "movies_provider_external_unique";
+
 	private final MovieMetadataProvider movieMetadataProvider;
 	private final MovieRepository movieRepository;
 	private final Audit audit;
 	private final Clock clock;
+	private final TransactionTemplate transactions;
 
 	CatalogAdministrationService(
 			MovieMetadataProvider movieMetadataProvider,
 			MovieRepository movieRepository,
 			Audit audit,
-			Clock clock) {
+			Clock clock,
+			PlatformTransactionManager transactionManager) {
 		this.movieMetadataProvider = movieMetadataProvider;
 		this.movieRepository = movieRepository;
 		this.audit = audit;
 		this.clock = clock;
+		this.transactions = new TransactionTemplate(transactionManager);
 	}
 
 	@Override
@@ -38,10 +46,48 @@ class CatalogAdministrationService implements CatalogAdministration {
 	}
 
 	@Override
-	@Transactional
 	public MovieAdminResponse importMovie(long actorStaffId, String externalId, Integer runtimeMinutes, String ageRating) {
+		if (alreadyImported(movieMetadataProvider.providerId(), externalId)) {
+			throw CatalogException.duplicateImport();
+		}
 		MovieProviderRecord record = movieMetadataProvider.fetch(externalId);
-		if (movieRepository.findBySourceProviderAndExternalId(record.providerId(), record.externalId()).isPresent()) {
+		return Objects.requireNonNull(
+				transactions.execute(status -> persistImportedMovie(actorStaffId, record, runtimeMinutes, ageRating)));
+	}
+
+	@Override
+	public MovieAdminResponse refresh(long actorStaffId, long movieId) {
+		MovieEntity movie = movieRepository.findById(movieId).orElseThrow(CatalogException::movieNotFound);
+		if (!movieMetadataProvider.providerId().equals(movie.getSourceProvider())) {
+			throw CatalogException.providerUnavailable();
+		}
+		MovieProviderRecord record = movieMetadataProvider.fetch(movie.getExternalId());
+		return Objects.requireNonNull(transactions.execute(status -> applyRefresh(actorStaffId, movieId, record)));
+	}
+
+	@Override
+	@Transactional
+	public MovieAdminResponse updateSchedulingFields(long movieId, int runtimeMinutes, String ageRating) {
+		if (runtimeMinutes <= 0 || ageRating == null || ageRating.isBlank()) {
+			throw CatalogException.schedulingFieldsRequired();
+		}
+		MovieEntity movie = movieRepository.findById(movieId).orElseThrow(CatalogException::movieNotFound);
+		movie.updateScheduling(runtimeMinutes, ageRating);
+		return movie.toAdminResponse();
+	}
+
+	@Override
+	@Transactional(readOnly = true)
+	public List<MovieAdminResponse> listMovies() {
+		return movieRepository.findAllByOrderByTitleAsc().stream().map(MovieEntity::toAdminResponse).toList();
+	}
+
+	private MovieAdminResponse persistImportedMovie(
+			long actorStaffId,
+			MovieProviderRecord record,
+			Integer runtimeMinutes,
+			String ageRating) {
+		if (alreadyImported(record.providerId(), record.externalId())) {
 			throw CatalogException.duplicateImport();
 		}
 		int runtime = firstPositive(runtimeMinutes, record.runtimeMinutes());
@@ -63,20 +109,17 @@ class CatalogAdministrationService implements CatalogAdministration {
 			movieRepository.saveAndFlush(movie);
 		}
 		catch (DataIntegrityViolationException exception) {
-			throw CatalogException.duplicateImport();
+			if (isProviderIdentityConflict(exception)) {
+				throw CatalogException.duplicateImport();
+			}
+			throw CatalogException.saveFailed();
 		}
 		audit.record(actorStaffId, AuditAction.MOVIE_IMPORTED, "movie", Long.toString(movie.getId()));
 		return movie.toAdminResponse();
 	}
 
-	@Override
-	@Transactional
-	public MovieAdminResponse refresh(long actorStaffId, long movieId) {
+	private MovieAdminResponse applyRefresh(long actorStaffId, long movieId, MovieProviderRecord record) {
 		MovieEntity movie = movieRepository.findById(movieId).orElseThrow(CatalogException::movieNotFound);
-		if (!movieMetadataProvider.providerId().equals(movie.getSourceProvider())) {
-			throw CatalogException.providerUnavailable();
-		}
-		MovieProviderRecord record = movieMetadataProvider.fetch(movie.getExternalId());
 		movie.refreshDescriptive(
 				record.title(),
 				record.synopsis() == null ? "" : record.synopsis(),
@@ -87,21 +130,23 @@ class CatalogAdministrationService implements CatalogAdministration {
 		return movie.toAdminResponse();
 	}
 
-	@Override
-	@Transactional
-	public MovieAdminResponse updateSchedulingFields(long movieId, int runtimeMinutes, String ageRating) {
-		if (runtimeMinutes <= 0 || ageRating == null || ageRating.isBlank()) {
-			throw CatalogException.schedulingFieldsRequired();
+	private boolean alreadyImported(String providerId, String externalId) {
+		if (providerId == null || providerId.isBlank() || externalId == null || externalId.isBlank()) {
+			return false;
 		}
-		MovieEntity movie = movieRepository.findById(movieId).orElseThrow(CatalogException::movieNotFound);
-		movie.updateScheduling(runtimeMinutes, ageRating);
-		return movie.toAdminResponse();
+		return movieRepository.findBySourceProviderAndExternalId(providerId, externalId).isPresent();
 	}
 
-	@Override
-	@Transactional(readOnly = true)
-	public List<MovieAdminResponse> listMovies() {
-		return movieRepository.findAllByOrderByTitleAsc().stream().map(MovieEntity::toAdminResponse).toList();
+	static boolean isProviderIdentityConflict(DataIntegrityViolationException exception) {
+		Throwable current = exception;
+		while (current != null) {
+			String message = current.getMessage();
+			if (message != null && message.contains(PROVIDER_IDENTITY_CONSTRAINT)) {
+				return true;
+			}
+			current = current.getCause();
+		}
+		return false;
 	}
 
 	private static int firstPositive(Integer preferred, Integer fallback) {

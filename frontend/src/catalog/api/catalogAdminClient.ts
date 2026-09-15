@@ -39,11 +39,13 @@ export type CatalogAdminClient = {
 export class CatalogAdminRequestError extends Error {
   readonly status: number
   readonly code: string | undefined
+  readonly retryAfterSeconds: number | undefined
 
-  constructor(status: number, code: string | undefined) {
+  constructor(status: number, code: string | undefined, retryAfterSeconds?: number) {
     super(`Catalog administration request failed with status ${status}`)
     this.status = status
     this.code = code
+    this.retryAfterSeconds = retryAfterSeconds
   }
 }
 
@@ -112,9 +114,21 @@ async function readJson<T>(responsePromise: Promise<Response>): Promise<T> {
     } catch {
       code = undefined
     }
-    throw new CatalogAdminRequestError(response.status, code)
+    throw new CatalogAdminRequestError(response.status, code, retryAfterSeconds(response))
   }
   return (await response.json()) as T
+}
+
+function retryAfterSeconds(response: Response): number | undefined {
+  const raw = response.headers.get('Retry-After')
+  if (raw == null) {
+    return undefined
+  }
+  const seconds = Number(raw)
+  if (!Number.isInteger(seconds) || seconds <= 0) {
+    return undefined
+  }
+  return seconds
 }
 
 export function isCatalogAdminRequestError(error: unknown): error is CatalogAdminRequestError {

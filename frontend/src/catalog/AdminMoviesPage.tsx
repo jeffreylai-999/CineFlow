@@ -84,6 +84,7 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
     try {
       const next = await client.selectProvider(providerId, session.accessToken)
       setProviders(next)
+      setHits([])
       const selected = next.providers.find((provider) => provider.id === next.activeProviderId)
       setMessage(`Now searching ${selected?.displayName ?? next.activeProviderId}.`)
     } catch (cause) {
@@ -206,7 +207,8 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
           <FieldSet className="gap-3 rounded-md border border-border/60 p-4">
             <FieldLegend>Active metadata provider</FieldLegend>
             <p className="text-sm text-muted-foreground">
-              Only configured providers are listed. CineFlow does not fail over automatically.
+              The stored selection stays selected even if that provider has no credentials. CineFlow
+              does not fail over automatically.
             </p>
             <div className="flex flex-col gap-2">
               {providers.providers.map((provider) => (
@@ -308,14 +310,16 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
                       </p>
                       <p className="mt-2 max-w-2xl text-sm">{movie.synopsis}</p>
                     </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={() => void onRefresh(movie.id)}
-                    >
-                      Refresh metadata
-                    </Button>
+                    {canRefreshFromSource(movie.sourceProvider) ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => void onRefresh(movie.id)}
+                      >
+                        Refresh metadata
+                      </Button>
+                    ) : null}
                   </div>
                   <div className="grid gap-3 sm:grid-cols-[8rem_8rem_auto] sm:items-end">
                     <div className="grid gap-2">
@@ -386,9 +390,16 @@ function importInput(
   }
 }
 
+function canRefreshFromSource(sourceProvider: string): boolean {
+  return sourceProvider === 'tmdb' || sourceProvider === 'omdb'
+}
+
 function searchLabel(providers: MovieProviderSettings | null): string {
-  const active = providers?.providers.find((provider) => provider.id === providers.activeProviderId)
-  return `Search ${active?.displayName ?? 'TMDB'}`
+  if (providers == null) {
+    return 'Search movies'
+  }
+  const active = providers.providers.find((provider) => provider.id === providers.activeProviderId)
+  return `Search ${active?.displayName ?? providers.activeProviderId}`
 }
 
 function toDrafts(movies: ManagedMovie[]): Record<number, SchedulingDraft> {

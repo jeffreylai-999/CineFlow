@@ -259,6 +259,7 @@ class CatalogAdministrationIT {
 			.andExpect(content().string(not(containsString("tmdb-token"))));
 	}
 
+	@Test
 	void publicCatalogStaysAvailableWhenTheProviderFails() throws Exception {
 		when(movieMetadataProvider.search(anyString())).thenThrow(MovieProviderException.unavailable());
 		when(movieMetadataProvider.fetch(anyString())).thenThrow(MovieProviderException.unavailable());
@@ -273,6 +274,18 @@ class CatalogAdministrationIT {
 			.andExpect(status().isServiceUnavailable())
 			.andExpect(jsonPath("$.code").value("catalog.provider_unavailable"))
 			.andExpect(jsonPath("$.detail").doesNotExist());
+	}
+
+	@Test
+	void refreshOfAFixtureMovieIsRejectedWithoutLookingLikeAnOutage() throws Exception {
+		Long movieId = jdbcTemplate.queryForObject(
+				"select id from cineflow.movies where source_provider = 'fixture' and external_id = 'nebula-express'",
+				Long.class);
+
+		mockMvc.perform(post("/api/admin/movies/" + movieId + "/refresh")
+				.header("Authorization", "Bearer " + adminToken()))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("catalog.invalid_request"));
 	}
 
 	private static MovieSearchHit courierHit() {

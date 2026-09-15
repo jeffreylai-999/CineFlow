@@ -49,7 +49,7 @@ class MovieMetadataProviders {
 		if (OMDB.equals(providerId)) {
 			return omdb;
 		}
-		throw CatalogException.providerUnavailable();
+		throw CatalogException.invalidRequest();
 	}
 
 	String activeProviderId() {
@@ -67,8 +67,22 @@ class MovieMetadataProviders {
 		return List.copyOf(options);
 	}
 
+	private List<MovieProviderOption> listed() {
+		List<MovieProviderOption> options = new ArrayList<>(configured());
+		String active = activeProviderId();
+		if (options.stream().noneMatch(option -> option.id().equals(active))) {
+			if (TMDB.equals(active)) {
+				options.addFirst(new MovieProviderOption(TMDB, "TMDB"));
+			}
+			else if (OMDB.equals(active)) {
+				options.add(new MovieProviderOption(OMDB, "OMDb"));
+			}
+		}
+		return List.copyOf(options);
+	}
+
 	MovieProviderSettingsResponse current() {
-		return new MovieProviderSettingsResponse(activeProviderId(), configured());
+		return new MovieProviderSettingsResponse(activeProviderId(), listed());
 	}
 
 	@Transactional

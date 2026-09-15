@@ -38,11 +38,15 @@ class OmdbMovieMetadataProvider implements MovieMetadataProvider {
 				.build())
 			.retrieve()
 			.body(OmdbSearchResponse.class));
-		if (response == null || !response.succeeded() || response.results() == null) {
-			if (response != null && response.quotaExceeded()) {
-				throw MovieProviderException.quota();
+		if (response == null) {
+			throw MovieProviderException.unavailable();
+		}
+		if (!response.succeeded() || response.results() == null) {
+			MovieProviderException mapped = mapError(response.error());
+			if (mapped.kind() == MovieProviderException.Kind.NOT_FOUND) {
+				return List.of();
 			}
-			return List.of();
+			throw mapped;
 		}
 		return response.results().stream().map(this::toHit).toList();
 	}
@@ -177,10 +181,6 @@ class OmdbMovieMetadataProvider implements MovieMetadataProvider {
 
 		boolean succeeded() {
 			return "True".equalsIgnoreCase(response);
-		}
-
-		boolean quotaExceeded() {
-			return error != null && error.toLowerCase().contains("limit");
 		}
 	}
 

@@ -1,11 +1,13 @@
 package com.cineflow.catalog;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -91,6 +93,14 @@ class OmdbMovieMetadataProviderContractTest extends MovieMetadataProviderContrac
 	}
 
 	@Override
+	void givenSearchCredentialsRejected() {
+		omdb.expect(requestTo("https://www.omdbapi.com?apikey=test-omdb-key&type=movie&s=courier%20gate"))
+			.andRespond(withSuccess("""
+					{"Response":"False","Error":"Invalid API key!"}
+					""", MediaType.APPLICATION_JSON));
+	}
+
+	@Override
 	void givenQuotaExceeded() {
 		omdb.expect(requestTo("https://www.omdbapi.com?apikey=test-omdb-key&i=4242&plot=full"))
 			.andRespond(withSuccess("""
@@ -130,5 +140,14 @@ class OmdbMovieMetadataProviderContractTest extends MovieMetadataProviderContrac
 		omdb.expect(requestTo("https://www.omdbapi.com?apikey=test-omdb-key&i=4242&plot=full"))
 			.andExpect(method(HttpMethod.GET))
 			.andRespond(withSuccess(DETAILS_BODY, MediaType.APPLICATION_JSON));
+	}
+
+	@Test
+	void searchTreatsNoMatchesAsEmptyResults() {
+		omdb.expect(requestTo("https://www.omdbapi.com?apikey=test-omdb-key&type=movie&s=courier%20gate"))
+			.andRespond(withSuccess("""
+					{"Response":"False","Error":"Movie not found!"}
+					""", MediaType.APPLICATION_JSON));
+		assertThat(provider().search("courier gate")).isEmpty();
 	}
 }

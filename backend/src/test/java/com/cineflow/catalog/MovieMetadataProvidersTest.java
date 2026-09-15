@@ -67,4 +67,39 @@ class MovieMetadataProvidersTest {
 		assertThat(providers.source("omdb")).isSameAs(omdb);
 		assertThat(providers.active()).isSameAs(tmdb);
 	}
+
+	@Test
+	void sourceRejectsAnUnknownProviderAsInvalidRatherThanAnOutage() {
+		assertThatThrownBy(() -> providers.source("fixture"))
+			.isInstanceOf(CatalogException.class)
+			.extracting(error -> ((CatalogException) error).code())
+			.isEqualTo("catalog.invalid_request");
+	}
+
+	@Test
+	void currentKeepsStoredTmdbListedWhenOnlyOmdbIsConfigured() {
+		providers = new MovieMetadataProviders(
+				tmdb,
+				omdb,
+				new TmdbProperties("", "https://api.themoviedb.org/3", "https://image.tmdb.org/t/p/w500", null, null),
+				new OmdbProperties("omdb-key", "https://www.omdbapi.com", null, null),
+				settings,
+				audit);
+
+		MovieProviderSettingsResponse current = providers.current();
+
+		assertThat(current.activeProviderId()).isEqualTo("tmdb");
+		assertThat(current.providers()).containsExactly(
+				new MovieProviderOption("tmdb", "TMDB"),
+				new MovieProviderOption("omdb", "OMDb"));
+		assertThatThrownBy(() -> providers.active())
+			.isInstanceOf(CatalogException.class)
+			.extracting(error -> ((CatalogException) error).code())
+			.isEqualTo("catalog.provider_not_configured");
+		assertThatThrownBy(() -> providers.select(2L, "tmdb"))
+			.isInstanceOf(CatalogException.class)
+			.extracting(error -> ((CatalogException) error).code())
+			.isEqualTo("catalog.provider_not_configured");
+		verify(settings, never()).save(org.mockito.ArgumentMatchers.any());
+	}
 }

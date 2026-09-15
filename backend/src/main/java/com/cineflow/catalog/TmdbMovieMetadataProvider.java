@@ -87,6 +87,9 @@ class TmdbMovieMetadataProvider implements MovieMetadataProvider {
 		if (status == HttpStatus.TOO_MANY_REQUESTS.value()) {
 			return MovieProviderException.quota();
 		}
+		if (status == HttpStatus.UNAUTHORIZED.value()) {
+			return MovieProviderException.notConfigured();
+		}
 		return MovieProviderException.unavailable();
 	}
 

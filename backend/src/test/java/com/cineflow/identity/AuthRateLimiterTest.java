@@ -72,6 +72,25 @@ class AuthRateLimiterTest {
 	}
 
 	@Test
+	void fullMapRejectsNewKeysUntilTheWindowExpires() {
+		MutableClock clock = new MutableClock(START);
+		AuthRateLimiter limiter = new AuthRateLimiter(properties(1), clock);
+		for (int i = 0; i < AuthRateLimiter.MAX_KEYS; i++) {
+			limiter.checkLogin("flood-" + i);
+		}
+		for (int i = 0; i < 500; i++) {
+			String overflow = "overflow-" + i;
+			assertThatThrownBy(() -> limiter.checkLogin(overflow))
+				.isInstanceOf(RateLimitException.class);
+		}
+		clock.set(START.plus(Duration.ofSeconds(30)));
+		assertThatThrownBy(() -> limiter.checkLogin("still-inside-window"))
+			.isInstanceOf(RateLimitException.class);
+		clock.set(START.plus(Duration.ofMinutes(2)));
+		limiter.checkLogin("after-window");
+	}
+
+	@Test
 	void evictionDoesNotThrowWhenOtherKeysAreUpdated() throws Exception {
 		MutableClock clock = new MutableClock(START);
 		AuthRateLimiter limiter = new AuthRateLimiter(properties(20), clock);

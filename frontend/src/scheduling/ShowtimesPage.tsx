@@ -327,10 +327,10 @@ function ShowtimeTicketPrices({ showtime, busy, onSave }: ShowtimeTicketPricesPr
             />
           </div>
         </div>
+        <Button type="submit" variant="outline" disabled={busy}>
+          Update Ticket Prices
+        </Button>
       </FieldSet>
-      <Button type="submit" variant="outline" disabled={busy}>
-        Update Ticket Prices
-      </Button>
     </form>
   )
 }

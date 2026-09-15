@@ -23,6 +23,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -38,6 +39,7 @@ import com.jayway.jsonpath.JsonPath;
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @AutoConfigureMockMvc
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class CatalogAdministrationIT {
 
 	@Autowired
@@ -48,6 +50,8 @@ class CatalogAdministrationIT {
 
 	@MockitoBean(name = "tmdbMovieMetadataProvider")
 	MovieMetadataProvider movieMetadataProvider;
+
+	private String cachedAdminToken;
 
 	@Test
 	void administratorCanSearchWithoutReceivingProviderCredentials() throws Exception {
@@ -352,8 +356,6 @@ class CatalogAdministrationIT {
 				runtimeMinutes,
 				ageRating);
 	}
-
-	private String cachedAdminToken;
 
 	private org.springframework.test.web.servlet.ResultActions createShowtime(
 			String token,

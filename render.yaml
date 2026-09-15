@@ -29,3 +29,5 @@ services:
         sync: false
       - key: CINEFLOW_AUTH_COOKIE_SECURE
         value: "true"
+      - key: CINEFLOW_TMDB_ACCESS_TOKEN
+        sync: false

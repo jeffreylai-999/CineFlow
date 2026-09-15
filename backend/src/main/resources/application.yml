@@ -81,6 +81,13 @@ cineflow:
     administrator:
       username: ${CINEFLOW_BOOTSTRAP_ADMIN_USERNAME:}
       password: ${CINEFLOW_BOOTSTRAP_ADMIN_PASSWORD:}
+  tmdb:
+    access-token: ${CINEFLOW_TMDB_ACCESS_TOKEN:}
+    base-url: ${CINEFLOW_TMDB_BASE_URL:https://api.themoviedb.org/3}
+    image-base-url: ${CINEFLOW_TMDB_IMAGE_BASE_URL:https://image.tmdb.org/t/p/w500}
+  catalog:
+    search-rate-limit: 20
+    rate-limit-window: PT1M
 
 ---
 spring:

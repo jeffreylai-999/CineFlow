@@ -1,4 +1,5 @@
 import { Route, Routes } from 'react-router'
+import { createCatalogAdminClient } from '@/catalog/api/catalogAdminClient.ts'
 import { createCatalogClient } from '@/catalog/api/catalogClient.ts'
 import { CatalogPage } from '@/catalog/CatalogPage.tsx'
 import { createIdentityClient } from '@/identity/api/identityClient.ts'
@@ -8,6 +9,7 @@ import { StaffRoutes } from '@/identity/StaffRoutes.tsx'
 import { CustomerShell } from '@/shells/customer/CustomerShell.tsx'
 
 const catalogClient = createCatalogClient()
+const catalogAdminClient = createCatalogAdminClient()
 const identityClient = createIdentityClient()
 const staffSocket = createStaffSocket()
 
@@ -26,7 +28,7 @@ function App() {
         path="/staff/*"
         element={
           <StaffAuthProvider client={identityClient} socket={staffSocket}>
-            <StaffRoutes />
+            <StaffRoutes catalogAdminClient={catalogAdminClient} />
           </StaffAuthProvider>
         }
       />

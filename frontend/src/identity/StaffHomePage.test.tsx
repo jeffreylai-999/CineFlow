@@ -24,13 +24,15 @@ describe('StaffHomePage', () => {
     await expect.element(page.getByRole('heading', { name: 'Staff portal' })).toBeInTheDocument()
     await expect.element(page.getByText(/booking.staff/)).toBeInTheDocument()
     await expect.element(page.getByRole('link', { name: 'Overview' })).toBeInTheDocument()
+    await expect.element(page.getByRole('link', { name: 'Movies' })).not.toBeInTheDocument()
     await expect.element(page.getByRole('link', { name: 'Staff accounts' })).not.toBeInTheDocument()
   })
 
-  it('identifies an Administrator in the portal shell without a Staff accounts route', async () => {
+  it('identifies an Administrator in the portal shell and shows Movie administration', async () => {
     await render(<StaffHomePage session={administrator} onLogout={() => undefined} />)
 
     await expect.element(page.getByText(/Administrator/)).toBeInTheDocument()
+    await expect.element(page.getByRole('link', { name: 'Movies' })).toHaveAttribute('href', '/staff/movies')
     await expect.element(page.getByRole('link', { name: 'Staff accounts' })).not.toBeInTheDocument()
   })
 

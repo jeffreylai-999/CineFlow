@@ -22,6 +22,11 @@ export function StaffShell({ children, role, username, onLogout }: StaffShellPro
             <a className="rounded-md px-2 py-1 hover:bg-sidebar-accent" href="/staff">
               Overview
             </a>
+            {role === 'ADMINISTRATOR' ? (
+              <a className="rounded-md px-2 py-1 hover:bg-sidebar-accent" href="/staff/movies">
+                Movies
+              </a>
+            ) : null}
           </nav>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">

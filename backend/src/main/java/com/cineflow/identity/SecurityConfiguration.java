@@ -42,6 +42,8 @@ class SecurityConfiguration {
 				.permitAll()
 				.requestMatchers(HttpMethod.GET, "/api/movies")
 				.permitAll()
+				.requestMatchers("/api/admin/**")
+				.hasRole("ADMINISTRATOR")
 				.requestMatchers("/api/staff/accounts/**")
 				.hasRole("ADMINISTRATOR")
 				.requestMatchers("/api/**")

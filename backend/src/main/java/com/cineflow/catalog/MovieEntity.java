@@ -50,35 +50,69 @@ class MovieEntity {
 	protected MovieEntity() {
 	}
 
+	static MovieEntity imported(
+			String title,
+			String synopsis,
+			String genre,
+			int runtimeMinutes,
+			String ageRating,
+			String posterUrl,
+			String sourceProvider,
+			String externalId,
+			Instant sourceRefreshedAt) {
+		MovieEntity movie = new MovieEntity();
+		movie.title = title;
+		movie.synopsis = synopsis;
+		movie.genre = genre;
+		movie.runtimeMinutes = runtimeMinutes;
+		movie.ageRating = ageRating;
+		movie.posterUrl = posterUrl;
+		movie.sourceProvider = sourceProvider;
+		movie.externalId = externalId;
+		movie.sourceRefreshedAt = sourceRefreshedAt;
+		return movie;
+	}
+
 	Long getId() {
 		return id;
 	}
 
-	String getTitle() {
-		return title;
+	String getSourceProvider() {
+		return sourceProvider;
 	}
 
-	String getSynopsis() {
-		return synopsis;
+	String getExternalId() {
+		return externalId;
 	}
 
-	String getGenre() {
-		return genre;
+	void refreshDescriptive(String title, String synopsis, String genre, String posterUrl, Instant sourceRefreshedAt) {
+		this.title = title;
+		this.synopsis = synopsis;
+		this.genre = genre;
+		this.posterUrl = posterUrl;
+		this.sourceRefreshedAt = sourceRefreshedAt;
 	}
 
-	int getRuntimeMinutes() {
-		return runtimeMinutes;
-	}
-
-	String getAgeRating() {
-		return ageRating;
-	}
-
-	String getPosterUrl() {
-		return posterUrl;
+	void updateScheduling(int runtimeMinutes, String ageRating) {
+		this.runtimeMinutes = runtimeMinutes;
+		this.ageRating = ageRating;
 	}
 
 	MovieResponse toResponse() {
 		return new MovieResponse(id, title, synopsis, genre, runtimeMinutes, ageRating, posterUrl);
+	}
+
+	MovieAdminResponse toAdminResponse() {
+		return new MovieAdminResponse(
+				id,
+				title,
+				synopsis,
+				genre,
+				runtimeMinutes,
+				ageRating,
+				posterUrl,
+				sourceProvider,
+				externalId,
+				sourceRefreshedAt);
 	}
 }

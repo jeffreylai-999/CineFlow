@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 24" role="img" aria-label="The Movie Database">
+  <rect width="140" height="24" rx="3" fill="#0d253f"/>
+  <text x="70" y="17" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="14" font-weight="700" fill="#01b4e4">TMDB</text>
+</svg>

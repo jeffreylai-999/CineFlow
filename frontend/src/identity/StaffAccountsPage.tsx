@@ -26,7 +26,7 @@ export function StaffAccountsPage({ session, client, onLogout }: StaffAccountsPa
   const [creating, setCreating] = useState(false)
   const [resetPasswords, setResetPasswords] = useState<Record<number, string>>({})
   const [pendingId, setPendingId] = useState<number | null>(null)
-  const mutating = creating || pendingId !== null
+  const mutating = creating || pendingId !== null || state.status === 'loading'
 
   async function reload() {
     try {

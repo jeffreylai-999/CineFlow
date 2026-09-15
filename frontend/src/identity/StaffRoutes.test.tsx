@@ -263,6 +263,25 @@ describe('StaffRoutes staff administration', () => {
     })
   })
 
+  it('disables create while the initial account list is loading', async () => {
+    let finishList: (next: StaffAccount[]) => void = () => {}
+    const client = fakeIdentityClient({
+      refresh: vi.fn().mockResolvedValue(administrator),
+      listStaffAccounts: vi.fn(
+        () =>
+          new Promise<StaffAccount[]>((resolve) => {
+            finishList = resolve
+          }),
+      ),
+    })
+
+    await renderStaffRoutes({ session: administrator, path: '/staff/accounts', client })
+    await expect.element(page.getByRole('heading', { name: 'Staff accounts' })).toBeInTheDocument()
+    await expect.element(page.getByRole('button', { name: 'Create Booking Staff' })).toBeDisabled()
+    finishList(accounts)
+    await expect.element(page.getByRole('button', { name: 'Create Booking Staff' })).toBeEnabled()
+  })
+
   it('has no serious axe violations on the Staff accounts route', async () => {
     const client = fakeIdentityClient({
       refresh: vi.fn().mockResolvedValue(administrator),

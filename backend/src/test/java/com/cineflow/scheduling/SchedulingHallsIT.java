@@ -2,6 +2,7 @@ package com.cineflow.scheduling;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.hamcrest.Matchers.contains;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -11,6 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -27,6 +29,7 @@ import com.jayway.jsonpath.JsonPath;
 @Import(TestcontainersConfiguration.class)
 @SpringBootTest
 @AutoConfigureMockMvc
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SchedulingHallsIT {
 
 	@Autowired
@@ -289,9 +292,9 @@ class SchedulingHallsIT {
 
 		mockMvc.perform(get("/api/halls").header("Authorization", "Bearer " + adminToken))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$[?(@.id == %d)].name", hallId).value(name))
-			.andExpect(jsonPath("$[?(@.id == %d)].rowCount", hallId).value(1))
-			.andExpect(jsonPath("$[?(@.id == %d)].seatsPerRow", hallId).value(4));
+			.andExpect(jsonPath("$[?(@.id == %d)].name", hallId).value(contains(name)))
+			.andExpect(jsonPath("$[?(@.id == %d)].rowCount", hallId).value(contains(1)))
+			.andExpect(jsonPath("$[?(@.id == %d)].seatsPerRow", hallId).value(contains(4)));
 	}
 
 	@Test
@@ -351,6 +354,44 @@ class SchedulingHallsIT {
 			.andExpect(status().isOk());
 
 		assertThatThrownBy(() -> insertHold(showtimeId, hallId, seatId, "now() + interval '10 minutes'"))
+			.hasMessageContaining("scheduling.seat_not_claimable");
+	}
+
+	@Test
+	void aDisabledSeatCannotGainAClaimByUpdate() throws Exception {
+		String adminToken = accessToken("administrator", "AdminPassw0rd!");
+		MvcResult created = createHall(adminToken, "Claim update " + UUID.randomUUID(), 1, 1)
+			.andExpect(status().isCreated())
+			.andReturn();
+		int hallId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+		int seatId = JsonPath.read(created.getResponse().getContentAsString(), "$.seats[0].id");
+		long movieId = jdbcTemplate.queryForObject(
+				"select id from cineflow.movies where external_id = 'nebula-express'", Long.class);
+		long showtimeId = jdbcTemplate.queryForObject(
+				"""
+						insert into cineflow.showtimes (hall_id, movie_id, starts_at)
+						values (?, ?, now() + interval '2 days')
+						returning id
+						""",
+				Long.class,
+				hallId,
+				movieId);
+		insertHold(showtimeId, hallId, seatId, "now() - interval '1 minute'");
+
+		mockMvc.perform(patch("/api/halls/" + hallId + "/seats/" + seatId)
+				.header("Authorization", "Bearer " + adminToken)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"disabled\":true}"))
+			.andExpect(status().isOk());
+
+		assertThatThrownBy(() -> jdbcTemplate.update(
+				"""
+						update cineflow.seat_claims
+						set expires_at = now() + interval '10 minutes'
+						where showtime_id = ? and seat_id = ?
+						""",
+				showtimeId,
+				seatId))
 			.hasMessageContaining("scheduling.seat_not_claimable");
 	}
 

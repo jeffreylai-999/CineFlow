@@ -203,7 +203,7 @@ END;
 $$;
 
 CREATE TRIGGER seat_claims_reject_disabled_seat
-    BEFORE INSERT ON cineflow.seat_claims
+    BEFORE INSERT OR UPDATE ON cineflow.seat_claims
     FOR EACH ROW
     EXECUTE FUNCTION cineflow.reject_claim_on_disabled_seat();
 

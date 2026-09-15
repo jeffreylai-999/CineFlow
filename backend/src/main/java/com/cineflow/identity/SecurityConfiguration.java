@@ -44,6 +44,8 @@ class SecurityConfiguration {
 				.permitAll()
 				.requestMatchers("/api/staff/accounts", "/api/staff/accounts/**")
 				.hasRole("ADMINISTRATOR")
+				.requestMatchers("/api/halls/**")
+				.hasRole("ADMINISTRATOR")
 				.requestMatchers("/api/**")
 				.authenticated()
 				.requestMatchers("/actuator/health", "/actuator/health/**")

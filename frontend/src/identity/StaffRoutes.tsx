@@ -1,9 +1,12 @@
+import { useMemo } from 'react'
 import { Navigate, Route, Routes, useNavigate } from 'react-router'
 import type { IdentityClient } from '@/identity/api/identityClient.ts'
 import { StaffAccountsPage } from '@/identity/StaffAccountsPage.tsx'
 import { StaffHomePage } from '@/identity/StaffHomePage.tsx'
 import { StaffLoginPage } from '@/identity/StaffLoginPage.tsx'
 import { useStaffAuth } from '@/identity/staffAuthContext.ts'
+import { HallsPage } from '@/scheduling/HallsPage.tsx'
+import { createSchedulingClient } from '@/scheduling/api/schedulingClient.ts'
 
 type StaffRoutesProps = {
   client: IdentityClient
@@ -12,6 +15,11 @@ type StaffRoutesProps = {
 export function StaffRoutes({ client }: StaffRoutesProps) {
   const auth = useStaffAuth()
   const navigate = useNavigate()
+  const accessToken = auth.session?.accessToken
+  const hallsClient = useMemo(
+    () => (accessToken ? createSchedulingClient(accessToken) : null),
+    [accessToken],
+  )
 
   if (!auth.ready) {
     return <p role="status">Restoring session…</p>
@@ -34,6 +42,22 @@ export function StaffRoutes({ client }: StaffRoutesProps) {
         element={
           auth.session ? (
             <StaffHomePage session={auth.session} onLogout={() => void auth.signOut()} />
+          ) : (
+            <Navigate to="/staff/login" replace />
+          )
+        }
+      />
+      <Route
+        path="halls"
+        element={
+          auth.session?.staff.role === 'ADMINISTRATOR' && hallsClient ? (
+            <HallsPage
+              session={auth.session}
+              client={hallsClient}
+              onLogout={() => void auth.signOut()}
+            />
+          ) : auth.session ? (
+            <Navigate to="/staff" replace />
           ) : (
             <Navigate to="/staff/login" replace />
           )

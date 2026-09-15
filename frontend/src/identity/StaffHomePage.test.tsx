@@ -30,6 +30,7 @@ describe('StaffHomePage', () => {
     await expect.element(page.getByText(/booking.staff/)).toBeInTheDocument()
     await expect.element(page.getByRole('link', { name: 'Overview' })).toBeInTheDocument()
     await expect.element(page.getByRole('link', { name: 'Staff accounts' })).not.toBeInTheDocument()
+    await expect.element(page.getByRole('link', { name: 'Halls' })).not.toBeInTheDocument()
   })
 
   it('shows Staff accounts navigation to an Administrator', async () => {
@@ -40,6 +41,7 @@ describe('StaffHomePage', () => {
     )
 
     await expect.element(page.getByText(/Administrator/)).toBeInTheDocument()
+    await expect.element(page.getByRole('link', { name: 'Halls' })).toBeInTheDocument()
     await expect.element(page.getByRole('link', { name: 'Staff accounts' })).toBeInTheDocument()
   })
 

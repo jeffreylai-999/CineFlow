@@ -17,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -261,6 +262,43 @@ class CatalogAdministrationIT {
 	}
 
 	@Test
+	void packedShowtimeOccupancyRefreshSucceedsOrConflictsWithout500() throws Exception {
+		String token = adminToken();
+		int hallId = createHall(token, "Packed " + UUID.randomUUID());
+		long movieId = insertMovie("Packed Runtime", 90);
+		String first = createShowtime(token, movieId, hallId, "2026-09-20T19:30")
+			.andExpect(status().isCreated())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		int firstShowtimeId = JsonPath.read(first, "$.id");
+		createShowtime(token, movieId, hallId, "2026-09-20T21:15").andExpect(status().isCreated());
+
+		mockMvc.perform(patch("/api/admin/movies/" + movieId)
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"runtimeMinutes":91,"ageRating":"PG"}
+						"""))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("catalog.showtime_overlap"));
+
+		mockMvc.perform(patch("/api/admin/movies/" + movieId)
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"runtimeMinutes":80,"ageRating":"PG"}
+						"""))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.runtimeMinutes").value(80));
+
+		mockMvc.perform(get("/api/showtimes").header("Authorization", "Bearer " + token))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[?(@.id==%d)].occupancyEndsAt", firstShowtimeId)
+				.value(org.hamcrest.Matchers.hasItem("2026-09-20T13:05:00Z")));
+	}
+
+	@Test
 	void publicCatalogStaysAvailableWhenTheProviderFails() throws Exception {
 		when(movieMetadataProvider.search(anyString())).thenThrow(MovieProviderException.unavailable());
 		when(movieMetadataProvider.fetch(anyString())).thenThrow(MovieProviderException.unavailable());
@@ -316,6 +354,55 @@ class CatalogAdministrationIT {
 	}
 
 	private String cachedAdminToken;
+
+	private org.springframework.test.web.servlet.ResultActions createShowtime(
+			String token,
+			long movieId,
+			int hallId,
+			String startsAtLocal) throws Exception {
+		return mockMvc.perform(post("/api/showtimes")
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{
+						  "movieId":%d,
+						  "hallId":%d,
+						  "startsAtLocal":"%s",
+						  "timeZone":"Asia/Kuala_Lumpur",
+						  "adultPriceMyr":28.00,
+						  "childPriceMyr":18.00
+						}
+						""".formatted(movieId, hallId, startsAtLocal)));
+	}
+
+	private int createHall(String token, String name) throws Exception {
+		String created = mockMvc.perform(post("/api/halls")
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"name":"%s","rowCount":1,"seatsPerRow":2}
+						""".formatted(name)))
+			.andExpect(status().isCreated())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		return JsonPath.read(created, "$.id");
+	}
+
+	private long insertMovie(String title, int runtimeMinutes) {
+		return jdbcTemplate.queryForObject(
+				"""
+						insert into cineflow.movies (
+						    title, synopsis, genre, runtime_minutes, age_rating, poster_url,
+						    source_provider, external_id, source_refreshed_at)
+						values (?, 'Synopsis', 'Adventure', ?, 'PG', null, 'fixture', ?, now())
+						returning id
+						""",
+				Long.class,
+				title,
+				runtimeMinutes,
+				UUID.randomUUID().toString());
+	}
 
 	private String adminToken() throws Exception {
 		return accessToken("administrator", "AdminPassw0rd!");

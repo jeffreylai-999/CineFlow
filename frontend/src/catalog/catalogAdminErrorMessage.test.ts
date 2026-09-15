@@ -12,6 +12,12 @@ describe('catalogAdminErrorMessage', () => {
     )
   })
 
+  it('explains a Hall overlap when lengthening runtime', () => {
+    expect(catalogAdminErrorMessage(new CatalogAdminRequestError(409, 'catalog.showtime_overlap'))).toBe(
+      'That Hall is occupied through the movie runtime and the fifteen-minute Cleaning Buffer.',
+    )
+  })
+
   it('keeps the fallback wording when Retry-After is absent', () => {
     expect(catalogAdminErrorMessage(new CatalogAdminRequestError(429, 'catalog.rate_limited'))).toBe(
       'Search is temporarily limited. Wait a moment and try again.',

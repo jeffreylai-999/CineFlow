@@ -3,7 +3,7 @@ export type HallSummary = {
   name: string
   rowCount: number
   seatsPerRow: number
-  archivedAt: string | null
+  archivedAt?: string | null
 }
 
 export type Seat = {

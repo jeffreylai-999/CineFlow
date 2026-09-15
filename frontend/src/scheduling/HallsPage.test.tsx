@@ -158,4 +158,25 @@ describe('HallsPage', () => {
     await expect.element(page.getByRole('button', { name: 'Seat A2, disabled' })).toBeInTheDocument()
     await expect.element(page.getByRole('button', { name: 'Seat A1, disabled' })).toBeInTheDocument()
   })
+
+  it('keeps the later Hall selection when an earlier getHall resolves last', async () => {
+    const first = deferred<Hall>()
+    const second = deferred<Hall>()
+    const hallTwo: Hall = { ...hallOne, id: 11, name: 'Hall 2' }
+    const client = clientStub({
+      listHalls: vi.fn().mockResolvedValue([hallOne, hallTwo]),
+      getHall: vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise),
+    })
+
+    await render(<HallsPage session={administrator} client={client} onLogout={() => undefined} />)
+    await page.getByRole('button', { name: 'Hall 1' }).click()
+    await page.getByRole('button', { name: 'Hall 2' }).click()
+
+    second.resolve(hallTwo)
+    await expect.element(page.getByRole('heading', { name: 'Hall 2 Seat Map' })).toBeInTheDocument()
+
+    first.resolve(hallOne)
+    await expect.element(page.getByRole('heading', { name: 'Hall 2 Seat Map' })).toBeInTheDocument()
+    await expect.element(page.getByRole('heading', { name: 'Hall 1 Seat Map' })).not.toBeInTheDocument()
+  })
 })

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import type { StaffSession } from '@/identity/api/identityClient.ts'
 import { StaffShell } from '@/shells/staff/StaffShell.tsx'
 import { Button } from '@/components/ui/button.tsx'
@@ -28,6 +28,7 @@ export function HallsPage({ session, client, onLogout }: HallsPageProps) {
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const selectGeneration = useRef(0)
 
   useEffect(() => {
     let cancelled = false
@@ -83,10 +84,18 @@ export function HallsPage({ session, client, onLogout }: HallsPageProps) {
   }
 
   async function handleSelect(hallId: number) {
+    const generation = ++selectGeneration.current
     setError(null)
     try {
-      setSelected(await client.getHall(hallId))
+      const hall = await client.getHall(hallId)
+      if (generation !== selectGeneration.current) {
+        return
+      }
+      setSelected(hall)
     } catch {
+      if (generation !== selectGeneration.current) {
+        return
+      }
       setError('Unable to load the Seat Map. Try again shortly.')
     }
   }
@@ -125,10 +134,11 @@ export function HallsPage({ session, client, onLogout }: HallsPageProps) {
     if (!selected || selected.archivedAt) {
       return
     }
+    const hallId = selected.id
     setError(null)
     try {
-      const hall = await client.archiveHall(selected.id)
-      setSelected(hall)
+      const hall = await client.archiveHall(hallId)
+      setSelected((current) => (current?.id === hallId ? hall : current))
       setHalls((current) => current.map((item) => (item.id === hall.id ? toSummary(hall) : item)))
     } catch {
       setError('Unable to archive the Hall. Try again shortly.')

@@ -84,6 +84,10 @@ class SchedulingService implements Scheduling {
 	@Override
 	@Transactional
 	public HallResponse archiveHall(long actorStaffId, long hallId) {
+		if (jdbcTemplate.queryForList("select id from cineflow.halls where id = ? for update", Long.class, hallId)
+				.isEmpty()) {
+			throw SchedulingException.hallNotFound();
+		}
 		HallEntity hall = halls.findByIdWithSeats(hallId).orElseThrow(SchedulingException::hallNotFound);
 		if (hall.getArchivedAt() == null) {
 			hall.archive(clock.instant());

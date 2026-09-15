@@ -151,20 +151,8 @@ class SchedulingHallsIT {
 				Long.class,
 				hallId,
 				movieId);
-		jdbcTemplate.update(
-				"""
-						insert into cineflow.seat_claims (showtime_id, seat_id, claim_kind, expires_at)
-						values (?, ?, 'HOLD', now() + interval '10 minutes')
-						""",
-				showtimeId,
-				heldSeatId);
-		jdbcTemplate.update(
-				"""
-						insert into cineflow.seat_claims (showtime_id, seat_id, claim_kind, expires_at)
-						values (?, ?, 'BOOKING', null)
-						""",
-				showtimeId,
-				bookedSeatId);
+		insertHold(showtimeId, hallId, heldSeatId, "now() + interval '10 minutes'");
+		insertBooking(showtimeId, hallId, bookedSeatId);
 
 		mockMvc.perform(patch("/api/halls/" + hallId + "/seats/" + heldSeatId)
 				.header("Authorization", "Bearer " + adminToken)
@@ -218,20 +206,8 @@ class SchedulingHallsIT {
 				Long.class,
 				hallId,
 				movieId);
-		jdbcTemplate.update(
-				"""
-						insert into cineflow.seat_claims (showtime_id, seat_id, claim_kind, expires_at)
-						values (?, ?, 'HOLD', now() - interval '1 minute')
-						""",
-				expiredHoldShowtime,
-				heldSeatId);
-		jdbcTemplate.update(
-				"""
-						insert into cineflow.seat_claims (showtime_id, seat_id, claim_kind, expires_at)
-						values (?, ?, 'BOOKING', null)
-						""",
-				pastShowtime,
-				bookedSeatId);
+		insertHold(expiredHoldShowtime, hallId, heldSeatId, "now() - interval '1 minute'");
+		insertBooking(pastShowtime, hallId, bookedSeatId);
 
 		mockMvc.perform(patch("/api/halls/" + hallId + "/seats/" + heldSeatId)
 				.header("Authorization", "Bearer " + adminToken)
@@ -316,6 +292,66 @@ class SchedulingHallsIT {
 	}
 
 	@Test
+	void seatClaimMustBelongToTheShowtimeHall() throws Exception {
+		String adminToken = accessToken("administrator", "AdminPassw0rd!");
+		MvcResult first = createHall(adminToken, "Claim A " + UUID.randomUUID(), 1, 1)
+			.andExpect(status().isCreated())
+			.andReturn();
+		MvcResult second = createHall(adminToken, "Claim B " + UUID.randomUUID(), 1, 1)
+			.andExpect(status().isCreated())
+			.andReturn();
+		int firstHallId = JsonPath.read(first.getResponse().getContentAsString(), "$.id");
+		int secondHallId = JsonPath.read(second.getResponse().getContentAsString(), "$.id");
+		int secondSeatId = JsonPath.read(second.getResponse().getContentAsString(), "$.seats[0].id");
+		long movieId = jdbcTemplate.queryForObject(
+				"select id from cineflow.movies where external_id = 'nebula-express'", Long.class);
+		long showtimeId = jdbcTemplate.queryForObject(
+				"""
+						insert into cineflow.showtimes (hall_id, movie_id, starts_at)
+						values (?, ?, now() + interval '2 days')
+						returning id
+						""",
+				Long.class,
+				firstHallId,
+				movieId);
+
+		assertThatThrownBy(() -> insertHold(showtimeId, firstHallId, secondSeatId, "now() + interval '10 minutes'"))
+			.hasMessageContaining("seat_claims_seat_hall_fk");
+		assertThatThrownBy(() -> insertHold(showtimeId, secondHallId, secondSeatId, "now() + interval '10 minutes'"))
+			.hasMessageContaining("seat_claims_showtime_hall_fk");
+	}
+
+	@Test
+	void aDisabledSeatCannotReceiveAClaim() throws Exception {
+		String adminToken = accessToken("administrator", "AdminPassw0rd!");
+		MvcResult created = createHall(adminToken, "Claim lock " + UUID.randomUUID(), 1, 1)
+			.andExpect(status().isCreated())
+			.andReturn();
+		int hallId = JsonPath.read(created.getResponse().getContentAsString(), "$.id");
+		int seatId = JsonPath.read(created.getResponse().getContentAsString(), "$.seats[0].id");
+		long movieId = jdbcTemplate.queryForObject(
+				"select id from cineflow.movies where external_id = 'nebula-express'", Long.class);
+		long showtimeId = jdbcTemplate.queryForObject(
+				"""
+						insert into cineflow.showtimes (hall_id, movie_id, starts_at)
+						values (?, ?, now() + interval '2 days')
+						returning id
+						""",
+				Long.class,
+				hallId,
+				movieId);
+
+		mockMvc.perform(patch("/api/halls/" + hallId + "/seats/" + seatId)
+				.header("Authorization", "Bearer " + adminToken)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{\"disabled\":true}"))
+			.andExpect(status().isOk());
+
+		assertThatThrownBy(() -> insertHold(showtimeId, hallId, seatId, "now() + interval '10 minutes'"))
+			.hasMessageContaining("scheduling.seat_not_claimable");
+	}
+
+	@Test
 	void bookingStaffCannotManageHalls() throws Exception {
 		String staffToken = accessToken("booking.staff", "StaffPassw0rd!");
 		String adminToken = accessToken("administrator", "AdminPassw0rd!");
@@ -344,16 +380,56 @@ class SchedulingHallsIT {
 						""".formatted(name, rowCount, seatsPerRow)));
 	}
 
+	private String cachedAdminToken;
+
+	private String cachedStaffToken;
+
 	private String accessToken(String username, String password) throws Exception {
+		if ("administrator".equals(username) && cachedAdminToken != null) {
+			return cachedAdminToken;
+		}
+		if ("booking.staff".equals(username) && cachedStaffToken != null) {
+			return cachedStaffToken;
+		}
 		MvcResult login = login(username, password).andExpect(status().isOk()).andReturn();
-		return JsonPath.read(login.getResponse().getContentAsString(), "$.accessToken");
+		String token = JsonPath.read(login.getResponse().getContentAsString(), "$.accessToken");
+		if ("administrator".equals(username)) {
+			cachedAdminToken = token;
+		}
+		if ("booking.staff".equals(username)) {
+			cachedStaffToken = token;
+		}
+		return token;
 	}
 
 	private ResultActions login(String username, String password) throws Exception {
 		return mockMvc.perform(post("/api/auth/login")
+			.header("X-Forwarded-For", "198.51.100.71")
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("""
 					{"username":"%s","password":"%s"}
 					""".formatted(username, password)));
+	}
+
+	private void insertHold(long showtimeId, int hallId, int seatId, String expiresAtSql) {
+		jdbcTemplate.update(
+				"""
+						insert into cineflow.seat_claims (showtime_id, hall_id, seat_id, claim_kind, expires_at)
+						values (?, ?, ?, 'HOLD', %s)
+						""".formatted(expiresAtSql),
+				showtimeId,
+				hallId,
+				seatId);
+	}
+
+	private void insertBooking(long showtimeId, int hallId, int seatId) {
+		jdbcTemplate.update(
+				"""
+						insert into cineflow.seat_claims (showtime_id, hall_id, seat_id, claim_kind, expires_at)
+						values (?, ?, ?, 'BOOKING', null)
+						""",
+				showtimeId,
+				hallId,
+				seatId);
 	}
 }

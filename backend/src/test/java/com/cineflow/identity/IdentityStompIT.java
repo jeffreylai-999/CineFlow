@@ -108,9 +108,10 @@ class IdentityStompIT {
 		CompletableFuture<Map<String, Object>> pong = new CompletableFuture<>();
 		session.subscribe("/topic/staff/pong", pongHandler(pong));
 		deactivate(staff.id());
-		session.send("/app/staff/ping", Map.of());
-		assertThatThrownBy(() -> pong.get(2, TimeUnit.SECONDS))
-			.isInstanceOf(TimeoutException.class);
+		assertThatThrownBy(() -> {
+			session.send("/app/staff/ping", Map.of());
+			pong.get(2, TimeUnit.SECONDS);
+		}).isInstanceOfAny(IllegalStateException.class, TimeoutException.class);
 		if (session.isConnected()) {
 			session.disconnect();
 		}

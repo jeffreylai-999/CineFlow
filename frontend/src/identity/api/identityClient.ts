@@ -135,7 +135,7 @@ function remainingSession(cached: CachedSession | null, now: number): StaffSessi
   }
   return {
     ...cached.session,
-    expiresInSeconds: Math.max(1, Math.floor(remainingMs / 1000)),
+    expiresInSeconds: Math.max(1, Math.ceil(remainingMs / 1000)),
   }
 }
 

@@ -24,12 +24,43 @@ export type CreateHallInput = {
   seatsPerRow: number
 }
 
+export type Showtime = {
+  id: number
+  movieId: number
+  movieTitle: string
+  runtimeMinutes: number
+  hallId: number
+  hallName: string
+  startsAt: string
+  startsAtCinemaTime: string
+  timeZone: string
+  occupancyEndsAt: string
+  adultPriceMyr: number
+  childPriceMyr: number
+}
+
+export type CreateShowtimeInput = {
+  movieId: number
+  hallId: number
+  startsAtLocal: string
+  timeZone: 'Asia/Kuala_Lumpur'
+  adultPriceMyr: number
+  childPriceMyr: number
+}
+
 export type SchedulingClient = {
   listHalls: () => Promise<HallSummary[]>
   createHall: (input: CreateHallInput) => Promise<Hall>
   getHall: (id: number) => Promise<Hall>
   setSeatDisabled: (hallId: number, seatId: number, disabled: boolean) => Promise<Seat>
   archiveHall: (id: number) => Promise<Hall>
+  listShowtimes: () => Promise<Showtime[]>
+  createShowtime: (input: CreateShowtimeInput) => Promise<Showtime>
+  updateShowtimePrices: (
+    id: number,
+    input: { adultPriceMyr: number; childPriceMyr: number },
+  ) => Promise<Showtime>
+  removeShowtime: (id: number) => Promise<void>
 }
 
 export class SchedulingRequestError extends Error {
@@ -79,6 +110,33 @@ export function createSchedulingClient(
           headers: headers(accessToken),
         }),
       ),
+    listShowtimes: () =>
+      readJson<Showtime[]>(fetcher('/api/showtimes', { headers: headers(accessToken) })),
+    createShowtime: (input) =>
+      readJson<Showtime>(
+        fetcher('/api/showtimes', {
+          method: 'POST',
+          headers: jsonHeaders(accessToken),
+          body: JSON.stringify(input),
+        }),
+      ),
+    updateShowtimePrices: (id, input) =>
+      readJson<Showtime>(
+        fetcher(`/api/showtimes/${id}`, {
+          method: 'PATCH',
+          headers: jsonHeaders(accessToken),
+          body: JSON.stringify(input),
+        }),
+      ),
+    removeShowtime: async (id) => {
+      const response = await fetcher(`/api/showtimes/${id}`, {
+        method: 'DELETE',
+        headers: headers(accessToken),
+      })
+      if (!response.ok) {
+        throw await toError(response)
+      }
+    },
   }
 }
 
@@ -99,14 +157,18 @@ function jsonHeaders(accessToken: string): HeadersInit {
 async function readJson<T>(responsePromise: Promise<Response>): Promise<T> {
   const response = await responsePromise
   if (!response.ok) {
-    let code: string | undefined
-    try {
-      const body = (await response.json()) as { code?: string }
-      code = body.code
-    } catch {
-      code = undefined
-    }
-    throw new SchedulingRequestError(response.status, code)
+    throw await toError(response)
   }
   return (await response.json()) as T
+}
+
+async function toError(response: Response): Promise<SchedulingRequestError> {
+  let code: string | undefined
+  try {
+    const body = (await response.json()) as { code?: string }
+    code = body.code
+  } catch {
+    code = undefined
+  }
+  return new SchedulingRequestError(response.status, code)
 }

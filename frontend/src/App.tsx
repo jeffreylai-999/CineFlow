@@ -28,7 +28,11 @@ function App() {
         path="/staff/*"
         element={
           <StaffAuthProvider client={identityClient} socket={staffSocket}>
-            <StaffRoutes catalogAdminClient={catalogAdminClient} client={identityClient} />
+            <StaffRoutes
+              catalogAdminClient={catalogAdminClient}
+              catalogClient={catalogClient}
+              client={identityClient}
+            />
           </StaffAuthProvider>
         }
       />

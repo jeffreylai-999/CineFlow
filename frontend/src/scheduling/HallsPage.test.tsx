@@ -41,6 +41,10 @@ function clientStub(overrides: Partial<SchedulingClient> = {}): SchedulingClient
     getHall: vi.fn(),
     setSeatDisabled: vi.fn(),
     archiveHall: vi.fn(),
+    listShowtimes: vi.fn().mockResolvedValue([]),
+    createShowtime: vi.fn(),
+    updateShowtimePrices: vi.fn(),
+    removeShowtime: vi.fn(),
     ...overrides,
   }
 }

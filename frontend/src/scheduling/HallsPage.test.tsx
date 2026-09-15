@@ -7,7 +7,9 @@ import { HallsPage } from '@/scheduling/HallsPage.tsx'
 import {
   SchedulingRequestError,
   type Hall,
+  type HallSummary,
   type SchedulingClient,
+  type Seat,
 } from '@/scheduling/api/schedulingClient.ts'
 
 const administrator: StaffSession = {
@@ -39,6 +41,14 @@ function clientStub(overrides: Partial<SchedulingClient> = {}): SchedulingClient
     archiveHall: vi.fn(),
     ...overrides,
   }
+}
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((next) => {
+    resolve = next
+  })
+  return { promise, resolve }
 }
 
 describe('HallsPage', () => {
@@ -109,5 +119,43 @@ describe('HallsPage', () => {
       (violation) => violation.impact === 'serious' || violation.impact === 'critical',
     )
     expect(serious).toEqual([])
+  })
+
+  it('does not accept Create Hall until existing Halls have loaded', async () => {
+    const pending = deferred<HallSummary[]>()
+    const client = clientStub({
+      listHalls: vi.fn().mockReturnValue(pending.promise),
+    })
+
+    await render(<HallsPage session={administrator} client={client} onLogout={() => undefined} />)
+
+    await expect.element(page.getByRole('button', { name: 'Create Hall' })).toBeDisabled()
+
+    pending.resolve([])
+
+    await expect.element(page.getByText('No Halls yet.')).toBeInTheDocument()
+    await expect.element(page.getByRole('button', { name: 'Create Hall' })).toBeEnabled()
+  })
+
+  it('keeps the first Seat update when a second toggle is still in flight', async () => {
+    const first = deferred<Seat>()
+    const second = deferred<Seat>()
+    const client = clientStub({
+      listHalls: vi.fn().mockResolvedValue([hallOne]),
+      getHall: vi.fn().mockResolvedValue(hallOne),
+      setSeatDisabled: vi.fn().mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise),
+    })
+
+    await render(<HallsPage session={administrator} client={client} onLogout={() => undefined} />)
+    await page.getByRole('button', { name: 'Hall 1' }).click()
+    await page.getByRole('button', { name: 'Seat A1, enabled' }).click()
+    await page.getByRole('button', { name: 'Seat A2, enabled' }).click()
+
+    first.resolve({ ...hallOne.seats[0], disabled: true })
+    await expect.element(page.getByRole('button', { name: 'Seat A1, disabled' })).toBeInTheDocument()
+
+    second.resolve({ ...hallOne.seats[1], disabled: true })
+    await expect.element(page.getByRole('button', { name: 'Seat A2, disabled' })).toBeInTheDocument()
+    await expect.element(page.getByRole('button', { name: 'Seat A1, disabled' })).toBeInTheDocument()
   })
 })

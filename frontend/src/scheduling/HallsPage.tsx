@@ -95,16 +95,22 @@ export function HallsPage({ session, client, onLogout }: HallsPageProps) {
     if (!selected) {
       return
     }
+    const hallId = selected.id
     const seat = selected.seats.find((item) => item.id === seatId)
     if (!seat) {
       return
     }
     setError(null)
     try {
-      const updated = await client.setSeatDisabled(selected.id, seatId, !seat.disabled)
-      setSelected({
-        ...selected,
-        seats: selected.seats.map((item) => (item.id === updated.id ? updated : item)),
+      const updated = await client.setSeatDisabled(hallId, seatId, !seat.disabled)
+      setSelected((current) => {
+        if (!current || current.id !== hallId) {
+          return current
+        }
+        return {
+          ...current,
+          seats: current.seats.map((item) => (item.id === updated.id ? updated : item)),
+        }
       })
     } catch (cause) {
       if (isSchedulingRequestError(cause) && cause.code === 'scheduling.seat_not_disableable') {
@@ -184,7 +190,7 @@ export function HallsPage({ session, client, onLogout }: HallsPageProps) {
                     required
                   />
                 </Field>
-                <Button type="submit" disabled={submitting}>
+                <Button type="submit" disabled={submitting || loading}>
                   {submitting ? 'Creating…' : 'Create Hall'}
                 </Button>
               </FieldGroup>

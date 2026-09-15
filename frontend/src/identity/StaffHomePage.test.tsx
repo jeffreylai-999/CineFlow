@@ -25,12 +25,14 @@ describe('StaffHomePage', () => {
     await expect.element(page.getByText(/booking.staff/)).toBeInTheDocument()
     await expect.element(page.getByRole('link', { name: 'Overview' })).toBeInTheDocument()
     await expect.element(page.getByRole('link', { name: 'Staff accounts' })).not.toBeInTheDocument()
+    await expect.element(page.getByRole('link', { name: 'Halls' })).not.toBeInTheDocument()
   })
 
   it('identifies an Administrator in the portal shell without a Staff accounts route', async () => {
     await render(<StaffHomePage session={administrator} onLogout={() => undefined} />)
 
     await expect.element(page.getByText(/Administrator/)).toBeInTheDocument()
+    await expect.element(page.getByRole('link', { name: 'Halls' })).toBeInTheDocument()
     await expect.element(page.getByRole('link', { name: 'Staff accounts' })).not.toBeInTheDocument()
   })
 

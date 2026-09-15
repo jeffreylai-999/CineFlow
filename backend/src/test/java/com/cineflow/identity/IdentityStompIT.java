@@ -6,7 +6,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.lang.reflect.Type;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -118,18 +120,21 @@ class IdentityStompIT {
 	void deactivatedSubscriberDoesNotReceiveTopicBroadcasts() throws Exception {
 		StaffAccess staff = bookingStaffSession();
 		StompSession inactive = connect(staff.accessToken()).get(5, TimeUnit.SECONDS);
-		CompletableFuture<Map<String, Object>> inactivePong = new CompletableFuture<>();
-		inactive.subscribe("/topic/staff/pong", pongHandler(inactivePong));
-		deactivate(staff.id());
+		BlockingQueue<Map<String, Object>> inactivePongs = new LinkedBlockingQueue<>();
+		inactive.subscribe("/topic/staff/pong", queueHandler(inactivePongs));
 
 		StompSession active = connect(loginAccessToken()).get(5, TimeUnit.SECONDS);
-		CompletableFuture<Map<String, Object>> activePong = new CompletableFuture<>();
-		active.subscribe("/topic/staff/pong", pongHandler(activePong));
+		BlockingQueue<Map<String, Object>> activePongs = new LinkedBlockingQueue<>();
+		active.subscribe("/topic/staff/pong", queueHandler(activePongs));
 		active.send("/app/staff/ping", Map.of());
+		assertThat(activePongs.poll(5, TimeUnit.SECONDS)).containsEntry("status", "ok");
+		assertThat(inactivePongs.poll(5, TimeUnit.SECONDS)).containsEntry("status", "ok");
 
-		assertThat(activePong.get(5, TimeUnit.SECONDS)).containsEntry("status", "ok");
-		assertThatThrownBy(() -> inactivePong.get(2, TimeUnit.SECONDS))
-			.isInstanceOf(TimeoutException.class);
+		deactivate(staff.id());
+		active.send("/app/staff/ping", Map.of());
+		assertThat(activePongs.poll(5, TimeUnit.SECONDS)).containsEntry("status", "ok");
+		assertThat(inactivePongs.poll(2, TimeUnit.SECONDS)).isNull();
+
 		active.disconnect();
 		if (inactive.isConnected()) {
 			inactive.disconnect();
@@ -195,6 +200,22 @@ class IdentityStompIT {
 				"select id from cineflow.staff_accounts where username = ?",
 				Long.class,
 				username);
+	}
+
+	private static StompFrameHandler queueHandler(BlockingQueue<Map<String, Object>> pongs) {
+		return new StompFrameHandler() {
+			@Override
+			public Type getPayloadType(StompHeaders headers) {
+				return Map.class;
+			}
+
+			@Override
+			public void handleFrame(StompHeaders headers, Object payload) {
+				@SuppressWarnings("unchecked")
+				Map<String, Object> body = (Map<String, Object>) payload;
+				pongs.add(body);
+			}
+		};
 	}
 
 	private static StompFrameHandler pongHandler(CompletableFuture<Map<String, Object>> pong) {

@@ -264,6 +264,7 @@ export function ShowtimesPage({ session, client, catalogClient, onLogout }: Show
                     </Button>
                   </div>
                   <ShowtimeTicketPrices
+                    key={`${showtime.id}-${showtime.adultPriceMyr}-${showtime.childPriceMyr}`}
                     showtime={showtime}
                     busy={busy}
                     onSave={onUpdatePrices}
@@ -287,11 +288,6 @@ type ShowtimeTicketPricesProps = {
 function ShowtimeTicketPrices({ showtime, busy, onSave }: ShowtimeTicketPricesProps) {
   const [adultPrice, setAdultPrice] = useState(() => showtime.adultPriceMyr.toFixed(2))
   const [childPrice, setChildPrice] = useState(() => showtime.childPriceMyr.toFixed(2))
-
-  useEffect(() => {
-    setAdultPrice(showtime.adultPriceMyr.toFixed(2))
-    setChildPrice(showtime.childPriceMyr.toFixed(2))
-  }, [showtime.adultPriceMyr, showtime.childPriceMyr])
 
   return (
     <form

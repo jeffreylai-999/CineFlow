@@ -3,6 +3,8 @@ package com.cineflow.scheduling;
 import java.math.BigDecimal;
 import java.time.Instant;
 
+import org.hibernate.annotations.DynamicUpdate;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -11,6 +13,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 @Entity
+@DynamicUpdate
 @Table(name = "showtimes", schema = "cineflow")
 class ShowtimeEntity {
 

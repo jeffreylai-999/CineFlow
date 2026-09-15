@@ -47,6 +47,12 @@ class SchedulingExceptionHandler {
 					"scheduling.showtime_has_bookings",
 					"Showtimes with Bookings cannot be removed");
 		}
+		if (message.contains("seat_claims_showtime_hall_fk")) {
+			return problem(
+					HttpStatus.CONFLICT,
+					"scheduling.showtime_not_removable",
+					"Only unused future Showtimes can be removed");
+		}
 		throw exception;
 	}
 

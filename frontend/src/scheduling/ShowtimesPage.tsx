@@ -91,6 +91,24 @@ export function ShowtimesPage({ session, client, catalogClient, onLogout }: Show
     }
   }
 
+  async function onUpdatePrices(showtime: Showtime, nextAdultPrice: string, nextChildPrice: string) {
+    setBusy(true)
+    setError(null)
+    setMessage(null)
+    try {
+      const updated = await client.updateShowtimePrices(showtime.id, {
+        adultPriceMyr: Number(nextAdultPrice),
+        childPriceMyr: Number(nextChildPrice),
+      })
+      setShowtimes((current) => current.map((item) => (item.id === updated.id ? updated : item)))
+      setMessage(`Updated Ticket Prices for ${updated.movieTitle}.`)
+    } catch (cause) {
+      setError(showtimeErrorMessage(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function onRemove(showtime: Showtime) {
     setBusy(true)
     setError(null)
@@ -223,26 +241,33 @@ export function ShowtimesPage({ session, client, catalogClient, onLogout }: Show
               {showtimes.map((showtime) => (
                 <li
                   key={showtime.id}
-                  className="flex flex-col gap-3 rounded-md border border-border/60 p-4 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-3 rounded-md border border-border/60 p-4"
                 >
-                  <div>
-                    <p className="font-medium">{showtime.movieTitle}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {showtime.hallName} · {showtime.startsAtCinemaTime} {showtime.timeZone}
-                    </p>
-                    <p className="text-sm">
-                      Adult RM {showtime.adultPriceMyr.toFixed(2)} · Child RM{' '}
-                      {showtime.childPriceMyr.toFixed(2)}
-                    </p>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-medium">{showtime.movieTitle}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {showtime.hallName} · {showtime.startsAtCinemaTime} {showtime.timeZone}
+                      </p>
+                      <p className="text-sm">
+                        Adult RM {showtime.adultPriceMyr.toFixed(2)} · Child RM{' '}
+                        {showtime.childPriceMyr.toFixed(2)}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => void onRemove(showtime)}
+                    >
+                      Remove Showtime
+                    </Button>
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => void onRemove(showtime)}
-                  >
-                    Remove Showtime
-                  </Button>
+                  <ShowtimeTicketPrices
+                    showtime={showtime}
+                    busy={busy}
+                    onSave={onUpdatePrices}
+                  />
                 </li>
               ))}
             </ul>
@@ -250,5 +275,62 @@ export function ShowtimesPage({ session, client, catalogClient, onLogout }: Show
         </section>
       </div>
     </StaffShell>
+  )
+}
+
+type ShowtimeTicketPricesProps = {
+  showtime: Showtime
+  busy: boolean
+  onSave: (showtime: Showtime, adultPrice: string, childPrice: string) => Promise<void>
+}
+
+function ShowtimeTicketPrices({ showtime, busy, onSave }: ShowtimeTicketPricesProps) {
+  const [adultPrice, setAdultPrice] = useState(() => showtime.adultPriceMyr.toFixed(2))
+  const [childPrice, setChildPrice] = useState(() => showtime.childPriceMyr.toFixed(2))
+
+  useEffect(() => {
+    setAdultPrice(showtime.adultPriceMyr.toFixed(2))
+    setChildPrice(showtime.childPriceMyr.toFixed(2))
+  }, [showtime.adultPriceMyr, showtime.childPriceMyr])
+
+  return (
+    <form
+      className="grid gap-3"
+      onSubmit={(event) => {
+        event.preventDefault()
+        void onSave(showtime, adultPrice, childPrice)
+      }}
+    >
+      <FieldSet className="gap-3">
+        <FieldLegend>
+          Ticket Prices for {showtime.movieTitle} at {showtime.startsAtCinemaTime}
+        </FieldLegend>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-2">
+            <Label htmlFor={`adult-price-${showtime.id}`}>Adult Ticket Price (MYR)</Label>
+            <Input
+              id={`adult-price-${showtime.id}`}
+              inputMode="decimal"
+              value={adultPrice}
+              onChange={(event) => setAdultPrice(event.target.value)}
+              required
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label htmlFor={`child-price-${showtime.id}`}>Child Ticket Price (MYR)</Label>
+            <Input
+              id={`child-price-${showtime.id}`}
+              inputMode="decimal"
+              value={childPrice}
+              onChange={(event) => setChildPrice(event.target.value)}
+              required
+            />
+          </div>
+        </div>
+      </FieldSet>
+      <Button type="submit" variant="outline" disabled={busy}>
+        Update Ticket Prices
+      </Button>
+    </form>
   )
 }

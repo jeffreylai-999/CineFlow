@@ -191,6 +191,33 @@ class SchedulingShowtimesIT {
 	}
 
 	@Test
+	void ticketPricesCanChangeAfterTheMovieAndHallAreArchived() throws Exception {
+		String token = adminToken();
+		int hallId = createHall(token, "Priced archive " + UUID.randomUUID());
+		long movieId = insertMovie("Archived priced", 90);
+		String created = createShowtime(token, movieId, hallId, "2026-12-16T18:00", "28.00", "18.00")
+			.andExpect(status().isCreated())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		int showtimeId = JsonPath.read(created, "$.id");
+
+		jdbcTemplate.update("update cineflow.movies set archived_at = now() where id = ?", movieId);
+		mockMvc.perform(post("/api/halls/" + hallId + "/archive").header("Authorization", "Bearer " + token))
+			.andExpect(status().isOk());
+
+		mockMvc.perform(patch("/api/showtimes/" + showtimeId)
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"adultPriceMyr":31.00,"childPriceMyr":15.50}
+						"""))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.adultPriceMyr").value(31.00))
+			.andExpect(jsonPath("$.childPriceMyr").value(15.50));
+	}
+
+	@Test
 	void pricingChangesAreAudited() throws Exception {
 		String token = adminToken();
 		int hallId = createHall(token, "Price " + UUID.randomUUID());

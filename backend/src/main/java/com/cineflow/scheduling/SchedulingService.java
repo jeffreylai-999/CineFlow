@@ -251,6 +251,9 @@ class SchedulingService implements Scheduling {
 		if (message.contains("scheduling.showtime_has_bookings")) {
 			return SchedulingException.showtimeHasBookings();
 		}
+		if (message.contains("seat_claims_showtime_hall_fk")) {
+			return SchedulingException.showtimeNotRemovable();
+		}
 		throw exception;
 	}
 

@@ -73,6 +73,9 @@ AS $$
 DECLARE
     movie_archived BOOLEAN;
 BEGIN
+    IF TG_OP = 'UPDATE' AND NEW.movie_id IS NOT DISTINCT FROM OLD.movie_id THEN
+        RETURN NEW;
+    END IF;
     SELECT archived_at IS NOT NULL INTO STRICT movie_archived
     FROM cineflow.movies
     WHERE id = NEW.movie_id
@@ -115,3 +118,24 @@ CREATE TRIGGER showtimes_reject_booked_delete
     BEFORE DELETE ON cineflow.showtimes
     FOR EACH ROW
     EXECUTE FUNCTION cineflow.reject_protected_showtime_delete();
+
+CREATE OR REPLACE FUNCTION cineflow.reject_showtime_on_archived_hall()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    hall_archived BOOLEAN;
+BEGIN
+    IF TG_OP = 'UPDATE' AND NEW.hall_id IS NOT DISTINCT FROM OLD.hall_id THEN
+        RETURN NEW;
+    END IF;
+    SELECT archived_at IS NOT NULL INTO STRICT hall_archived
+    FROM cineflow.halls
+    WHERE id = NEW.hall_id
+    FOR UPDATE;
+    IF hall_archived THEN
+        RAISE EXCEPTION 'scheduling.hall_archived';
+    END IF;
+    RETURN NEW;
+END;
+$$;

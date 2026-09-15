@@ -148,6 +148,43 @@ describe('ShowtimesPage', () => {
     await expect.element(page.getByText('Hall 1 · 2026-09-20T19:30:00 Asia/Kuala_Lumpur')).toBeInTheDocument()
   })
 
+  it('lets an Administrator change Ticket Prices after scheduling', async () => {
+    const updated: Showtime = {
+      ...scheduled,
+      adultPriceMyr: 30.5,
+      childPriceMyr: 16,
+    }
+    const client = clientStub({
+      listShowtimes: vi.fn().mockResolvedValue([scheduled]),
+      updateShowtimePrices: vi.fn().mockResolvedValue(updated),
+    })
+
+    await renderShowtimes(
+      <ShowtimesPage
+        session={administrator}
+        client={client}
+        catalogClient={catalogStub()}
+        onLogout={() => undefined}
+      />,
+    )
+
+    const prices = page.getByRole('group', {
+      name: 'Ticket Prices for Nebula Express at 2026-09-20T19:30:00',
+    })
+    await prices.getByLabelText('Adult Ticket Price (MYR)').fill('30.50')
+    await prices.getByLabelText('Child Ticket Price (MYR)').fill('16.00')
+    await prices.getByRole('button', { name: 'Update Ticket Prices' }).click()
+
+    await expect
+      .element(page.getByRole('status'))
+      .toHaveTextContent('Updated Ticket Prices for Nebula Express.')
+    await expect.element(page.getByText('Adult RM 30.50 · Child RM 16.00')).toBeInTheDocument()
+    expect(client.updateShowtimePrices).toHaveBeenCalledWith(11, {
+      adultPriceMyr: 30.5,
+      childPriceMyr: 16,
+    })
+  })
+
   it('has no serious axe violations on the Showtimes route', async () => {
     const screen = await renderShowtimes(
       <ShowtimesPage

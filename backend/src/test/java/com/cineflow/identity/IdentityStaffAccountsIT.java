@@ -115,6 +115,15 @@ class IdentityStaffAccountsIT {
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("request.invalid"));
 
+		mockMvc.perform(post("/api/staff/accounts")
+				.header("Authorization", "Bearer " + adminToken)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"username":"%s","password":"%s"}
+						""".formatted(username, "x".repeat(73))))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("request.invalid"));
+
 		assertThat(jdbcTemplate.queryForList(
 				"select username from cineflow.staff_accounts where username = ?",
 				String.class,

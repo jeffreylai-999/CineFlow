@@ -28,8 +28,15 @@ export function StaffAccountsPage({ session, client, onLogout }: StaffAccountsPa
   const [pendingId, setPendingId] = useState<number | null>(null)
 
   async function reload() {
-    const next = await client.listStaffAccounts()
-    setState({ status: 'ready', accounts: next })
+    try {
+      const next = await client.listStaffAccounts()
+      setState({ status: 'ready', accounts: next })
+    } catch {
+      setState({
+        status: 'error',
+        message: 'Unable to load Staff accounts. Try again shortly.',
+      })
+    }
   }
 
   useEffect(() => {
@@ -191,7 +198,7 @@ export function StaffAccountsPage({ session, client, onLogout }: StaffAccountsPa
                     <td className="py-3">
                       <AccountActions
                         account={account}
-                        pending={pendingId === account.id}
+                        pending={pendingId !== null}
                         resetPassword={resetPasswords[account.id] ?? ''}
                         onResetPasswordChange={(value) =>
                           setResetPasswords((current) => ({ ...current, [account.id]: value }))

@@ -178,6 +178,61 @@ describe('StaffRoutes staff administration', () => {
     await expect.element(page.getByRole('button', { name: 'Deactivate booking.staff' })).not.toBeInTheDocument()
   })
 
+  it('treats a failed list refresh after create as a load error', async () => {
+    const client = fakeIdentityClient({
+      refresh: vi.fn().mockResolvedValue(administrator),
+      listStaffAccounts: vi
+        .fn()
+        .mockResolvedValueOnce(accounts)
+        .mockRejectedValueOnce(new Error('offline')),
+      createStaffAccount: vi.fn().mockResolvedValue({
+        id: 9,
+        username: 'counter.staff',
+        role: 'BOOKING_STAFF',
+        active: true,
+      }),
+    })
+
+    await renderStaffRoutes({ session: administrator, path: '/staff/accounts', client })
+    await expect.element(page.getByRole('heading', { name: 'Staff accounts' })).toBeInTheDocument()
+
+    await page.getByLabelText('New username').fill('counter.staff')
+    await page.getByLabelText('New password').fill('CounterPass1!')
+    await page.getByRole('button', { name: 'Create Booking Staff' }).click()
+
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent('Unable to load Staff accounts. Try again shortly.')
+    expect(client.createStaffAccount).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables every Booking Staff action while one mutation is pending', async () => {
+    let finishReset: () => void = () => {}
+    const listed: StaffAccount[] = [
+      ...accounts,
+      { id: 3, username: 'other.staff', role: 'BOOKING_STAFF', active: true },
+    ]
+    const client = fakeIdentityClient({
+      refresh: vi.fn().mockResolvedValue(administrator),
+      listStaffAccounts: vi.fn(async () => listed),
+      resetStaffPassword: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            finishReset = resolve
+          }),
+      ),
+    })
+
+    await renderStaffRoutes({ session: administrator, path: '/staff/accounts', client })
+    await expect.element(page.getByRole('heading', { name: 'Staff accounts' })).toBeInTheDocument()
+
+    await page.getByLabelText('New password for booking.staff').fill('ResetPassw0rd!')
+    await page.getByRole('button', { name: 'Reset password for booking.staff' }).click()
+    await expect.element(page.getByRole('button', { name: 'Reset password for other.staff' })).toBeDisabled()
+    await expect.element(page.getByRole('button', { name: 'Deactivate other.staff' })).toBeDisabled()
+    finishReset()
+  })
+
   it('has no serious axe violations on the Staff accounts route', async () => {
     const client = fakeIdentityClient({
       refresh: vi.fn().mockResolvedValue(administrator),

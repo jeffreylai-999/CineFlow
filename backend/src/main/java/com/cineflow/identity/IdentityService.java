@@ -1,5 +1,6 @@
 package com.cineflow.identity;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -187,7 +188,9 @@ class IdentityService implements Identity {
 	}
 
 	private static void requireStrongPassword(String password) {
-		if (password == null || password.length() < PasswordResetRequest.MIN_LENGTH) {
+		if (password == null
+				|| password.length() < PasswordResetRequest.MIN_LENGTH
+				|| password.getBytes(StandardCharsets.UTF_8).length > PasswordResetRequest.MAX_BCRYPT_BYTES) {
 			throw IdentityException.invalidRequest();
 		}
 	}

@@ -34,7 +34,8 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
-    IF NEW.hall_id IS DISTINCT FROM OLD.hall_id
+    IF NEW.id IS DISTINCT FROM OLD.id
+        OR NEW.hall_id IS DISTINCT FROM OLD.hall_id
         OR NEW.row_label IS DISTINCT FROM OLD.row_label
         OR NEW.seat_number IS DISTINCT FROM OLD.seat_number THEN
         RAISE EXCEPTION 'scheduling.seat_identity_immutable';
@@ -210,13 +211,14 @@ CREATE FUNCTION cineflow.reject_showtime_on_archived_hall()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
+DECLARE
+    hall_archived BOOLEAN;
 BEGIN
-    IF EXISTS (
-        SELECT 1
-        FROM cineflow.halls
-        WHERE id = NEW.hall_id
-          AND archived_at IS NOT NULL
-    ) THEN
+    SELECT archived_at IS NOT NULL INTO STRICT hall_archived
+    FROM cineflow.halls
+    WHERE id = NEW.hall_id
+    FOR UPDATE;
+    IF hall_archived THEN
         RAISE EXCEPTION 'scheduling.hall_archived';
     END IF;
     RETURN NEW;

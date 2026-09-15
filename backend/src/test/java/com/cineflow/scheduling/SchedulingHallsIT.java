@@ -71,6 +71,9 @@ class SchedulingHallsIT {
 		int firstSeatId = JsonPath.read(created.getResponse().getContentAsString(), "$.seats[0].id");
 
 		assertThatThrownBy(() -> jdbcTemplate.update(
+				"update cineflow.seats set id = id + 1000 where id = ?", firstSeatId))
+			.hasMessageContaining("scheduling.seat_identity_immutable");
+		assertThatThrownBy(() -> jdbcTemplate.update(
 				"update cineflow.seats set row_label = 'Z' where id = ?", firstSeatId))
 			.hasMessageContaining("scheduling.seat_identity_immutable");
 		assertThatThrownBy(() -> jdbcTemplate.update(

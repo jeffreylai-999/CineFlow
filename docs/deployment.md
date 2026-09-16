@@ -56,7 +56,7 @@ pg_dump "postgresql://postgres.<project-ref>@aws-0-ap-southeast-1.pooler.supabas
 
 1. In the Render Dashboard, create a Blueprint from this repository. `render.yaml` defines a Free Docker web service named `cineflow` in Singapore, with readiness checks at `/actuator/health/readiness`.
 2. When prompted, paste the three `CINEFLOW_DATASOURCE_*` values plus `CINEFLOW_JWT_SECRET`, the bootstrap Administrator username and password, `CINEFLOW_TMDB_ACCESS_TOKEN`, and `CINEFLOW_OMDB_API_KEY`. Leave them out of git. The Blueprint sets `CINEFLOW_AUTH_COOKIE_SECURE=true`.
-3. Wait for the first deploy. Flyway applies all packaged migrations once (`V1__movie_catalog.sql` through `V4__catalog_provider_settings.sql`, including hall seat maps); later deploys reuse the same schema. Production does not seed Booking Staff; the first Administrator comes from the bootstrap secrets.
+3. Wait for the first deploy. Flyway applies all packaged migrations once (`V1__movie_catalog.sql` through `V5__showtime_ticket_prices.sql`, including hall seat maps and catalog provider settings); later deploys reuse the same schema. Production does not seed Booking Staff; the first Administrator comes from the bootstrap secrets.
 4. Confirm one HTTPS origin:
    - `https://<service>.onrender.com/` serves the Movie catalog page
    - `https://<service>.onrender.com/api/movies` returns the sanitized Movie

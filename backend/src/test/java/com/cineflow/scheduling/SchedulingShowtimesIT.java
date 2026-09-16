@@ -9,6 +9,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.util.List;
 import java.util.TimeZone;
 import java.util.UUID;
@@ -16,7 +18,10 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import javax.sql.DataSource;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -44,6 +49,9 @@ class SchedulingShowtimesIT {
 
 	@Autowired
 	JdbcTemplate jdbcTemplate;
+
+	@Autowired
+	DataSource dataSource;
 
 	private String cachedAdminToken;
 
@@ -82,7 +90,7 @@ class SchedulingShowtimesIT {
 					java.time.OffsetDateTime.class,
 					showtimeId)
 				.toInstant()).isEqualTo(java.time.Instant.parse("2026-09-20T11:30:00Z"));
-			assertThat(auditActions()).contains("SHOWTIME_CREATED");
+			assertThat(auditActionsForShowtime(showtimeId)).contains("SHOWTIME_CREATED");
 		}
 		finally {
 			TimeZone.setDefault(original);
@@ -159,7 +167,127 @@ class SchedulingShowtimesIT {
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("scheduling.showtime_not_removable"));
 
-		assertThat(auditActions()).contains("SHOWTIME_REMOVED");
+		assertThat(auditActionsForShowtime(removableId)).contains("SHOWTIME_REMOVED");
+	}
+
+	@Test
+	void anActiveSeatHoldBlocksShowtimeRemoval() throws Exception {
+		String token = adminToken();
+		int hallId = createHall(token, "Hold remove " + UUID.randomUUID());
+		int seatId = firstSeatId(hallId);
+		long movieId = insertMovie("Held Gate", 90);
+		String created = createShowtime(token, movieId, hallId, "2026-11-03T19:30", "22.00", "12.00")
+			.andExpect(status().isCreated())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		int showtimeId = JsonPath.read(created, "$.id");
+		insertHold(showtimeId, hallId, seatId, "now() + interval '10 minutes'");
+
+		mockMvc.perform(delete("/api/showtimes/" + showtimeId).header("Authorization", "Bearer " + token))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("scheduling.showtime_not_removable"));
+	}
+
+	@Test
+	void anExpiredSeatHoldDoesNotBlockShowtimeRemoval() throws Exception {
+		String token = adminToken();
+		int hallId = createHall(token, "Expired hold " + UUID.randomUUID());
+		int seatId = firstSeatId(hallId);
+		long movieId = insertMovie("Expired Hold Gate", 90);
+		String created = createShowtime(token, movieId, hallId, "2026-11-04T19:30", "22.00", "12.00")
+			.andExpect(status().isCreated())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		int showtimeId = JsonPath.read(created, "$.id");
+		insertHold(showtimeId, hallId, seatId, "now() - interval '1 minute'");
+
+		mockMvc.perform(delete("/api/showtimes/" + showtimeId).header("Authorization", "Bearer " + token))
+			.andExpect(status().isNoContent());
+		assertThat(auditActionsForShowtime(showtimeId)).contains("SHOWTIME_REMOVED");
+	}
+
+	@Test
+	void concurrentHoldDuringRemoveIsAConflictNotAServerError() throws Exception {
+		String token = adminToken();
+		int hallId = createHall(token, "Race hold " + UUID.randomUUID());
+		int seatId = firstSeatId(hallId);
+		long movieId = insertMovie("Race Hold Gate", 90);
+		String created = createShowtime(token, movieId, hallId, "2026-11-05T19:30", "22.00", "12.00")
+			.andExpect(status().isCreated())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		int showtimeId = JsonPath.read(created, "$.id");
+		var remove = Executors.newSingleThreadExecutor();
+		try (Connection connection = dataSource.getConnection()) {
+			connection.setAutoCommit(false);
+			insertHold(connection, showtimeId, hallId, seatId);
+			Future<MvcResult> pending = remove.submit(() -> mockMvc
+				.perform(delete("/api/showtimes/" + showtimeId).header("Authorization", "Bearer " + token))
+				.andReturn());
+			assertStillWaiting(pending);
+			connection.commit();
+			MvcResult result = pending.get(10, TimeUnit.SECONDS);
+			int status = result.getResponse().getStatus();
+			assertThat(status).isIn(204, 409);
+			if (status == 409) {
+				assertThat((String) JsonPath.read(result.getResponse().getContentAsString(), "$.code"))
+					.isEqualTo("scheduling.showtime_not_removable");
+			}
+		}
+		finally {
+			remove.shutdownNow();
+		}
+	}
+
+	@Test
+	void showtimeOccupancyUsesTheRuntimeLockedWithTheMovie() throws Exception {
+		String token = adminToken();
+		int hallId = createHall(token, "Runtime lock " + UUID.randomUUID());
+		long movieId = insertMovie("Runtime Lock Gate", 90);
+		var create = Executors.newSingleThreadExecutor();
+		try (Connection connection = dataSource.getConnection()) {
+			connection.setAutoCommit(false);
+			try (PreparedStatement update = connection.prepareStatement(
+					"update cineflow.movies set runtime_minutes = 80 where id = ?")) {
+				update.setLong(1, movieId);
+				update.executeUpdate();
+			}
+			Future<MvcResult> pending = create.submit(() -> createShowtime(
+					token, movieId, hallId, "2026-09-20T19:30", "28.00", "18.00")
+				.andReturn());
+			assertStillWaiting(pending);
+			connection.commit();
+			MvcResult result = pending.get(10, TimeUnit.SECONDS);
+			assertThat(result.getResponse().getStatus()).isEqualTo(201);
+			int showtimeId = JsonPath.read(result.getResponse().getContentAsString(), "$.id");
+			assertThat(jdbcTemplate.queryForObject(
+					"select upper(occupancy) from cineflow.showtimes where id = ?",
+					java.time.OffsetDateTime.class,
+					showtimeId)
+				.toInstant()).isEqualTo(java.time.Instant.parse("2026-09-20T13:05:00Z"));
+		}
+		finally {
+			create.shutdownNow();
+		}
+	}
+
+	@Test
+	void zeroTicketPricesAreASchedulingPriceError() throws Exception {
+		String token = adminToken();
+		createShowtime(token, 1, 1, "2026-12-20T19:30", "0", "18.00")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("scheduling.invalid_price"));
+		mockMvc.perform(patch("/api/showtimes/1")
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"adultPriceMyr":28.001,"childPriceMyr":16.00}
+						"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("scheduling.invalid_price"));
 	}
 
 	@Test
@@ -243,7 +371,7 @@ class SchedulingShowtimesIT {
 		mockMvc.perform(get("/api/showtimes").header("Authorization", "Bearer " + token))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$[?(@.id==%d)].adultPriceMyr", showtimeId).value(org.hamcrest.Matchers.hasItem(30.50)));
-		assertThat(auditActions()).contains("SHOWTIME_CREATED", "SHOWTIME_PRICES_UPDATED");
+		assertThat(auditActionsForShowtime(showtimeId)).contains("SHOWTIME_CREATED", "SHOWTIME_PRICES_UPDATED");
 	}
 
 	@Test
@@ -341,6 +469,40 @@ class SchedulingShowtimesIT {
 				UUID.randomUUID().toString());
 	}
 
+	private void assertStillWaiting(Future<MvcResult> pending) throws Exception {
+		try {
+			MvcResult finished = pending.get(200, TimeUnit.MILLISECONDS);
+			throw new AssertionError("request finished early with status " + finished.getResponse().getStatus());
+		}
+		catch (TimeoutException expected) {
+			assertThat(pending).isNotDone();
+		}
+	}
+
+	private void insertHold(long showtimeId, int hallId, int seatId, String expiresAtSql) {
+		jdbcTemplate.update(
+				"""
+						insert into cineflow.seat_claims (showtime_id, hall_id, seat_id, claim_kind, expires_at)
+						values (?, ?, ?, 'HOLD', %s)
+						""".formatted(expiresAtSql),
+				showtimeId,
+				hallId,
+				seatId);
+	}
+
+	private void insertHold(Connection connection, long showtimeId, int hallId, int seatId) throws Exception {
+		try (PreparedStatement insert = connection.prepareStatement(
+				"""
+						insert into cineflow.seat_claims (showtime_id, hall_id, seat_id, claim_kind, expires_at)
+						values (?, ?, ?, 'HOLD', now() + interval '10 minutes')
+						""")) {
+			insert.setLong(1, showtimeId);
+			insert.setInt(2, hallId);
+			insert.setInt(3, seatId);
+			insert.executeUpdate();
+		}
+	}
+
 	private void insertBooking(long showtimeId, int hallId, int seatId) {
 		jdbcTemplate.update(
 				"""
@@ -375,7 +537,10 @@ class SchedulingShowtimesIT {
 		return token;
 	}
 
-	private List<String> auditActions() {
-		return jdbcTemplate.queryForList("select action from cineflow.audit_events", String.class);
+	private List<String> auditActionsForShowtime(long showtimeId) {
+		return jdbcTemplate.queryForList(
+				"select action from cineflow.audit_events where subject_type = 'showtime' and subject_id = ?",
+				String.class,
+				Long.toString(showtimeId));
 	}
 }

@@ -24,11 +24,21 @@ CREATE FUNCTION cineflow.assign_showtime_occupancy()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
+DECLARE
+    locked_runtime INTEGER;
 BEGIN
-    NEW.occupancy := cineflow.showtime_occupancy(NEW.starts_at, NEW.movie_id);
-    IF NEW.occupancy IS NULL THEN
+    SELECT runtime_minutes INTO locked_runtime
+    FROM cineflow.movies
+    WHERE id = NEW.movie_id
+    FOR UPDATE;
+    IF locked_runtime IS NULL THEN
         RAISE EXCEPTION 'scheduling.movie_not_found';
     END IF;
+    NEW.occupancy := tstzrange(
+        NEW.starts_at,
+        NEW.starts_at + make_interval(mins => locked_runtime + 15),
+        '[)'
+    );
     RETURN NEW;
 END;
 $$;
@@ -139,3 +149,21 @@ BEGIN
     RETURN NEW;
 END;
 $$;
+
+CREATE FUNCTION cineflow.lock_showtime_for_claim()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM 1
+    FROM cineflow.showtimes
+    WHERE id = NEW.showtime_id
+    FOR UPDATE;
+    RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER seat_claims_lock_showtime
+    BEFORE INSERT OR UPDATE OF showtime_id ON cineflow.seat_claims
+    FOR EACH ROW
+    EXECUTE FUNCTION cineflow.lock_showtime_for_claim();

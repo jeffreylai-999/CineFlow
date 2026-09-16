@@ -1,6 +1,7 @@
 package com.cineflow.scheduling;
 
 import java.math.BigDecimal;
+import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
@@ -189,6 +190,10 @@ class SchedulingService implements Scheduling {
 	@Override
 	@Transactional
 	public void removeShowtime(long actorStaffId, long showtimeId) {
+		if (jdbcTemplate.queryForList("select id from cineflow.showtimes where id = ? for update", Long.class, showtimeId)
+				.isEmpty()) {
+			throw SchedulingException.showtimeNotFound();
+		}
 		ShowtimeEntity showtime = showtimes.findById(showtimeId).orElseThrow(SchedulingException::showtimeNotFound);
 		if (!showtime.getStartsAt().isAfter(clock.instant())) {
 			throw SchedulingException.showtimeNotRemovable();
@@ -197,8 +202,15 @@ class SchedulingService implements Scheduling {
 			throw SchedulingException.showtimeHasBookings();
 		}
 		jdbcTemplate.update(
-				"delete from cineflow.seat_claims where showtime_id = ? and claim_kind = 'HOLD'",
-				showtimeId);
+				"""
+						delete from cineflow.seat_claims
+						where showtime_id = ? and claim_kind = 'HOLD' and expires_at <= ?
+						""",
+				showtimeId,
+				Timestamp.from(clock.instant()));
+		if (hasActiveHolds(showtimeId)) {
+			throw SchedulingException.showtimeNotRemovable();
+		}
 		try {
 			showtimes.delete(showtime);
 			showtimes.flush();
@@ -218,6 +230,14 @@ class SchedulingService implements Scheduling {
 	private boolean hasBookings(long showtimeId) {
 		Integer count = jdbcTemplate.queryForObject(
 				"select count(*) from cineflow.seat_claims where showtime_id = ? and claim_kind = 'BOOKING'",
+				Integer.class,
+				showtimeId);
+		return count != null && count > 0;
+	}
+
+	private boolean hasActiveHolds(long showtimeId) {
+		Integer count = jdbcTemplate.queryForObject(
+				"select count(*) from cineflow.seat_claims where showtime_id = ? and claim_kind = 'HOLD'",
 				Integer.class,
 				showtimeId);
 		return count != null && count > 0;

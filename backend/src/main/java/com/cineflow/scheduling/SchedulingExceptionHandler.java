@@ -1,21 +1,36 @@
 package com.cineflow.scheduling;
 
 import org.slf4j.MDC;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.cineflow.platform.CorrelationIdFilter;
 
+@Order(Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(basePackages = "com.cineflow.scheduling")
 class SchedulingExceptionHandler {
 
 	@ExceptionHandler(SchedulingException.class)
 	ResponseEntity<ProblemDetail> handleScheduling(SchedulingException exception) {
 		return problem(exception.status(), exception.code(), exception.title());
+	}
+
+	@ExceptionHandler(MethodArgumentNotValidException.class)
+	ResponseEntity<ProblemDetail> handleInvalid(MethodArgumentNotValidException exception) {
+		if (isTicketPriceViolation(exception)) {
+			return problem(
+					HttpStatus.BAD_REQUEST,
+					"scheduling.invalid_price",
+					"Adult and Child prices must be greater than zero");
+		}
+		return problem(HttpStatus.BAD_REQUEST, "request.invalid", "Bad Request");
 	}
 
 	@ExceptionHandler(DataAccessException.class)
@@ -54,6 +69,11 @@ class SchedulingExceptionHandler {
 					"Only unused future Showtimes can be removed");
 		}
 		throw exception;
+	}
+
+	private static boolean isTicketPriceViolation(MethodArgumentNotValidException exception) {
+		return exception.getBindingResult().getFieldErrors().stream()
+			.anyMatch(error -> "adultPriceMyr".equals(error.getField()) || "childPriceMyr".equals(error.getField()));
 	}
 
 	private static ResponseEntity<ProblemDetail> problem(HttpStatus status, String code, String title) {

@@ -7,12 +7,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -27,8 +29,23 @@ class CatalogMoviesIT {
 	@Autowired
 	MockMvc mockMvc;
 
+	@Autowired
+	JdbcTemplate jdbcTemplate;
+
 	@Test
 	void listsAvailableSanitizedMoviesFromFixture() throws Exception {
+		// Shared @SpringBootTest contexts can already have earlier nebula-express Showtimes.
+		jdbcTemplate.update(
+				"""
+						insert into cineflow.showtimes (hall_id, movie_id, starts_at, adult_price_myr, child_price_myr)
+						select s.hall_id, s.movie_id, now() + interval '2 days', 28.00, 18.00
+						from cineflow.showtimes s
+						join cineflow.movies m on m.id = s.movie_id
+						where m.source_provider = 'fixture' and m.external_id = 'nebula-express'
+						order by s.id
+						limit 1
+						""");
+
 		mockMvc.perform(get("/api/movies").accept(MediaType.APPLICATION_JSON))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$[?(@.title=='Nebula Express')].synopsis").value(
@@ -39,8 +56,10 @@ class CatalogMoviesIT {
 			.andExpect(jsonPath("$[?(@.title=='Nebula Express')].posterUrl")
 					.value("https://cdn.example.test/posters/nebula-express.jpg"))
 			.andExpect(jsonPath("$[?(@.title=='Nebula Express')].id").exists())
-			.andExpect(jsonPath("$[?(@.title=='Nebula Express')].dates[0].cinemaDate").value("2099-06-20"))
-			.andExpect(jsonPath("$[?(@.title=='Nebula Express')].dates[0].showtimes[0].checkoutOpen").value(true));
+			.andExpect(jsonPath("$[?(@.title=='Nebula Express')].dates[?(@.cinemaDate=='2099-06-20')].cinemaDate")
+					.value(Matchers.hasItem("2099-06-20")))
+			.andExpect(jsonPath("$[?(@.title=='Nebula Express')].dates[?(@.cinemaDate=='2099-06-20')].showtimes[0].checkoutOpen")
+					.value(Matchers.hasItem(true)));
 	}
 
 	@Test

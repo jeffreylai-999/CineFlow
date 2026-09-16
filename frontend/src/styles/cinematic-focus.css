@@ -100,5 +100,5 @@
   /* Selected Seat: solid primary border + ●. */
   --seat-selected: #3a1520; /* selected-foreground on selected ≈ 11.8:1 */
   --seat-selected-foreground: #f4efe6;
-  --seat-selected-border: #e11d2e; /* primary border against selected fill ≈ 4.8:1 */
+  --seat-selected-border: #e11d2e; /* primary border against selected fill ≈ 3.38:1 */
 }

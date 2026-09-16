@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import {
   CustomerRequestError,
   type CustomerClient,
@@ -9,7 +9,11 @@ import {
 } from '@/booking/api/customerClient.ts'
 import { type SeatAvailabilitySocket } from '@/booking/api/seatAvailabilitySocket.ts'
 import { BOOKING_CUTOFF_MESSAGE } from '@/booking/bookingCutoffMessage.ts'
+import { type CheckoutLocationState } from '@/booking/CheckoutPage.tsx'
+import { formatHoldTime } from '@/booking/formatHoldTime.ts'
 import { formatMyr } from '@/booking/formatMyr.ts'
+import { parseTicketType, ticketPrice } from '@/booking/ticketType.ts'
+import { useSeatHoldCountdown } from '@/booking/useSeatHoldCountdown.ts'
 import { Button } from '@/components/ui/button.tsx'
 import { Label } from '@/components/ui/label.tsx'
 import { SeatGrid, type SeatGridItem } from '@/scheduling/SeatGrid.tsx'
@@ -40,6 +44,7 @@ export function SeatSelectionPage({ client, socket }: SeatSelectionPageProps) {
 
 function SeatSelectionScreen({ client, socket }: SeatSelectionPageProps) {
   const { showtimeId } = useParams()
+  const navigate = useNavigate()
   const parsedId = Number(showtimeId)
   const validShowtimeId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
   const [state, setState] = useState<LoadState>({ status: 'loading' })
@@ -49,11 +54,23 @@ function SeatSelectionScreen({ client, socket }: SeatSelectionPageProps) {
   const [holdError, setHoldError] = useState<string | null>(null)
   const [creatingHold, setCreatingHold] = useState(false)
   const [refresh, setRefresh] = useState(0)
-  const [remainingHoldSeconds, setRemainingHoldSeconds] = useState<number | null>(null)
 
   const refreshAvailability = useCallback(() => {
     setRefresh((current) => current + 1)
   }, [])
+
+  const handleHoldExpired = useCallback(() => {
+    setHold(null)
+    setSelection({})
+    setHoldError('Your Seat Hold expired. Current availability has been refreshed.')
+    refreshAvailability()
+  }, [refreshAvailability])
+
+  const remainingHoldSeconds = useSeatHoldCountdown(
+    hold?.details ?? null,
+    hold?.receivedAt ?? 0,
+    handleHoldExpired,
+  )
 
   useEffect(() => {
     if (validShowtimeId === null) {
@@ -110,29 +127,6 @@ function SeatSelectionScreen({ client, socket }: SeatSelectionPageProps) {
       void socket.disconnect()
     }
   }, [refreshAvailability, socket, validShowtimeId])
-
-  useEffect(() => {
-    if (!hold) {
-      return
-    }
-    const updateRemainingTime = () => {
-      const duration = Date.parse(hold.details.expiresAt) - Date.parse(hold.details.serverTime)
-      const elapsed = performance.now() - hold.receivedAt
-      const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1_000))
-      setRemainingHoldSeconds(remaining)
-      if (remaining === 0) {
-        setHold(null)
-        setSelection({})
-        setHoldError('Your Seat Hold expired. Current availability has been refreshed.')
-        refreshAvailability()
-      }
-    }
-    updateRemainingTime()
-    const interval = window.setInterval(updateRemainingTime, 1_000)
-    return () => {
-      window.clearInterval(interval)
-    }
-  }, [hold, refreshAvailability])
 
   const readyMap = state.status === 'ready' && state.map.showtimeId === validShowtimeId ? state.map : null
   const selectedCount = Object.keys(selection).length
@@ -200,6 +194,19 @@ function SeatSelectionScreen({ client, socket }: SeatSelectionPageProps) {
         return ticketType ? sum + ticketPrice(ticketType, readyMap) : sum
       }, 0)
     : 0
+
+  function continueToPayment() {
+    if (!readyMap || !hold) {
+      return
+    }
+    const state: CheckoutLocationState = {
+      hold: hold.details,
+      holdReceivedAt: hold.receivedAt,
+      selection,
+      map: readyMap,
+    }
+    navigate(`/showtimes/${readyMap.showtimeId}/checkout`, { state })
+  }
 
   const showNotFound = validShowtimeId === null || state.status === 'not-found'
 
@@ -304,50 +311,29 @@ function SeatSelectionScreen({ client, socket }: SeatSelectionPageProps) {
               </>
             ) : null}
             <p className="mt-4 text-sm text-muted-foreground">
-              Payment is the next step after Seat selection.
+              {hold
+                ? 'Your Seats are held. Continue to Payment to confirm the Booking.'
+                : 'Payment is the next step after Seat selection.'}
             </p>
-            <Button
-              type="button"
-              className="mt-3 w-full"
-              disabled={selectedCount === 0 || creatingHold || hold !== null}
-              onClick={createSeatHold}
-            >
-              {creatingHold ? 'Holding Seats…' : 'Hold selected Seats'}
-            </Button>
+            {hold ? (
+              <Button type="button" className="mt-3 w-full" onClick={continueToPayment}>
+                Continue to Payment
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                className="mt-3 w-full"
+                disabled={selectedCount === 0 || creatingHold}
+                onClick={createSeatHold}
+              >
+                {creatingHold ? 'Holding Seats…' : 'Hold selected Seats'}
+              </Button>
+            )}
           </aside>
         </div>
       ) : null}
     </div>
   )
-}
-
-function formatHoldTime(totalSeconds: number): string {
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`
-}
-
-function parseTicketType(value: string): TicketType {
-  switch (value) {
-    case 'ADULT':
-    case 'CHILD':
-      return value
-    default:
-      throw new Error(`Unknown Ticket Type: ${value}`)
-  }
-}
-
-function ticketPrice(ticketType: TicketType, map: ShowtimeSeats): number {
-  switch (ticketType) {
-    case 'ADULT':
-      return map.adultPriceMyr
-    case 'CHILD':
-      return map.childPriceMyr
-    default: {
-      const exhaustive: never = ticketType
-      return exhaustive
-    }
-  }
 }
 
 function toGridSeat(

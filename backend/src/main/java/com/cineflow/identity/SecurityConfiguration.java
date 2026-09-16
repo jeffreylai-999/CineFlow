@@ -46,6 +46,8 @@ class SecurityConfiguration {
 				.permitAll()
 				.requestMatchers(HttpMethod.POST, "/api/showtimes/{id}/holds", "/api/showtimes/*/holds")
 				.permitAll()
+				.requestMatchers(HttpMethod.POST, "/api/showtimes/{id}/checkout", "/api/showtimes/*/checkout")
+				.permitAll()
 				.requestMatchers("/api/admin/**")
 				.hasRole("ADMINISTRATOR")
 				.requestMatchers("/api/staff/accounts", "/api/staff/accounts/**")

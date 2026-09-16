@@ -2,6 +2,7 @@ package com.cineflow.booking;
 
 import org.springframework.http.MediaType;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,11 +25,11 @@ import jakarta.validation.Valid;
 public class CustomerShowtimeController {
 
 	private final Booking booking;
-	private final SeatHoldRateLimiter seatHoldRateLimiter;
+	private final BookingRateLimiter rateLimiter;
 
-	CustomerShowtimeController(Booking booking, SeatHoldRateLimiter seatHoldRateLimiter) {
+	CustomerShowtimeController(Booking booking, BookingRateLimiter rateLimiter) {
 		this.booking = booking;
-		this.seatHoldRateLimiter = seatHoldRateLimiter;
+		this.rateLimiter = rateLimiter;
 	}
 
 	@GetMapping("/{id}/seats")
@@ -44,7 +45,19 @@ public class CustomerShowtimeController {
 			@PathVariable long id,
 			@Valid @RequestBody CreateSeatHoldRequest request,
 			HttpServletRequest httpRequest) {
-		seatHoldRateLimiter.check(ClientAddresses.of(httpRequest));
+		rateLimiter.checkSeatHold(ClientAddresses.of(httpRequest));
 		return booking.createSeatHold(id, request.seatIds());
+	}
+
+	@PostMapping("/{id}/checkout")
+	@Operation(summary = "Confirm an online Booking through simulated Payment")
+	public ResponseEntity<BookingConfirmationResponse> checkout(
+			@PathVariable long id,
+			@Valid @RequestBody CheckoutRequest request,
+			HttpServletRequest httpRequest) {
+		rateLimiter.checkCheckout(ClientAddresses.of(httpRequest));
+		CheckoutResult result = booking.checkout(id, request);
+		HttpStatus status = result.replayed() ? HttpStatus.OK : HttpStatus.CREATED;
+		return ResponseEntity.status(status).body(result.confirmation());
 	}
 }

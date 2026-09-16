@@ -8,12 +8,17 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -54,6 +59,63 @@ class BookingService implements Booking {
 			for update of s
 			""";
 
+	private static final String HOLD_FOR_UPDATE_SELECT = """
+			select id, expires_at
+			from cineflow.seat_holds
+			where id = ? and showtime_id = ?
+			for update
+			""";
+
+	private static final String HELD_SEATS_SELECT = """
+			select claim.seat_id, seat.row_label, seat.seat_number
+			from cineflow.seat_claims claim
+			join cineflow.seats seat on seat.id = claim.seat_id
+			where claim.hold_id = ?
+			order by seat.row_label, seat.seat_number
+			""";
+
+	private static final String REPLAY_SELECT = """
+			select b.id, b.showtime_id, b.email, b.booking_reference,
+			       s.starts_at, m.title as movie_title, h.name as hall_name, p.amount_myr,
+			       p.request_fingerprint
+			from cineflow.payments p
+			join cineflow.bookings b on b.id = p.booking_id
+			join cineflow.showtimes s on s.id = b.showtime_id
+			join cineflow.movies m on m.id = s.movie_id
+			join cineflow.halls h on h.id = s.hall_id
+			where p.idempotency_key = ?
+			""";
+
+	private static final String BOOKED_SEATS_SELECT = """
+			select claim.seat_id, seat.row_label, seat.seat_number, claim.ticket_type, claim.price_myr
+			from cineflow.seat_claims claim
+			join cineflow.seats seat on seat.id = claim.seat_id
+			where claim.booking_id = ?
+			order by seat.row_label, seat.seat_number
+			""";
+
+	private static final String INSERT_BOOKING = """
+			insert into cineflow.bookings (showtime_id, email, booking_reference, admission_token_hash, created_at)
+			values (?, ?, ?, ?, ?)
+			returning id
+			""";
+
+	private static final String CONVERT_CLAIM = """
+			update cineflow.seat_claims
+			set claim_kind = 'BOOKING', expires_at = null, hold_id = null,
+			    booking_id = ?, ticket_type = ?, price_myr = ?
+			where showtime_id = ? and seat_id = ? and claim_kind = 'HOLD' and hold_id = ?
+			""";
+
+	private static final String INSERT_PAYMENT = """
+			insert into cineflow.payments (booking_id, amount_myr, method, idempotency_key, request_fingerprint, created_at)
+			values (?, ?, 'CARD_SIMULATED', ?, ?, ?)
+			""";
+
+	private static final String IDEMPOTENCY_KEY_LOCK = """
+			select pg_advisory_xact_lock(hashtextextended(?, 0))
+			""";
+
 	private static final String SEATS_SELECT = """
 			select seat.id, seat.row_label, seat.seat_number,
 			       not (
@@ -77,11 +139,23 @@ class BookingService implements Booking {
 	private final JdbcTemplate jdbcTemplate;
 	private final Clock clock;
 	private final SeatAvailabilityPublisher availabilityPublisher;
+	private final SimulatedCardPayments cardPayments;
+	private final BookingReferences bookingReferences;
+	private final AdmissionTokens admissionTokens;
 
-	BookingService(JdbcTemplate jdbcTemplate, Clock clock, SeatAvailabilityPublisher availabilityPublisher) {
+	BookingService(
+			JdbcTemplate jdbcTemplate,
+			Clock clock,
+			SeatAvailabilityPublisher availabilityPublisher,
+			SimulatedCardPayments cardPayments,
+			BookingReferences bookingReferences,
+			AdmissionTokens admissionTokens) {
 		this.jdbcTemplate = jdbcTemplate;
 		this.clock = clock;
 		this.availabilityPublisher = availabilityPublisher;
+		this.cardPayments = cardPayments;
+		this.bookingReferences = bookingReferences;
+		this.admissionTokens = admissionTokens;
 	}
 
 	@Override
@@ -187,6 +261,220 @@ class BookingService implements Booking {
 				seats.stream().map(SeatForHold::id).toList(),
 				now,
 				expiresAt);
+	}
+
+	@Override
+	@Transactional
+	public CheckoutResult checkout(long showtimeId, CheckoutRequest request) {
+		Instant now = clock.instant();
+		lockIdempotencyKey(request.idempotencyKey());
+		ShowtimeRow showtime = requireShowtimeForHold(showtimeId);
+		if (!CinemaTime.stillScreening(showtime.startsAt(), showtime.runtimeMinutes(), now)) {
+			throw BookingException.showtimeNotFound();
+		}
+
+		String requestFingerprint = requestFingerprint(showtimeId, request);
+		Optional<CheckoutResult> replay = findReplay(request.idempotencyKey(), requestFingerprint);
+		if (replay.isPresent()) {
+			return replay.get();
+		}
+
+		HoldRow hold = requireHoldForUpdate(request.holdId(), showtimeId);
+		if (!hold.expiresAt().isAfter(now)) {
+			throw BookingException.holdExpired();
+		}
+		List<HeldSeat> heldSeats = jdbcTemplate.query(HELD_SEATS_SELECT, this::mapHeldSeat, hold.id());
+		if (heldSeats.isEmpty()) {
+			throw BookingException.holdUnavailable();
+		}
+
+		Map<Long, TicketType> tickets = requireMatchingTickets(request.tickets(), heldSeats);
+		Map<Long, BigDecimal> prices = new HashMap<>();
+		BigDecimal total = BigDecimal.ZERO;
+		for (HeldSeat seat : heldSeats) {
+			BigDecimal price = tickets.get(seat.seatId()) == TicketType.ADULT
+					? showtime.adultPriceMyr()
+					: showtime.childPriceMyr();
+			prices.put(seat.seatId(), price);
+			total = total.add(price);
+		}
+
+		if (!cardPayments.approve(request.cardNumber())) {
+			throw BookingException.paymentDeclined();
+		}
+
+		String email = request.email().trim().toLowerCase(Locale.ROOT);
+		String bookingReference = uniqueBookingReference();
+		String admissionToken = admissionTokens.newToken();
+		Long bookingId = jdbcTemplate.queryForObject(
+				INSERT_BOOKING,
+				Long.class,
+				showtimeId,
+				email,
+				bookingReference,
+				admissionTokens.hash(admissionToken),
+				Timestamp.from(now));
+		for (HeldSeat seat : heldSeats) {
+			jdbcTemplate.update(
+					CONVERT_CLAIM,
+					bookingId,
+					tickets.get(seat.seatId()).name(),
+					prices.get(seat.seatId()),
+					showtimeId,
+					seat.seatId(),
+					hold.id());
+		}
+		jdbcTemplate.update(
+				INSERT_PAYMENT,
+				bookingId,
+				total,
+				request.idempotencyKey(),
+				requestFingerprint,
+				Timestamp.from(now));
+
+		availabilityPublisher.publishAfterCommit(showtimeId);
+
+		List<BookedSeatResponse> bookedSeats = heldSeats.stream()
+			.map(seat -> new BookedSeatResponse(
+					seat.seatId(),
+					seat.label(),
+					tickets.get(seat.seatId()),
+					prices.get(seat.seatId())))
+			.toList();
+		return new CheckoutResult(
+				new BookingConfirmationResponse(
+						bookingReference,
+						showtimeId,
+						showtime.movieTitle(),
+						showtime.hallName(),
+						CinemaTime.formatLocal(showtime.startsAt()),
+						CinemaTime.ZONE.getId(),
+						email,
+						bookedSeats,
+						total,
+						admissionToken),
+				false);
+	}
+
+	private void lockIdempotencyKey(String idempotencyKey) {
+		jdbcTemplate.queryForObject(IDEMPOTENCY_KEY_LOCK, Object.class, idempotencyKey);
+	}
+
+	private static String requestFingerprint(long showtimeId, CheckoutRequest request) {
+		String tickets = request.tickets().stream()
+			.sorted(Comparator.comparing(CheckoutTicketRequest::seatId))
+			.map(ticket -> ticket.seatId() + ":" + ticket.ticketType())
+			.collect(Collectors.joining(","));
+		return Sha256.hash(
+				showtimeId
+						+ "\n" + request.holdId()
+						+ "\n" + request.email().trim().toLowerCase(Locale.ROOT)
+						+ "\n" + tickets);
+	}
+
+	private Optional<CheckoutResult> findReplay(String idempotencyKey, String requestFingerprint) {
+		List<ReplayRow> rows = jdbcTemplate.query(REPLAY_SELECT, this::mapReplayRow, idempotencyKey);
+		if (rows.isEmpty()) {
+			return Optional.empty();
+		}
+		ReplayRow row = rows.getFirst();
+		if (!row.requestFingerprint().equals(requestFingerprint)) {
+			throw BookingException.idempotencyConflict();
+		}
+		List<BookedSeatResponse> seats = jdbcTemplate.query(BOOKED_SEATS_SELECT, this::mapBookedSeat, row.bookingId());
+		return Optional.of(new CheckoutResult(
+				new BookingConfirmationResponse(
+						row.bookingReference(),
+						row.showtimeId(),
+						row.movieTitle(),
+						row.hallName(),
+						CinemaTime.formatLocal(row.startsAt()),
+						CinemaTime.ZONE.getId(),
+						row.email(),
+						seats,
+						row.amountMyr(),
+						null),
+				true));
+	}
+
+	private HoldRow requireHoldForUpdate(UUID holdId, long showtimeId) {
+		List<HoldRow> found = jdbcTemplate.query(
+				HOLD_FOR_UPDATE_SELECT,
+				(resultSet, rowNum) -> new HoldRow(
+						resultSet.getObject("id", UUID.class),
+						resultSet.getTimestamp("expires_at").toInstant()),
+				holdId,
+				showtimeId);
+		if (found.isEmpty()) {
+			throw BookingException.holdNotFound();
+		}
+		return found.getFirst();
+	}
+
+	private static Map<Long, TicketType> requireMatchingTickets(
+			List<CheckoutTicketRequest> tickets,
+			List<HeldSeat> heldSeats) {
+		Map<Long, TicketType> bySeat = new HashMap<>();
+		for (CheckoutTicketRequest ticket : tickets) {
+			if (ticket.seatId() == null
+					|| ticket.ticketType() == null
+					|| bySeat.put(ticket.seatId(), ticket.ticketType()) != null) {
+				throw BookingException.invalidSeatSelection();
+			}
+		}
+		Set<Long> heldSeatIds = new HashSet<>();
+		for (HeldSeat seat : heldSeats) {
+			heldSeatIds.add(seat.seatId());
+		}
+		if (!bySeat.keySet().equals(heldSeatIds)) {
+			throw BookingException.invalidSeatSelection();
+		}
+		return bySeat;
+	}
+
+	private String uniqueBookingReference() {
+		for (int attempt = 0; attempt < 5; attempt++) {
+			String reference = bookingReferences.generate();
+			Integer count = jdbcTemplate.queryForObject(
+					"select count(*) from cineflow.bookings where booking_reference = ?",
+					Integer.class,
+					reference);
+			if (count != null && count == 0) {
+				return reference;
+			}
+		}
+		throw new IllegalStateException("Unable to allocate a unique Booking Reference");
+	}
+
+	private HeldSeat mapHeldSeat(ResultSet resultSet, int rowNum) throws SQLException {
+		return new HeldSeat(
+				resultSet.getLong("seat_id"),
+				seatLabel(resultSet.getString("row_label"), resultSet.getInt("seat_number")));
+	}
+
+	private BookedSeatResponse mapBookedSeat(ResultSet resultSet, int rowNum) throws SQLException {
+		return new BookedSeatResponse(
+				resultSet.getLong("seat_id"),
+				seatLabel(resultSet.getString("row_label"), resultSet.getInt("seat_number")),
+				TicketType.valueOf(resultSet.getString("ticket_type")),
+				resultSet.getBigDecimal("price_myr"));
+	}
+
+	private static String seatLabel(String rowLabel, int seatNumber) {
+		return rowLabel + seatNumber;
+	}
+
+	private ReplayRow mapReplayRow(ResultSet resultSet, int rowNum) throws SQLException {
+		return new ReplayRow(
+				resultSet.getLong("id"),
+				resultSet.getLong("showtime_id"),
+				resultSet.getString("email"),
+				resultSet.getString("booking_reference"),
+				resultSet.getTimestamp("starts_at").toInstant(),
+				resultSet.getString("movie_title"),
+				resultSet.getString("hall_name"),
+				resultSet.getBigDecimal("amount_myr"),
+				resultSet.getString("request_fingerprint"));
 	}
 
 	private int bookingLimit() {
@@ -311,7 +599,7 @@ class BookingService implements Booking {
 				resultSet.getLong("id"),
 				rowLabel,
 				seatNumber,
-				rowLabel + seatNumber,
+				seatLabel(rowLabel, seatNumber),
 				resultSet.getBoolean("available"));
 	}
 
@@ -343,6 +631,24 @@ class BookingService implements Booking {
 	}
 
 	private record SeatForHold(long id, boolean disabled) {
+	}
+
+	private record HoldRow(UUID id, Instant expiresAt) {
+	}
+
+	private record HeldSeat(long seatId, String label) {
+	}
+
+	private record ReplayRow(
+			long bookingId,
+			long showtimeId,
+			String email,
+			String bookingReference,
+			Instant startsAt,
+			String movieTitle,
+			String hallName,
+			BigDecimal amountMyr,
+			String requestFingerprint) {
 	}
 
 	private static final class MovieAccumulator {

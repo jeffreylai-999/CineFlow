@@ -55,10 +55,44 @@ export type SeatHold = {
   expiresAt: string
 }
 
+export type CheckoutTicket = {
+  seatId: number
+  ticketType: TicketType
+}
+
+export type CheckoutRequest = {
+  holdId: string
+  email: string
+  tickets: CheckoutTicket[]
+  cardNumber: string
+  idempotencyKey: string
+}
+
+export type BookedSeat = {
+  seatId: number
+  label: string
+  ticketType: TicketType
+  priceMyr: number
+}
+
+export type BookingConfirmation = {
+  bookingReference: string
+  showtimeId: number
+  movieTitle: string
+  hallName: string
+  startsAtCinemaTime: string
+  timeZone: string
+  email: string
+  seats: BookedSeat[]
+  totalMyr: number
+  admissionToken: string | null
+}
+
 export type CustomerClient = {
   listMovies: () => Promise<Movie[]>
   getShowtimeSeats: (showtimeId: number) => Promise<ShowtimeSeats>
   createSeatHold: (showtimeId: number, seatIds: number[]) => Promise<SeatHold>
+  checkout: (showtimeId: number, request: CheckoutRequest) => Promise<BookingConfirmation>
 }
 
 export class CustomerRequestError extends Error {
@@ -92,6 +126,15 @@ export function createCustomerClient(fetcher: typeof fetch = fetch): CustomerCli
           method: 'POST',
           headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
           body: JSON.stringify({ seatIds }),
+        }),
+      )
+    },
+    async checkout(showtimeId, request) {
+      return readJson<BookingConfirmation>(
+        fetcher(`/api/showtimes/${showtimeId}/checkout`, {
+          method: 'POST',
+          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify(request),
         }),
       )
     },

@@ -54,6 +54,7 @@ public class MovieAdministrationController {
 	public MovieAdminResponse importMovie(@Valid @RequestBody ImportMovieRequest request, Authentication authentication) {
 		return catalogAdministration.importMovie(
 				staffId(authentication),
+				request.providerId(),
 				request.externalId(),
 				request.runtimeMinutes(),
 				request.ageRating());

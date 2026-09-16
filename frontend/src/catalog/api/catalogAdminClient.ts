@@ -3,6 +3,7 @@ export type MovieSearchHit = {
   title: string
   year: string | null
   posterUrl: string | null
+  providerId: string
 }
 
 export type ManagedMovie = {
@@ -19,6 +20,7 @@ export type ManagedMovie = {
 }
 
 export type ImportMovieInput = {
+  providerId: string
   externalId: string
   runtimeMinutes?: number
   ageRating?: string

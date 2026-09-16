@@ -98,7 +98,8 @@ class TmdbMovieMetadataProvider implements MovieMetadataProvider {
 				Long.toString(result.id()),
 				result.title(),
 				year(result.releaseDate()),
-				posterUrl(result.posterPath()));
+				posterUrl(result.posterPath()),
+				providerId());
 	}
 
 	private String posterUrl(String posterPath) {

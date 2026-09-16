@@ -60,6 +60,7 @@ class CatalogAdministrationIT {
 			.andExpect(jsonPath("$[0].title").value("The Courier Gate"))
 			.andExpect(jsonPath("$[0].year").value("2024"))
 			.andExpect(jsonPath("$[0].posterUrl").value("https://image.tmdb.org/t/p/w500/courier-gate.jpg"))
+			.andExpect(jsonPath("$[0].providerId").value("tmdb"))
 			.andExpect(content().string(not(containsString("tmdb-token"))))
 			.andExpect(content().string(not(containsString("CINEFLOW_TMDB"))));
 	}
@@ -76,7 +77,7 @@ class CatalogAdministrationIT {
 				.header("Authorization", "Bearer " + staffToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"externalId":"4242"}
+						{"providerId":"tmdb","externalId":"4242"}
 						"""))
 			.andExpect(status().isForbidden());
 	}
@@ -92,7 +93,7 @@ class CatalogAdministrationIT {
 				.header("Authorization", "Bearer " + adminToken())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"externalId":"9001"}
+						{"providerId":"tmdb","externalId":"9001"}
 						"""))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.title").value("Imported Gate"))
@@ -112,7 +113,7 @@ class CatalogAdministrationIT {
 				.header("Authorization", "Bearer " + adminToken())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"externalId":"9001"}
+						{"providerId":"tmdb","externalId":"9001"}
 						"""))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("catalog.duplicate_import"));
@@ -133,7 +134,7 @@ class CatalogAdministrationIT {
 				.header("Authorization", "Bearer " + adminToken())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"externalId":"9002","runtimeMinutes":121,"ageRating":"PG-13"}
+						{"providerId":"tmdb","externalId":"9002","runtimeMinutes":121,"ageRating":"PG-13"}
 						"""))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.runtimeMinutes").value(121))
@@ -182,7 +183,7 @@ class CatalogAdministrationIT {
 				.header("Authorization", "Bearer " + adminToken())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"externalId":"9004","runtimeMinutes":121,"ageRating":"PG-13"}
+						{"providerId":"tmdb","externalId":"9004","runtimeMinutes":121,"ageRating":"PG-13"}
 						"""))
 			.andExpect(status().isCreated())
 			.andReturn()
@@ -223,7 +224,7 @@ class CatalogAdministrationIT {
 				.header("Authorization", "Bearer " + adminToken())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"externalId":"4290"}
+						{"providerId":"tmdb","externalId":"4290"}
 						"""))
 			.andExpect(status().isTooManyRequests())
 			.andExpect(jsonPath("$.code").value("catalog.provider_quota"))
@@ -293,7 +294,8 @@ class CatalogAdministrationIT {
 				"4242",
 				"The Courier Gate",
 				"2024",
-				"https://image.tmdb.org/t/p/w500/courier-gate.jpg");
+				"https://image.tmdb.org/t/p/w500/courier-gate.jpg",
+				"tmdb");
 	}
 
 	private static MovieProviderRecord providerRecord(

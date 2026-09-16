@@ -37,7 +37,8 @@ abstract class MovieMetadataProviderContract {
 				"4242",
 				"The Courier Gate",
 				"2024",
-				"https://image.tmdb.org/t/p/w500/courier-gate.jpg"));
+				"https://image.tmdb.org/t/p/w500/courier-gate.jpg",
+				expectedProviderId()));
 	}
 
 	@Test

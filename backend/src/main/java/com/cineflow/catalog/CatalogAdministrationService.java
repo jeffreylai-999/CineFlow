@@ -46,7 +46,13 @@ class CatalogAdministrationService implements CatalogAdministration {
 	}
 
 	@Override
-	public MovieAdminResponse importMovie(long actorStaffId, String externalId, Integer runtimeMinutes, String ageRating) {
+	public MovieAdminResponse importMovie(
+			long actorStaffId,
+			String providerId,
+			String externalId,
+			Integer runtimeMinutes,
+			String ageRating) {
+		requireMatchingActiveProvider(providerId);
 		MovieMetadataProvider provider = movieMetadataProviders.active();
 		if (alreadyImported(provider.providerId(), externalId)) {
 			throw CatalogException.duplicateImport();
@@ -137,6 +143,15 @@ class CatalogAdministrationService implements CatalogAdministration {
 				clock.instant());
 		audit.record(actorStaffId, AuditAction.MOVIE_REFRESHED, "movie", Long.toString(movie.getId()));
 		return movie.toAdminResponse();
+	}
+
+	private void requireMatchingActiveProvider(String providerId) {
+		if (providerId == null || providerId.isBlank()) {
+			throw CatalogException.invalidRequest();
+		}
+		if (!providerId.equals(movieMetadataProviders.activeProviderId())) {
+			throw CatalogException.providerMismatch();
+		}
 	}
 
 	private boolean alreadyImported(String providerId, String externalId) {

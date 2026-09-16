@@ -123,7 +123,8 @@ class OmdbMovieMetadataProvider implements MovieMetadataProvider {
 				result.imdbId(),
 				result.title(),
 				year(result.year()),
-				optionalUrl(result.poster()));
+				optionalUrl(result.poster()),
+				providerId());
 	}
 
 	private static String year(String year) {

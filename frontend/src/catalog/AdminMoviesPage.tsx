@@ -109,7 +109,7 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
     }
   }
 
-  async function onImport(externalId: string) {
+  async function onImport(hit: MovieSearchHit) {
     const runtimeMinutes = parseOptionalRuntime(importRuntimeMinutes)
     if (runtimeMinutes === 'invalid') {
       setMessage(null)
@@ -123,7 +123,7 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
     setMessage(null)
     try {
       const imported = await client.importMovie(
-        importInput(externalId, runtimeMinutes, importAgeRating),
+        importInput(hit, runtimeMinutes, importAgeRating),
         session.accessToken,
       )
       upsertMovie(imported)
@@ -281,7 +281,7 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
                       {hit.year ?? 'Year unknown'} · {hit.externalId}
                     </p>
                   </div>
-                  <Button type="button" disabled={busy} onClick={() => void onImport(hit.externalId)}>
+                  <Button type="button" disabled={busy} onClick={() => void onImport(hit)}>
                     Import
                   </Button>
                 </li>
@@ -375,16 +375,18 @@ function parseOptionalRuntime(raw: string): number | undefined | 'invalid' {
 }
 
 function importInput(
-  externalId: string,
+  hit: MovieSearchHit,
   runtimeMinutes: number | undefined,
   ageRating: string,
 ): {
+  providerId: string
   externalId: string
   runtimeMinutes?: number
   ageRating?: string
 } {
   return {
-    externalId,
+    providerId: hit.providerId,
+    externalId: hit.externalId,
     runtimeMinutes,
     ageRating: ageRating.trim() === '' ? undefined : ageRating.trim(),
   }

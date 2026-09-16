@@ -37,6 +37,7 @@ class CatalogAdministrationServiceTest {
 		movieRepository = mock(MovieRepository.class);
 		when(provider.providerId()).thenReturn("tmdb");
 		when(providers.active()).thenReturn(provider);
+		when(providers.activeProviderId()).thenReturn("tmdb");
 		when(providers.source("tmdb")).thenReturn(provider);
 		service = new CatalogAdministrationService(
 				providers,
@@ -51,11 +52,23 @@ class CatalogAdministrationServiceTest {
 		when(movieRepository.findBySourceProviderAndExternalId("tmdb", "4242"))
 				.thenReturn(Optional.of(existingMovie()));
 
-		assertThatThrownBy(() -> service.importMovie(2L, "4242", null, null))
+		assertThatThrownBy(() -> service.importMovie(2L, "tmdb", "4242", null, null))
 				.isInstanceOf(CatalogException.class)
 				.extracting(error -> ((CatalogException) error).code())
 				.isEqualTo("catalog.duplicate_import");
 		verify(provider, never()).fetch(any());
+	}
+
+	@Test
+	void importRejectsAHitWhenTheActiveProviderHasChanged() {
+		when(providers.activeProviderId()).thenReturn("omdb");
+
+		assertThatThrownBy(() -> service.importMovie(2L, "tmdb", "4242", null, null))
+				.isInstanceOf(CatalogException.class)
+				.extracting(error -> ((CatalogException) error).code())
+				.isEqualTo("catalog.provider_mismatch");
+		verify(provider, never()).fetch(any());
+		verify(providers, never()).active();
 	}
 
 	@Test
@@ -65,7 +78,7 @@ class CatalogAdministrationServiceTest {
 		when(movieRepository.saveAndFlush(any(MovieEntity.class))).thenThrow(new DataIntegrityViolationException(
 				"ERROR: duplicate key value violates unique constraint \"movies_provider_external_unique\""));
 
-		assertThatThrownBy(() -> service.importMovie(2L, "4242", null, null))
+		assertThatThrownBy(() -> service.importMovie(2L, "tmdb", "4242", null, null))
 				.isInstanceOf(CatalogException.class)
 				.extracting(error -> ((CatalogException) error).code())
 				.isEqualTo("catalog.duplicate_import");
@@ -78,7 +91,7 @@ class CatalogAdministrationServiceTest {
 		when(movieRepository.saveAndFlush(any(MovieEntity.class))).thenThrow(
 				new DataIntegrityViolationException("ERROR: new row violates check constraint \"movies_runtime_check\""));
 
-		assertThatThrownBy(() -> service.importMovie(2L, "4242", null, null))
+		assertThatThrownBy(() -> service.importMovie(2L, "tmdb", "4242", null, null))
 				.isInstanceOf(CatalogException.class)
 				.extracting(error -> ((CatalogException) error).code())
 				.isEqualTo("catalog.save_failed");

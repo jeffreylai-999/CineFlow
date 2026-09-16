@@ -61,7 +61,8 @@ class CatalogProviderSelectionIT {
 				"tt4242",
 				"The Courier Gate",
 				"2024",
-				"https://img.omdb.test/courier-gate.jpg")));
+				"https://img.omdb.test/courier-gate.jpg",
+				"omdb")));
 
 		mockMvc.perform(get("/api/admin/movie-providers")
 				.header("Authorization", "Bearer " + adminToken()))
@@ -85,7 +86,8 @@ class CatalogProviderSelectionIT {
 				.header("Authorization", "Bearer " + adminToken()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$[0].externalId").value("tt4242"))
-			.andExpect(jsonPath("$[0].title").value("The Courier Gate"));
+			.andExpect(jsonPath("$[0].title").value("The Courier Gate"))
+			.andExpect(jsonPath("$[0].providerId").value("omdb"));
 
 		verify(omdb).search("courier gate");
 		verify(tmdb, never()).search(anyString());
@@ -106,7 +108,7 @@ class CatalogProviderSelectionIT {
 				.header("Authorization", "Bearer " + adminToken())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"externalId":"9008","runtimeMinutes":121,"ageRating":"PG-13"}
+						{"providerId":"tmdb","externalId":"9008","runtimeMinutes":121,"ageRating":"PG-13"}
 						"""))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.sourceProvider").value("tmdb"))
@@ -132,6 +134,29 @@ class CatalogProviderSelectionIT {
 			.andExpect(jsonPath("$.ageRating").value("PG-13"));
 
 		verify(tmdb, times(2)).fetch("9008");
+		verify(omdb, never()).fetch(anyString());
+	}
+
+	@Test
+	void importRejectsAHitWhenTheActiveProviderHasChanged() throws Exception {
+		mockMvc.perform(put("/api/admin/movie-providers/active")
+				.header("Authorization", "Bearer " + adminToken())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"providerId":"omdb"}
+						"""))
+			.andExpect(status().isOk());
+
+		mockMvc.perform(post("/api/admin/movies/import")
+				.header("Authorization", "Bearer " + adminToken())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"providerId":"tmdb","externalId":"4242"}
+						"""))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("catalog.provider_mismatch"));
+
+		verify(tmdb, never()).fetch(anyString());
 		verify(omdb, never()).fetch(anyString());
 	}
 

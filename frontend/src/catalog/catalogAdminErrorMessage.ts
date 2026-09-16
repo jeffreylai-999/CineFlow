@@ -5,6 +5,7 @@ const SAFE_CATALOG_MESSAGE = 'Unable to complete that catalog action. Try again 
 const CATALOG_ERROR_CODES = [
   'catalog.provider_unavailable',
   'catalog.provider_not_configured',
+  'catalog.provider_mismatch',
   'catalog.provider_quota',
   'catalog.duplicate_import',
   'catalog.rate_limited',
@@ -25,6 +26,8 @@ export function catalogAdminErrorMessage(error: unknown): string {
       return 'The movie metadata provider is unavailable. Existing Movies remain in the catalog.'
     case 'catalog.provider_not_configured':
       return 'The movie metadata provider is not configured for this deployment.'
+    case 'catalog.provider_mismatch':
+      return 'The active provider changed. Search again before importing.'
     case 'catalog.provider_quota':
       return withRetryAfter(
         'The movie metadata provider is temporarily limited.',

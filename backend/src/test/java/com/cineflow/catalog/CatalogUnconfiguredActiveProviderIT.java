@@ -60,7 +60,8 @@ class CatalogUnconfiguredActiveProviderIT {
 				"tt4242",
 				"The Courier Gate",
 				"2024",
-				"https://img.omdb.test/courier-gate.jpg")));
+				"https://img.omdb.test/courier-gate.jpg",
+				"omdb")));
 
 		mockMvc.perform(get("/api/admin/movie-providers")
 				.header("Authorization", "Bearer " + adminToken()))

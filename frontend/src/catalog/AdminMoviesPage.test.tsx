@@ -38,6 +38,7 @@ const hit: MovieSearchHit = {
   title: 'The Courier Gate',
   year: '2024',
   posterUrl: imported.posterUrl,
+  providerId: 'tmdb',
 }
 
 const tmdbOnly: MovieProviderSettings = {
@@ -100,7 +101,7 @@ describe('AdminMoviesPage', () => {
       .element(page.getByRole('status'))
       .toHaveTextContent('Updated runtime and age rating for The Courier Gate.')
     expect(catalogClient.importMovie).toHaveBeenCalledWith(
-      { externalId: '4242', runtimeMinutes: 121, ageRating: 'PG-13' },
+      { providerId: 'tmdb', externalId: '4242', runtimeMinutes: 121, ageRating: 'PG-13' },
       'admin-token',
     )
     expect(catalogClient.updateSchedulingFields).toHaveBeenCalledWith(
@@ -128,6 +129,31 @@ describe('AdminMoviesPage', () => {
     await expect.element(page.getByText('Adventure · tmdb 4242')).toBeInTheDocument()
     expect(catalogClient.selectProvider).toHaveBeenCalledWith('omdb', 'admin-token')
     expect(catalogClient.refresh).not.toHaveBeenCalled()
+  })
+
+  it('surfaces a stale-provider import instead of sending the hit to the new adapter', async () => {
+    const catalogClient = client({
+      importMovie: vi
+        .fn()
+        .mockRejectedValue(new CatalogAdminRequestError(409, 'catalog.provider_mismatch')),
+    })
+
+    await renderMovies(
+      <AdminMoviesPage session={administrator} client={catalogClient} onLogout={() => undefined} />,
+    )
+    await page.getByLabelText('Search TMDB').fill('courier gate')
+    await expect.element(page.getByRole('button', { name: 'Search' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Search' }).click()
+    await expect.element(page.getByRole('button', { name: 'Import' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Import' }).click()
+
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent('The active provider changed. Search again before importing.')
+    expect(catalogClient.importMovie).toHaveBeenCalledWith(
+      { providerId: 'tmdb', externalId: '4242' },
+      'admin-token',
+    )
   })
 
   it('clears search results when the Administrator selects a different provider', async () => {

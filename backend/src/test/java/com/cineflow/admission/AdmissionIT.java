@@ -203,7 +203,9 @@ class AdmissionIT {
 				.header("Authorization", "Bearer " + staffToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{not json"))
-			.andExpect(status().isBadRequest());
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("request.invalid"))
+			.andExpect(jsonPath("$.correlationId").exists());
 	}
 
 	@Test

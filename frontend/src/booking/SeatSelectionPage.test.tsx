@@ -8,6 +8,7 @@ import {
   CustomerRequestError,
   type CustomerClient,
   type CustomerSeat,
+  type SeatHold,
   type ShowtimeSeats,
 } from '@/booking/api/customerClient.ts'
 import { type SeatAvailabilitySocket } from '@/booking/api/seatAvailabilitySocket.ts'
@@ -283,6 +284,40 @@ describe('SeatSelectionPage', () => {
     )
     await page.getByRole('button', { name: 'Seat A1, selected' }).click()
     await expect.element(page.getByLabelText('Seat A1 Ticket Type')).toBeInTheDocument()
+  })
+
+  it('does not change Seat selection while a Seat Hold request is in flight', async () => {
+    let resolveHold!: (hold: SeatHold) => void
+    const client = clientStub({
+      createSeatHold: vi.fn(
+        () =>
+          new Promise<SeatHold>((resolve) => {
+            resolveHold = resolve
+          }),
+      ),
+    })
+    await renderSeats(client)
+    await page.getByRole('button', { name: 'Seat A1, available' }).click()
+    await page.getByRole('button', { name: 'Hold selected Seats' }).click()
+    await expect.element(page.getByRole('button', { name: 'Holding Seats…' })).toBeDisabled()
+
+    await page.getByRole('button', { name: 'Seat A2, available' }).click()
+    await expect.element(page.getByRole('button', { name: 'Seat A2, available' })).toBeInTheDocument()
+    await expect.element(page.getByLabelText('Seat A2 Ticket Type')).not.toBeInTheDocument()
+
+    const createdAt = new Date()
+    resolveHold({
+      holdId: 'aabccabe-79c4-44d8-b38f-a1b64d4526d8',
+      showtimeId: 11,
+      seatIds: [1],
+      serverTime: createdAt.toISOString(),
+      expiresAt: new Date(createdAt.getTime() + 600_000).toISOString(),
+    })
+
+    await expect.element(page.getByText('Seats held for 10:00.')).toBeInTheDocument()
+    await expect.element(page.getByLabelText('Seat A1 Ticket Type')).toBeInTheDocument()
+    await expect.element(page.getByLabelText('Seat A2 Ticket Type')).not.toBeInTheDocument()
+    expect(client.createSeatHold).toHaveBeenCalledWith(11, [1])
   })
 
   it('refreshes authoritative availability after a Seat Availability event', async () => {

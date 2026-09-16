@@ -35,8 +35,6 @@ export function createSeatAvailabilitySocket(
         client.subscribe(`/topic/showtimes/${showtimeId}/availability`, onAvailabilityChanged)
         onAvailabilityChanged()
       }
-      client.onStompError = onAvailabilityChanged
-      client.onWebSocketClose = onAvailabilityChanged
       client.activate()
     },
     async disconnect() {

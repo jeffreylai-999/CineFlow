@@ -29,6 +29,8 @@ describe('createSeatAvailabilitySocket', () => {
 
     socket.connect(11, refresh)
     client.onConnect?.()
+    client.onStompError?.()
+    client.onWebSocketClose?.()
     client.onConnect?.()
     const invalidation = vi.mocked(client.subscribe).mock.calls[0]?.[1]
     invalidation?.()

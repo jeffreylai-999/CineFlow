@@ -143,14 +143,11 @@ function SeatSelectionScreen({ client, socket }: SeatSelectionPageProps) {
   )
 
   function handleSeatActivate(seatId: number) {
-    if (!readyMap) {
+    if (!readyMap || creatingHold || hold) {
       return
     }
     const seat = readyMap.seats.find((item) => item.id === seatId)
     if (!seat) {
-      return
-    }
-    if (hold) {
       return
     }
     if (selection[seatId]) {
@@ -160,7 +157,7 @@ function SeatSelectionScreen({ client, socket }: SeatSelectionPageProps) {
       setLimitMessage(null)
       return
     }
-    if (!seat.available || hold) {
+    if (!seat.available) {
       return
     }
     if (selectedCount >= readyMap.bookingLimit) {

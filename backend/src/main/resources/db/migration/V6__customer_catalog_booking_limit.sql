@@ -27,14 +27,19 @@ inserted_seats AS (
     CROSS JOIN generate_series(1, new_hall.row_count) AS row_number
     CROSS JOIN generate_series(1, new_hall.seats_per_row) AS seat_number
     RETURNING hall_id
-),
-locked AS (
-    UPDATE cineflow.halls
-    SET seat_map_locked = TRUE
-    WHERE id IN (SELECT hall_id FROM inserted_seats)
-    RETURNING id
 )
 INSERT INTO cineflow.showtimes (hall_id, movie_id, starts_at, adult_price_myr, child_price_myr)
-SELECT locked.id, m.id, TIMESTAMPTZ '2099-06-20 11:30:00+00', 28.00, 18.00
-FROM locked
-JOIN cineflow.movies m ON m.source_provider = 'fixture' AND m.external_id = 'nebula-express';
+SELECT new_hall.id, m.id, TIMESTAMPTZ '2099-06-20 11:30:00+00', 28.00, 18.00
+FROM new_hall
+JOIN cineflow.movies m ON m.source_provider = 'fixture' AND m.external_id = 'nebula-express'
+WHERE EXISTS (SELECT 1 FROM inserted_seats);
+
+UPDATE cineflow.halls
+SET seat_map_locked = TRUE
+WHERE id IN (
+    SELECT s.hall_id
+    FROM cineflow.showtimes s
+    JOIN cineflow.movies m ON m.id = s.movie_id
+    WHERE m.source_provider = 'fixture'
+      AND m.external_id = 'nebula-express'
+);

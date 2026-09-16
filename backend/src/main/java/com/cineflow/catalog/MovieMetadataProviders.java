@@ -87,9 +87,8 @@ class MovieMetadataProviders {
 		return List.copyOf(options);
 	}
 
-	private List<MovieProviderOption> listed() {
+	private List<MovieProviderOption> listed(String active) {
 		List<MovieProviderOption> options = new ArrayList<>(configured());
-		String active = activeProviderId();
 		if (options.stream().noneMatch(option -> option.id().equals(active))) {
 			if (TMDB.equals(active)) {
 				options.addFirst(new MovieProviderOption(TMDB, "TMDB"));
@@ -102,7 +101,8 @@ class MovieMetadataProviders {
 	}
 
 	MovieProviderSettingsResponse current() {
-		return new MovieProviderSettingsResponse(activeProviderId(), listed());
+		String active = activeProviderId();
+		return new MovieProviderSettingsResponse(active, listed(active));
 	}
 
 	@Transactional

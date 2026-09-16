@@ -1,10 +1,13 @@
 package com.cineflow.catalog;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withStatus;
 import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
+
+import java.util.Locale;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -140,6 +143,22 @@ class OmdbMovieMetadataProviderContractTest extends MovieMetadataProviderContrac
 		omdb.expect(requestTo("https://www.omdbapi.com?apikey=test-omdb-key&i=4242&plot=full"))
 			.andExpect(method(HttpMethod.GET))
 			.andRespond(withSuccess(DETAILS_BODY, MediaType.APPLICATION_JSON));
+	}
+
+	@Test
+	void searchMapsAnInvalidApiKeyWhenTheDefaultLocaleIsTurkish() {
+		Locale previous = Locale.getDefault();
+		Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+		try {
+			givenSearchCredentialsRejected();
+			assertThatThrownBy(() -> provider().search("courier gate"))
+				.isInstanceOf(MovieProviderException.class)
+				.extracting(error -> ((MovieProviderException) error).kind())
+				.isEqualTo(MovieProviderException.Kind.NOT_CONFIGURED);
+		}
+		finally {
+			Locale.setDefault(previous);
+		}
 	}
 
 	@Test

@@ -1,6 +1,7 @@
 package com.cineflow.catalog;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Supplier;
 
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -106,13 +107,17 @@ class OmdbMovieMetadataProvider implements MovieMetadataProvider {
 	}
 
 	private static MovieProviderException mapError(String error) {
-		if (error != null && error.toLowerCase().contains("not found")) {
+		if (error == null) {
+			return MovieProviderException.unavailable();
+		}
+		String message = error.toLowerCase(Locale.ROOT);
+		if (message.contains("not found")) {
 			return MovieProviderException.notFound();
 		}
-		if (error != null && error.toLowerCase().contains("limit")) {
+		if (message.contains("limit")) {
 			return MovieProviderException.quota();
 		}
-		if (error != null && error.toLowerCase().contains("invalid api key")) {
+		if (message.contains("invalid api key")) {
 			return MovieProviderException.notConfigured();
 		}
 		return MovieProviderException.unavailable();

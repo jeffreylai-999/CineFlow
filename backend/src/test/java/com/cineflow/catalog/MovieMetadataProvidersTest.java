@@ -99,6 +99,20 @@ class MovieMetadataProvidersTest {
 	}
 
 	@Test
+	void currentKeepsTheListedProvidersAlignedWithOneActiveSelectionRead() {
+		CatalogSettingsEntity first = new CatalogSettingsEntity();
+		first.setActiveProvider("tmdb");
+		CatalogSettingsEntity second = new CatalogSettingsEntity();
+		second.setActiveProvider("omdb");
+		when(settings.findById(1)).thenReturn(Optional.of(first)).thenReturn(Optional.of(second));
+
+		MovieProviderSettingsResponse current = providers.current();
+
+		assertThat(current.activeProviderId()).isEqualTo("tmdb");
+		assertThat(current.providers()).containsExactly(new MovieProviderOption("tmdb", "TMDB"));
+	}
+
+	@Test
 	void currentKeepsStoredTmdbListedWhenOnlyOmdbIsConfigured() {
 		providers = new MovieMetadataProviders(
 				tmdb,

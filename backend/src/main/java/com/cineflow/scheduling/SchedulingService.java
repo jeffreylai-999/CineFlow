@@ -160,16 +160,7 @@ class SchedulingService implements Scheduling {
 			throw mapShowtimeWriteFailure(exception);
 		}
 		audit.record(actorStaffId, AuditAction.SHOWTIME_CREATED, "showtime", Long.toString(saved.getId()));
-		return toResponse(
-				saved.getId(),
-				movie.id(),
-				movie.title(),
-				movie.runtimeMinutes(),
-				hall.getId(),
-				hall.getName(),
-				saved.getStartsAt(),
-				saved.getAdultPriceMyr(),
-				saved.getChildPriceMyr());
+		return requireResponse(saved.getId());
 	}
 
 	@Override

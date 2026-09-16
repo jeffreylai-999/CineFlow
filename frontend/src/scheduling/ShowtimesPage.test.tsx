@@ -148,6 +148,57 @@ describe('ShowtimesPage', () => {
     await expect.element(page.getByText('Hall 1 · 2026-09-20T19:30:00 Asia/Kuala_Lumpur')).toBeInTheDocument()
   })
 
+  it('removes an unused future Showtime from the schedule', async () => {
+    const client = clientStub({
+      listShowtimes: vi.fn().mockResolvedValue([scheduled]),
+      removeShowtime: vi.fn().mockResolvedValue(undefined),
+    })
+
+    await renderShowtimes(
+      <ShowtimesPage
+        session={administrator}
+        client={client}
+        catalogClient={catalogStub()}
+        onLogout={() => undefined}
+      />,
+    )
+
+    await expect.element(page.getByText('Hall 1 · 2026-09-20T19:30:00 Asia/Kuala_Lumpur')).toBeInTheDocument()
+    await page.getByRole('button', { name: 'Remove Showtime' }).click()
+
+    await expect
+      .element(page.getByRole('status'))
+      .toHaveTextContent('Removed the Showtime for Nebula Express.')
+    await expect.element(page.getByText('No Showtimes yet.')).toBeInTheDocument()
+    expect(client.removeShowtime).toHaveBeenCalledWith(11)
+  })
+
+  it('keeps the Showtime when removal is rejected', async () => {
+    const client = clientStub({
+      listShowtimes: vi.fn().mockResolvedValue([scheduled]),
+      removeShowtime: vi
+        .fn()
+        .mockRejectedValue(new SchedulingRequestError(409, 'scheduling.showtime_has_bookings')),
+    })
+
+    await renderShowtimes(
+      <ShowtimesPage
+        session={administrator}
+        client={client}
+        catalogClient={catalogStub()}
+        onLogout={() => undefined}
+      />,
+    )
+
+    await page.getByRole('button', { name: 'Remove Showtime' }).click()
+
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent('A Showtime with Bookings cannot be removed.')
+    await expect.element(page.getByText('Hall 1 · 2026-09-20T19:30:00 Asia/Kuala_Lumpur')).toBeInTheDocument()
+    expect(client.removeShowtime).toHaveBeenCalledWith(11)
+  })
+
   it('lets an Administrator change Ticket Prices after scheduling', async () => {
     const updated: Showtime = {
       ...scheduled,

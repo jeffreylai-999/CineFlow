@@ -7,9 +7,12 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import com.fasterxml.jackson.databind.JsonMappingException;
 
 import com.cineflow.platform.CorrelationIdFilter;
 
@@ -25,6 +28,17 @@ class SchedulingExceptionHandler {
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	ResponseEntity<ProblemDetail> handleInvalid(MethodArgumentNotValidException exception) {
 		if (isTicketPriceViolation(exception)) {
+			return problem(
+					HttpStatus.BAD_REQUEST,
+					"scheduling.invalid_price",
+					"Adult and Child prices must be greater than zero");
+		}
+		return problem(HttpStatus.BAD_REQUEST, "request.invalid", "Bad Request");
+	}
+
+	@ExceptionHandler(HttpMessageNotReadableException.class)
+	ResponseEntity<ProblemDetail> handleUnreadable(HttpMessageNotReadableException exception) {
+		if (isMalformedTicketPrice(exception)) {
 			return problem(
 					HttpStatus.BAD_REQUEST,
 					"scheduling.invalid_price",
@@ -74,6 +88,24 @@ class SchedulingExceptionHandler {
 	private static boolean isTicketPriceViolation(MethodArgumentNotValidException exception) {
 		return exception.getBindingResult().getFieldErrors().stream()
 			.anyMatch(error -> "adultPriceMyr".equals(error.getField()) || "childPriceMyr".equals(error.getField()));
+	}
+
+	private static boolean isMalformedTicketPrice(HttpMessageNotReadableException exception) {
+		Throwable current = exception;
+		while (current != null) {
+			if (current instanceof JsonMappingException mapping
+					&& mapping.getPath().stream()
+						.map(JsonMappingException.Reference::getFieldName)
+						.anyMatch(name -> "adultPriceMyr".equals(name) || "childPriceMyr".equals(name))) {
+				return true;
+			}
+			String message = current.getMessage();
+			if (message != null && (message.contains("adultPriceMyr") || message.contains("childPriceMyr"))) {
+				return true;
+			}
+			current = current.getCause();
+		}
+		return false;
 	}
 
 	private static ResponseEntity<ProblemDetail> problem(HttpStatus status, String code, String title) {

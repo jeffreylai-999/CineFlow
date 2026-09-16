@@ -230,12 +230,9 @@ class SchedulingShowtimesIT {
 			assertStillWaiting(pending);
 			connection.commit();
 			MvcResult result = pending.get(10, TimeUnit.SECONDS);
-			int status = result.getResponse().getStatus();
-			assertThat(status).isIn(204, 409);
-			if (status == 409) {
-				assertThat((String) JsonPath.read(result.getResponse().getContentAsString(), "$.code"))
-					.isEqualTo("scheduling.showtime_not_removable");
-			}
+			assertThat(result.getResponse().getStatus()).isEqualTo(409);
+			assertThat((String) JsonPath.read(result.getResponse().getContentAsString(), "$.code"))
+				.isEqualTo("scheduling.showtime_not_removable");
 		}
 		finally {
 			remove.shutdownNow();
@@ -262,6 +259,10 @@ class SchedulingShowtimesIT {
 			connection.commit();
 			MvcResult result = pending.get(10, TimeUnit.SECONDS);
 			assertThat(result.getResponse().getStatus()).isEqualTo(201);
+			assertThat((Integer) JsonPath.read(result.getResponse().getContentAsString(), "$.runtimeMinutes"))
+				.isEqualTo(80);
+			assertThat((String) JsonPath.read(result.getResponse().getContentAsString(), "$.occupancyEndsAt"))
+				.isEqualTo("2026-09-20T13:05:00Z");
 			int showtimeId = JsonPath.read(result.getResponse().getContentAsString(), "$.id");
 			assertThat(jdbcTemplate.queryForObject(
 					"select upper(occupancy) from cineflow.showtimes where id = ?",
@@ -285,6 +286,34 @@ class SchedulingShowtimesIT {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 						{"adultPriceMyr":28.001,"childPriceMyr":16.00}
+						"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("scheduling.invalid_price"));
+	}
+
+	@Test
+	void malformedTicketPricesAreASchedulingPriceError() throws Exception {
+		String token = adminToken();
+		mockMvc.perform(post("/api/showtimes")
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{
+						  "movieId":1,
+						  "hallId":1,
+						  "startsAtLocal":"2026-12-20T19:30",
+						  "timeZone":"Asia/Kuala_Lumpur",
+						  "adultPriceMyr":"abc",
+						  "childPriceMyr":18.00
+						}
+						"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("scheduling.invalid_price"));
+		mockMvc.perform(patch("/api/showtimes/1")
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"adultPriceMyr":"abc","childPriceMyr":16.00}
 						"""))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.code").value("scheduling.invalid_price"));

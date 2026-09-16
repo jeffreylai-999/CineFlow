@@ -25,7 +25,9 @@ public class MovieProviderController {
 	}
 
 	@GetMapping
-	@Operation(summary = "List configured Movie metadata providers")
+	@Operation(
+			summary = "List Movie metadata providers",
+			description = "Returns configured providers plus the stored active provider when that provider has no credentials, so radios stay honest. Search stays catalog.provider_not_configured until an Administrator selects a configured provider. CineFlow does not fail over or auto-select another provider.")
 	public MovieProviderSettingsResponse list() {
 		return catalogAdministration.providers();
 	}

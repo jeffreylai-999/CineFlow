@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import {
   CustomerRequestError,
   type CustomerClient,
+  type SeatHold,
   type ShowtimeSeats,
   type TicketType,
 } from '@/booking/api/customerClient.ts'
+import { type SeatAvailabilitySocket } from '@/booking/api/seatAvailabilitySocket.ts'
 import { BOOKING_CUTOFF_MESSAGE } from '@/booking/bookingCutoffMessage.ts'
 import { formatMyr } from '@/booking/formatMyr.ts'
 import { Button } from '@/components/ui/button.tsx'
@@ -15,6 +17,7 @@ import './seat-selection.css'
 
 type SeatSelectionPageProps = {
   client: CustomerClient
+  socket?: SeatAvailabilitySocket
 }
 
 type LoadState =
@@ -26,18 +29,27 @@ type LoadState =
 
 type Selection = Record<number, TicketType>
 
-export function SeatSelectionPage({ client }: SeatSelectionPageProps) {
+export function SeatSelectionPage({ client, socket }: SeatSelectionPageProps) {
   const { showtimeId } = useParams()
-  return <SeatSelectionScreen key={showtimeId} client={client} />
+  return <SeatSelectionScreen key={showtimeId} client={client} socket={socket} />
 }
 
-function SeatSelectionScreen({ client }: SeatSelectionPageProps) {
+function SeatSelectionScreen({ client, socket }: SeatSelectionPageProps) {
   const { showtimeId } = useParams()
   const parsedId = Number(showtimeId)
   const validShowtimeId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
   const [state, setState] = useState<LoadState>({ status: 'loading' })
   const [selection, setSelection] = useState<Selection>({})
   const [limitMessage, setLimitMessage] = useState<string | null>(null)
+  const [hold, setHold] = useState<SeatHold | null>(null)
+  const [holdError, setHoldError] = useState<string | null>(null)
+  const [creatingHold, setCreatingHold] = useState(false)
+  const [refresh, setRefresh] = useState(0)
+  const [remainingHoldSeconds, setRemainingHoldSeconds] = useState<number | null>(null)
+
+  const refreshAvailability = useCallback(() => {
+    setRefresh((current) => current + 1)
+  }, [])
 
   useEffect(() => {
     if (validShowtimeId === null) {
@@ -49,7 +61,6 @@ function SeatSelectionScreen({ client }: SeatSelectionPageProps) {
       .then((map) => {
         if (!cancelled) {
           setState({ status: 'ready', map })
-          setSelection({})
         }
       })
       .catch((error: unknown) => {
@@ -75,7 +86,39 @@ function SeatSelectionScreen({ client }: SeatSelectionPageProps) {
     return () => {
       cancelled = true
     }
-  }, [client, validShowtimeId])
+  }, [client, refresh, validShowtimeId])
+
+  useEffect(() => {
+    if (validShowtimeId === null || !socket) {
+      return
+    }
+    socket.connect(validShowtimeId, refreshAvailability)
+    return () => {
+      void socket.disconnect()
+    }
+  }, [refreshAvailability, socket, validShowtimeId])
+
+  useEffect(() => {
+    if (!hold) {
+      setRemainingHoldSeconds(null)
+      return
+    }
+    const updateRemainingTime = () => {
+      const remaining = Math.max(0, Math.ceil((Date.parse(hold.expiresAt) - Date.now()) / 1_000))
+      setRemainingHoldSeconds(remaining)
+      if (remaining === 0) {
+        setHold(null)
+        setSelection({})
+        setHoldError('Your Seat Hold expired. Current availability has been refreshed.')
+        refreshAvailability()
+      }
+    }
+    updateRemainingTime()
+    const interval = window.setInterval(updateRemainingTime, 1_000)
+    return () => {
+      window.clearInterval(interval)
+    }
+  }, [hold, refreshAvailability])
 
   const readyMap = state.status === 'ready' && state.map.showtimeId === validShowtimeId ? state.map : null
   const selectedCount = Object.keys(selection).length
@@ -89,7 +132,7 @@ function SeatSelectionScreen({ client }: SeatSelectionPageProps) {
       return
     }
     const seat = readyMap.seats.find((item) => item.id === seatId)
-    if (!seat || !seat.available) {
+    if (!seat) {
       return
     }
     if (selection[seatId]) {
@@ -97,6 +140,9 @@ function SeatSelectionScreen({ client }: SeatSelectionPageProps) {
       delete next[seatId]
       setSelection(next)
       setLimitMessage(null)
+      return
+    }
+    if (!seat.available || hold) {
       return
     }
     if (selectedCount >= readyMap.bookingLimit) {
@@ -109,6 +155,28 @@ function SeatSelectionScreen({ client }: SeatSelectionPageProps) {
 
   function setTicketType(seatId: number, ticketType: TicketType) {
     setSelection((current) => ({ ...current, [seatId]: ticketType }))
+  }
+
+  async function createSeatHold() {
+    if (!readyMap || selectedCount === 0 || creatingHold || hold) {
+      return
+    }
+    setCreatingHold(true)
+    setHoldError(null)
+    try {
+      const created = await client.createSeatHold(readyMap.showtimeId, Object.keys(selection).map(Number))
+      setHold(created)
+      refreshAvailability()
+    } catch (error: unknown) {
+      if (error instanceof CustomerRequestError && error.code === 'booking.seats_unavailable') {
+        setHoldError('One or more selected Seats are no longer available. Current availability has been refreshed.')
+      } else {
+        setHoldError('Unable to hold Seats. Try again shortly.')
+      }
+      refreshAvailability()
+    } finally {
+      setCreatingHold(false)
+    }
   }
 
   const total = readyMap
@@ -161,6 +229,7 @@ function SeatSelectionScreen({ client }: SeatSelectionPageProps) {
               </p>
             </div>
             {limitMessage ? <p role="alert">{limitMessage}</p> : null}
+            {holdError ? <p role="alert">{holdError}</p> : null}
             <SeatGrid seats={gridSeats} onSeatActivate={handleSeatActivate} />
           </section>
 
@@ -209,17 +278,33 @@ function SeatSelectionScreen({ client }: SeatSelectionPageProps) {
             <p className="mt-4 text-base font-medium" role="status">
               Total {formatMyr(total)}
             </p>
+            {hold && remainingHoldSeconds !== null ? (
+              <p className="mt-2 text-sm" role="status" aria-label="Seat Hold">
+                Seats held for {formatHoldTime(remainingHoldSeconds)}.
+              </p>
+            ) : null}
             <p className="mt-4 text-sm text-muted-foreground">
               Payment is the next step after Seat selection.
             </p>
-            <Button type="button" className="mt-3 w-full" disabled>
-              Continue to Payment
+            <Button
+              type="button"
+              className="mt-3 w-full"
+              disabled={selectedCount === 0 || creatingHold || hold !== null}
+              onClick={createSeatHold}
+            >
+              {creatingHold ? 'Holding Seats…' : 'Hold Seats and continue to Payment'}
             </Button>
           </aside>
         </div>
       ) : null}
     </div>
   )
+}
+
+function formatHoldTime(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`
 }
 
 function parseTicketType(value: string): TicketType {

@@ -28,4 +28,29 @@ describe('createCustomerClient', () => {
       code: 'booking.cutoff',
     })
   })
+
+  it('creates a Seat Hold for the selected Seats', async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          holdId: 'aabccabe-79c4-44d8-b38f-a1b64d4526d8',
+          showtimeId: 11,
+          seatIds: [1, 2],
+          expiresAt: '2026-09-16T00:10:00Z',
+        }),
+        { status: 201, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    const client = createCustomerClient(fetcher)
+
+    await expect(client.createSeatHold(11, [2, 1])).resolves.toMatchObject({
+      showtimeId: 11,
+      seatIds: [1, 2],
+    })
+    expect(fetcher).toHaveBeenCalledWith('/api/showtimes/11/holds', {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ seatIds: [2, 1] }),
+    })
+  })
 })

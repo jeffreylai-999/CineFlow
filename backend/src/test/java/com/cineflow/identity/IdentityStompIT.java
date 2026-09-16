@@ -89,9 +89,11 @@ class IdentityStompIT {
 	}
 
 	@Test
-	void stompConnectWithoutAccessTokenIsRejected() {
-		assertThatThrownBy(() -> connect(null).get(5, TimeUnit.SECONDS))
-			.hasCauseInstanceOf(Exception.class);
+	void anonymousStompConnectionMaySubscribeToPublicAvailability() throws Exception {
+		StompSession session = connect(null).get(5, TimeUnit.SECONDS);
+		session.subscribe("/topic/showtimes/1/availability", queueHandler(new LinkedBlockingQueue<>()));
+		assertThat(session.isConnected()).isTrue();
+		session.disconnect();
 	}
 
 	@Test

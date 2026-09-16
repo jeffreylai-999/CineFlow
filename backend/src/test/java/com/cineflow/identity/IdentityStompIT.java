@@ -22,6 +22,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.messaging.MessageDeliveryException;
 import org.springframework.messaging.converter.MappingJackson2MessageConverter;
+import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompFrameHandler;
 import org.springframework.messaging.simp.stomp.StompHeaders;
 import org.springframework.messaging.simp.stomp.StompSession;
@@ -89,9 +90,21 @@ class IdentityStompIT {
 	}
 
 	@Test
-	void stompConnectWithoutAccessTokenIsRejected() {
-		assertThatThrownBy(() -> connect(null).get(5, TimeUnit.SECONDS))
-			.hasCauseInstanceOf(Exception.class);
+	void anonymousStompConnectionMaySubscribeToPublicAvailability() throws Exception {
+		StompSession session = connect(null).get(5, TimeUnit.SECONDS);
+		session.subscribe("/topic/showtimes/1/availability", queueHandler(new LinkedBlockingQueue<>()));
+		assertThat(session.isConnected()).isTrue();
+		session.disconnect();
+	}
+
+	@Test
+	void anonymousStompConnectionCannotSubscribeToStaffTopics() throws Exception {
+		CompletableFuture<Throwable> rejected = new CompletableFuture<>();
+		StompSession session = connectAnonymous(rejected).get(5, TimeUnit.SECONDS);
+
+		session.subscribe("/topic/staff/pong", queueHandler(new LinkedBlockingQueue<>()));
+
+		assertThat(rejected.get(5, TimeUnit.SECONDS)).isNotNull();
 	}
 
 	@Test
@@ -153,6 +166,32 @@ class IdentityStompIT {
 				new WebSocketHttpHeaders(),
 				connectHeaders,
 				new StompSessionHandlerAdapter() {
+				});
+	}
+
+	private CompletableFuture<StompSession> connectAnonymous(CompletableFuture<Throwable> rejected) {
+		return stompClient.connectAsync(
+				"ws://localhost:" + port + "/ws",
+				new StompSessionHandlerAdapter() {
+					@Override
+					public void handleException(
+							StompSession session,
+							StompCommand command,
+							StompHeaders headers,
+							byte[] payload,
+							Throwable exception) {
+						rejected.complete(exception);
+					}
+
+					@Override
+					public void handleTransportError(StompSession session, Throwable exception) {
+						rejected.complete(exception);
+					}
+
+					@Override
+					public void handleFrame(StompHeaders headers, Object payload) {
+						rejected.complete(new IllegalStateException("Staff subscription rejected"));
+					}
 				});
 	}
 

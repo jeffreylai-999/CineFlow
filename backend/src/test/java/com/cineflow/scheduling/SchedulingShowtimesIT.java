@@ -212,6 +212,45 @@ class SchedulingShowtimesIT {
 	}
 
 	@Test
+	void removingAShowtimeAlsoRemovesItsExpiredSeatHold() throws Exception {
+		String token = adminToken();
+		int hallId = createHall(token, "Expired parent " + UUID.randomUUID());
+		int seatId = firstSeatId(hallId);
+		long movieId = insertMovie("Expired parent hold Gate", 90);
+		String created = createShowtime(token, movieId, hallId, "2099-03-18T19:30", "22.00", "12.00")
+			.andExpect(status().isCreated())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		int showtimeId = JsonPath.read(created, "$.id");
+		UUID holdId = UUID.randomUUID();
+		jdbcTemplate.update(
+				"""
+						insert into cineflow.seat_holds (id, showtime_id, expires_at)
+						values (?, ?, now() - interval '1 minute')
+						""",
+				holdId,
+				showtimeId);
+		jdbcTemplate.update(
+				"""
+						insert into cineflow.seat_claims (
+						    showtime_id, hall_id, seat_id, claim_kind, expires_at, hold_id)
+						values (?, ?, ?, 'HOLD', now() - interval '1 minute', ?)
+						""",
+				showtimeId,
+				hallId,
+				seatId,
+				holdId);
+
+		mockMvc.perform(delete("/api/showtimes/" + showtimeId).header("Authorization", "Bearer " + token))
+			.andExpect(status().isNoContent());
+		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from cineflow.seat_holds where id = ?",
+				Integer.class,
+				holdId)).isZero();
+	}
+
+	@Test
 	void concurrentHoldDuringRemoveIsAConflictNotAServerError() throws Exception {
 		String token = adminToken();
 		int hallId = createHall(token, "Race hold " + UUID.randomUUID());

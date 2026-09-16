@@ -7,4 +7,6 @@ public interface Booking {
 	List<CustomerMovieResponse> listCatalog();
 
 	CustomerSeatMapResponse showtimeSeats(long showtimeId);
+
+	SeatHoldResponse createSeatHold(long showtimeId, List<Long> seatIds);
 }

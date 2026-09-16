@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router'
 import { createCustomerClient } from '@/booking/api/customerClient.ts'
+import { createSeatAvailabilitySocket } from '@/booking/api/seatAvailabilitySocket.ts'
 import { SeatSelectionPage } from '@/booking/SeatSelectionPage.tsx'
 import { createCatalogAdminClient } from '@/catalog/api/catalogAdminClient.ts'
 import { CatalogPage } from '@/catalog/CatalogPage.tsx'
@@ -10,6 +11,7 @@ import { StaffRoutes } from '@/identity/StaffRoutes.tsx'
 import { CustomerShell } from '@/shells/customer/CustomerShell.tsx'
 
 const customerClient = createCustomerClient()
+const seatAvailabilitySocket = createSeatAvailabilitySocket()
 const catalogAdminClient = createCatalogAdminClient()
 const identityClient = createIdentityClient()
 const staffSocket = createStaffSocket()
@@ -29,7 +31,7 @@ function App() {
         path="/showtimes/:showtimeId"
         element={
           <CustomerShell>
-            <SeatSelectionPage client={customerClient} />
+            <SeatSelectionPage client={customerClient} socket={seatAvailabilitySocket} />
           </CustomerShell>
         }
       />

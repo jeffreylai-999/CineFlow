@@ -8,8 +8,10 @@ import {
   CustomerRequestError,
   type CustomerClient,
   type CustomerSeat,
+  type SeatHold,
   type ShowtimeSeats,
 } from '@/booking/api/customerClient.ts'
+import { type SeatAvailabilitySocket } from '@/booking/api/seatAvailabilitySocket.ts'
 
 const seatMap: ShowtimeSeats = {
   showtimeId: 11,
@@ -54,7 +56,13 @@ function clientStub(overrides: Partial<CustomerClient> = {}): CustomerClient {
   }
 }
 
-function SeatSelectionHarness({ client }: { client: CustomerClient }) {
+function SeatSelectionHarness({
+  client,
+  socket,
+}: {
+  client: CustomerClient
+  socket?: SeatAvailabilitySocket
+}) {
   return (
     <>
       <nav>
@@ -63,16 +71,23 @@ function SeatSelectionHarness({ client }: { client: CustomerClient }) {
         <Link to="/showtimes/not-a-showtime">Open invalid showtime</Link>
       </nav>
       <Routes>
-        <Route path="/showtimes/:showtimeId" element={<SeatSelectionPage client={client} />} />
+        <Route
+          path="/showtimes/:showtimeId"
+          element={<SeatSelectionPage client={client} socket={socket} />}
+        />
       </Routes>
     </>
   )
 }
 
-async function renderSeats(client: CustomerClient = clientStub(), path = '/showtimes/11') {
+async function renderSeats(
+  client: CustomerClient = clientStub(),
+  path = '/showtimes/11',
+  socket?: SeatAvailabilitySocket,
+) {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <SeatSelectionHarness client={client} />
+      <SeatSelectionHarness client={client} socket={socket} />
     </MemoryRouter>,
   )
 }
@@ -236,6 +251,129 @@ describe('SeatSelectionPage', () => {
       .element(page.getByRole('alert'))
       .toHaveTextContent('Online checkout is closed at the Booking Cutoff, 15 minutes before this Showtime.')
     await expect.element(page.getByRole('group', { name: 'Seat Map' })).not.toBeInTheDocument()
+  })
+
+  it('holds selected Seats and shows the remaining hold time', async () => {
+    const createdAt = new Date()
+    const unavailableMap: ShowtimeSeats = {
+      ...seatMap,
+      seats: [{ ...seatMap.seats[0], available: false }, ...seatMap.seats.slice(1)],
+    }
+    const client = clientStub({
+      getShowtimeSeats: vi.fn().mockResolvedValueOnce(seatMap).mockResolvedValue(unavailableMap),
+      createSeatHold: vi.fn().mockResolvedValue({
+        holdId: 'aabccabe-79c4-44d8-b38f-a1b64d4526d8',
+        showtimeId: 11,
+        seatIds: [1],
+        serverTime: createdAt.toISOString(),
+        expiresAt: new Date(createdAt.getTime() + 600_000).toISOString(),
+      }),
+    })
+    await renderSeats(client)
+    await page.getByRole('button', { name: 'Seat A1, available' }).click()
+
+    await page.getByRole('button', { name: 'Hold selected Seats' }).click()
+
+    expect(client.createSeatHold).toHaveBeenCalledWith(11, [1])
+    await expect
+      .element(page.getByText('Seats held for 10:00.'))
+      .toHaveTextContent('Seats held for 10:00.')
+    await expect.element(page.getByRole('button', { name: 'Seat A1, selected' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await page.getByRole('button', { name: 'Seat A1, selected' }).click()
+    await expect.element(page.getByLabelText('Seat A1 Ticket Type')).toBeInTheDocument()
+  })
+
+  it('does not change Seat selection while a Seat Hold request is in flight', async () => {
+    let resolveHold!: (hold: SeatHold) => void
+    const client = clientStub({
+      createSeatHold: vi.fn(
+        () =>
+          new Promise<SeatHold>((resolve) => {
+            resolveHold = resolve
+          }),
+      ),
+    })
+    await renderSeats(client)
+    await page.getByRole('button', { name: 'Seat A1, available' }).click()
+    await page.getByRole('button', { name: 'Hold selected Seats' }).click()
+    await expect.element(page.getByRole('button', { name: 'Holding Seats…' })).toBeDisabled()
+
+    await page.getByRole('button', { name: 'Seat A2, available' }).click()
+    await expect.element(page.getByRole('button', { name: 'Seat A2, available' })).toBeInTheDocument()
+    await expect.element(page.getByLabelText('Seat A2 Ticket Type')).not.toBeInTheDocument()
+
+    const createdAt = new Date()
+    resolveHold({
+      holdId: 'aabccabe-79c4-44d8-b38f-a1b64d4526d8',
+      showtimeId: 11,
+      seatIds: [1],
+      serverTime: createdAt.toISOString(),
+      expiresAt: new Date(createdAt.getTime() + 600_000).toISOString(),
+    })
+
+    await expect.element(page.getByText('Seats held for 10:00.')).toBeInTheDocument()
+    await expect.element(page.getByLabelText('Seat A1 Ticket Type')).toBeInTheDocument()
+    await expect.element(page.getByLabelText('Seat A2 Ticket Type')).not.toBeInTheDocument()
+    expect(client.createSeatHold).toHaveBeenCalledWith(11, [1])
+  })
+
+  it('refreshes authoritative availability after a Seat Availability event', async () => {
+    let onAvailabilityChanged!: () => void
+    const socket: SeatAvailabilitySocket = {
+      connect: vi.fn((_, callback) => {
+        onAvailabilityChanged = callback
+      }),
+      disconnect: vi.fn(),
+    }
+    const client = clientStub({
+      getShowtimeSeats: vi
+        .fn()
+        .mockResolvedValueOnce(seatMap)
+        .mockResolvedValueOnce({
+          ...seatMap,
+          seats: [
+            { ...seatMap.seats[0], available: false },
+            ...seatMap.seats.slice(1),
+          ],
+        }),
+    })
+
+    await renderSeats(client, '/showtimes/11', socket)
+    await expect.element(page.getByRole('button', { name: 'Seat A1, available' })).toBeInTheDocument()
+    await page.getByRole('button', { name: 'Seat A1, available' }).click()
+
+    onAvailabilityChanged()
+
+    await expect
+      .element(page.getByRole('button', { name: 'Seat A1, unavailable' }))
+      .toBeInTheDocument()
+    await expect.element(page.getByText('No Seats selected yet.')).toBeInTheDocument()
+    expect(socket.connect).toHaveBeenCalledWith(11, expect.any(Function))
+    expect(client.getShowtimeSeats).toHaveBeenCalledTimes(2)
+  })
+
+  it('returns to current availability when the Seat Hold expires', async () => {
+    const createdAt = new Date()
+    const client = clientStub({
+      createSeatHold: vi.fn().mockResolvedValue({
+        holdId: 'aabccabe-79c4-44d8-b38f-a1b64d4526d8',
+        showtimeId: 11,
+        seatIds: [1],
+        serverTime: createdAt.toISOString(),
+        expiresAt: new Date(createdAt.getTime() - 1_000).toISOString(),
+      }),
+    })
+    await renderSeats(client)
+    await page.getByRole('button', { name: 'Seat A1, available' }).click()
+    await page.getByRole('button', { name: 'Hold selected Seats' }).click()
+
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent('Your Seat Hold expired. Current availability has been refreshed.')
+    await expect.element(page.getByText('No Seats selected yet.')).toBeInTheDocument()
   })
 
   it('returns not-found when the Showtime Seat Map is missing', async () => {

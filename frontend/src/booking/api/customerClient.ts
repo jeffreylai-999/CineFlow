@@ -47,9 +47,18 @@ export type ShowtimeSeats = {
   seats: CustomerSeat[]
 }
 
+export type SeatHold = {
+  holdId: string
+  showtimeId: number
+  seatIds: number[]
+  serverTime: string
+  expiresAt: string
+}
+
 export type CustomerClient = {
   listMovies: () => Promise<Movie[]>
   getShowtimeSeats: (showtimeId: number) => Promise<ShowtimeSeats>
+  createSeatHold: (showtimeId: number, seatIds: number[]) => Promise<SeatHold>
 }
 
 export class CustomerRequestError extends Error {
@@ -75,6 +84,15 @@ export function createCustomerClient(fetcher: typeof fetch = fetch): CustomerCli
     async getShowtimeSeats(showtimeId) {
       return readJson<ShowtimeSeats>(
         fetcher(`/api/showtimes/${showtimeId}/seats`, { headers: { Accept: 'application/json' } }),
+      )
+    },
+    async createSeatHold(showtimeId, seatIds) {
+      return readJson<SeatHold>(
+        fetcher(`/api/showtimes/${showtimeId}/holds`, {
+          method: 'POST',
+          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ seatIds }),
+        }),
       )
     },
   }

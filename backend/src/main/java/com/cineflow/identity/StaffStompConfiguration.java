@@ -69,14 +69,17 @@ class StaffStompConfiguration implements WebSocketMessageBrokerConfigurer {
 					return message;
 				}
 				if (StompCommand.CONNECT.equals(accessor.getCommand())) {
-					Principal user = authenticate(accessor);
-					accessor.setUser(user);
-					sessions.remember(message, user);
+					String authorization = accessor.getFirstNativeHeader("Authorization");
+					if (authorization != null && !authorization.isBlank()) {
+						Principal user = authenticate(accessor);
+						accessor.setUser(user);
+						sessions.remember(message, user);
+					}
 				}
 				else if (StompCommand.DISCONNECT.equals(accessor.getCommand())) {
 					sessions.forget(message);
 				}
-				else if (accessor.getCommand() != null) {
+				else if (accessor.getCommand() != null && !isPublicAvailabilitySubscription(accessor)) {
 					requireActiveSession(accessor.getUser());
 				}
 				return message;
@@ -116,6 +119,12 @@ class StaffStompConfiguration implements WebSocketMessageBrokerConfigurer {
 			return true;
 		}
 		return accessor.getCommand() == null && accessor.getMessageType() == SimpMessageType.MESSAGE;
+	}
+
+	private static boolean isPublicAvailabilitySubscription(StompHeaderAccessor accessor) {
+		return StompCommand.SUBSCRIBE.equals(accessor.getCommand())
+				&& accessor.getDestination() != null
+				&& accessor.getDestination().matches("/topic/showtimes/[1-9][0-9]*/availability");
 	}
 
 	private Principal authenticate(StompHeaderAccessor accessor) {

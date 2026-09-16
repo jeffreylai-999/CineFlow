@@ -7,13 +7,19 @@ import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.cineflow.scheduling.CinemaTime;
 
@@ -41,6 +47,17 @@ class BookingService implements Booking {
 			  and m.archived_at is null
 			""";
 
+	private static final String SHOWTIME_FOR_HOLD_SELECT = """
+			select s.id, s.movie_id, m.title, m.runtime_minutes, s.hall_id, h.name as hall_name,
+			       s.starts_at, s.adult_price_myr, s.child_price_myr
+			from cineflow.showtimes s
+			join cineflow.movies m on m.id = s.movie_id
+			join cineflow.halls h on h.id = s.hall_id
+			where s.id = ?
+			  and m.archived_at is null
+			for update of s
+			""";
+
 	private static final String SEATS_SELECT = """
 			select seat.id, seat.row_label, seat.seat_number,
 			       not (
@@ -63,10 +80,12 @@ class BookingService implements Booking {
 
 	private final JdbcTemplate jdbcTemplate;
 	private final Clock clock;
+	private final SeatAvailabilityPublisher availabilityPublisher;
 
-	BookingService(JdbcTemplate jdbcTemplate, Clock clock) {
+	BookingService(JdbcTemplate jdbcTemplate, Clock clock, SeatAvailabilityPublisher availabilityPublisher) {
 		this.jdbcTemplate = jdbcTemplate;
 		this.clock = clock;
+		this.availabilityPublisher = availabilityPublisher;
 	}
 
 	@Override
@@ -117,11 +136,155 @@ class BookingService implements Booking {
 				seats);
 	}
 
+	@Override
+	@Transactional
+	public SeatHoldResponse createSeatHold(long showtimeId, List<Long> seatIds) {
+		Instant now = clock.instant();
+		ShowtimeRow showtime = requireShowtimeForHold(showtimeId);
+		if (!CinemaTime.stillScreening(showtime.startsAt(), showtime.runtimeMinutes(), now)) {
+			throw BookingException.showtimeNotFound();
+		}
+		if (!CinemaTime.onlineCheckoutOpen(showtime.startsAt(), now)) {
+			throw BookingException.cutoff();
+		}
+
+		List<Long> requestedSeats = requireDistinctSeatIds(seatIds);
+		if (requestedSeats.size() > bookingLimit()) {
+			throw BookingException.bookingLimit();
+		}
+
+		List<SeatForHold> seats = lockRequestedSeats(showtime.hallId(), requestedSeats);
+		if (seats.size() != requestedSeats.size() || seats.stream().anyMatch(SeatForHold::disabled)) {
+			throw BookingException.seatsUnavailable();
+		}
+
+		Instant expiresAt = now.plusSeconds(600);
+		deleteExpiredClaims(showtimeId, Timestamp.from(now), seats);
+		if (hasClaimedSeats(showtimeId, seats)) {
+			throw BookingException.seatsUnavailable();
+		}
+
+		UUID holdId = UUID.randomUUID();
+		jdbcTemplate.update(
+				"insert into cineflow.seat_holds (id, showtime_id, expires_at) values (?, ?, ?)",
+				holdId,
+				showtimeId,
+				Timestamp.from(expiresAt));
+		for (SeatForHold seat : seats) {
+			jdbcTemplate.update(
+					"""
+							insert into cineflow.seat_claims (
+							    showtime_id, hall_id, seat_id, claim_kind, expires_at, hold_id)
+							values (?, ?, ?, 'HOLD', ?, ?)
+							""",
+					showtimeId,
+					showtime.hallId(),
+					seat.id(),
+					Timestamp.from(expiresAt),
+					holdId);
+		}
+
+		publishAvailabilityAfterCommit(showtimeId);
+		return new SeatHoldResponse(
+				holdId,
+				showtimeId,
+				seats.stream().map(SeatForHold::id).toList(),
+				expiresAt);
+	}
+
 	private int bookingLimit() {
 		Integer limit = jdbcTemplate.queryForObject(
 				"select booking_limit from cineflow.cinema_settings where id = 1",
 				Integer.class);
 		return limit == null ? 10 : limit;
+	}
+
+	private ShowtimeRow requireShowtimeForHold(long showtimeId) {
+		List<ShowtimeRow> found = jdbcTemplate.query(SHOWTIME_FOR_HOLD_SELECT, this::mapShowtimeRow, showtimeId);
+		if (found.isEmpty()) {
+			throw BookingException.showtimeNotFound();
+		}
+		return found.getFirst();
+	}
+
+	private static List<Long> requireDistinctSeatIds(List<Long> seatIds) {
+		if (seatIds == null || seatIds.isEmpty() || seatIds.stream().anyMatch(id -> id == null || id <= 0)) {
+			throw BookingException.invalidSeatSelection();
+		}
+		Set<Long> distinct = new HashSet<>(seatIds);
+		if (distinct.size() != seatIds.size()) {
+			throw BookingException.invalidSeatSelection();
+		}
+		return List.copyOf(seatIds);
+	}
+
+	private List<SeatForHold> lockRequestedSeats(long hallId, List<Long> seatIds) {
+		String placeholders = String.join(",", Collections.nCopies(seatIds.size(), "?"));
+		Object[] parameters = new Object[seatIds.size() + 1];
+		parameters[0] = hallId;
+		for (int index = 0; index < seatIds.size(); index++) {
+			parameters[index + 1] = seatIds.get(index);
+		}
+		return jdbcTemplate.query(
+				"""
+						select id, disabled
+						from cineflow.seats
+						where hall_id = ? and id in (%s)
+						order by row_label, seat_number, id
+						for update
+						""".formatted(placeholders),
+				(resultSet, rowNum) -> new SeatForHold(resultSet.getLong("id"), resultSet.getBoolean("disabled")),
+				parameters);
+	}
+
+	private void deleteExpiredClaims(long showtimeId, Timestamp now, List<SeatForHold> seats) {
+		jdbcTemplate.update(
+				"""
+						delete from cineflow.seat_claims
+						where showtime_id = ?
+						  and claim_kind = 'HOLD'
+						  and expires_at <= ?
+						  and seat_id in (%s)
+						""".formatted(placeholders(seats.size())),
+				claimParameters(showtimeId, now, seats));
+	}
+
+	private boolean hasClaimedSeats(long showtimeId, List<SeatForHold> seats) {
+		Integer count = jdbcTemplate.queryForObject(
+				"""
+						select count(*)
+						from cineflow.seat_claims
+						where showtime_id = ? and seat_id in (%s)
+						""".formatted(placeholders(seats.size())),
+				Integer.class,
+				claimParameters(showtimeId, null, seats));
+		return count != null && count > 0;
+	}
+
+	private static String placeholders(int count) {
+		return String.join(",", Collections.nCopies(count, "?"));
+	}
+
+	private static Object[] claimParameters(long showtimeId, Timestamp now, List<SeatForHold> seats) {
+		int offset = now == null ? 1 : 2;
+		Object[] parameters = new Object[seats.size() + offset];
+		parameters[0] = showtimeId;
+		if (now != null) {
+			parameters[1] = now;
+		}
+		for (int index = 0; index < seats.size(); index++) {
+			parameters[index + offset] = seats.get(index).id();
+		}
+		return parameters;
+	}
+
+	private void publishAvailabilityAfterCommit(long showtimeId) {
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCommit() {
+				availabilityPublisher.publish(showtimeId);
+			}
+		});
 	}
 
 	private CatalogRow mapCatalogRow(ResultSet resultSet, int rowNum) throws SQLException {
@@ -189,6 +352,9 @@ class BookingService implements Booking {
 			Instant startsAt,
 			BigDecimal adultPriceMyr,
 			BigDecimal childPriceMyr) {
+	}
+
+	private record SeatForHold(long id, boolean disabled) {
 	}
 
 	private static final class MovieAccumulator {

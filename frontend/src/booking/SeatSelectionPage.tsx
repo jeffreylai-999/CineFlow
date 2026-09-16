@@ -136,9 +136,10 @@ function SeatSelectionScreen({ client, socket }: SeatSelectionPageProps) {
 
   const readyMap = state.status === 'ready' && state.map.showtimeId === validShowtimeId ? state.map : null
   const selectedCount = Object.keys(selection).length
+  const heldSeatIds = useMemo(() => new Set(hold?.details.seatIds), [hold])
   const gridSeats = useMemo(
-    () => (readyMap ? readyMap.seats.map((seat) => toGridSeat(seat, selection)) : []),
-    [readyMap, selection],
+    () => (readyMap ? readyMap.seats.map((seat) => toGridSeat(seat, selection, heldSeatIds)) : []),
+    [heldSeatIds, readyMap, selection],
   )
 
   function handleSeatActivate(seatId: number) {
@@ -147,6 +148,9 @@ function SeatSelectionScreen({ client, socket }: SeatSelectionPageProps) {
     }
     const seat = readyMap.seats.find((item) => item.id === seatId)
     if (!seat) {
+      return
+    }
+    if (hold) {
       return
     }
     if (selection[seatId]) {
@@ -293,9 +297,14 @@ function SeatSelectionScreen({ client, socket }: SeatSelectionPageProps) {
               Total {formatMyr(total)}
             </p>
             {hold && remainingHoldSeconds !== null ? (
-              <p className="mt-2 text-sm" role="status" aria-label="Seat Hold">
+              <>
+                <p className="sr-only" role="status">
+                  Seat Hold created.
+                </p>
+                <p className="mt-2 text-sm" aria-label="Seat Hold time remaining">
                 Seats held for {formatHoldTime(remainingHoldSeconds)}.
-              </p>
+                </p>
+              </>
             ) : null}
             <p className="mt-4 text-sm text-muted-foreground">
               Payment is the next step after Seat selection.
@@ -347,7 +356,18 @@ function ticketPrice(ticketType: TicketType, map: ShowtimeSeats): number {
 function toGridSeat(
   seat: ShowtimeSeats['seats'][number],
   selection: Selection,
+  heldSeatIds: ReadonlySet<number>,
 ): SeatGridItem {
+  if (heldSeatIds.has(seat.id)) {
+    return {
+      id: seat.id,
+      label: seat.label,
+      rowLabel: seat.rowLabel,
+      seatNumber: seat.seatNumber,
+      visualState: 'selected',
+      pressed: true,
+    }
+  }
   if (!seat.available) {
     return {
       id: seat.id,

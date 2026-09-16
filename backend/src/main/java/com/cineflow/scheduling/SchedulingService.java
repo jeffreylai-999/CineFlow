@@ -178,7 +178,8 @@ class SchedulingService implements Scheduling {
 			throw SchedulingException.showtimeNotFound();
 		}
 		ShowtimeEntity showtime = showtimes.findById(showtimeId).orElseThrow(SchedulingException::showtimeNotFound);
-		if (!showtime.getStartsAt().isAfter(clock.instant())) {
+		Instant now = clock.instant();
+		if (!showtime.getStartsAt().isAfter(now)) {
 			throw SchedulingException.showtimeNotRemovable();
 		}
 		if (hasBookings(showtimeId)) {
@@ -190,7 +191,14 @@ class SchedulingService implements Scheduling {
 						where showtime_id = ? and claim_kind = 'HOLD' and expires_at <= ?
 						""",
 				showtimeId,
-				Timestamp.from(clock.instant()));
+				Timestamp.from(now));
+		jdbcTemplate.update(
+				"""
+						delete from cineflow.seat_holds
+						where showtime_id = ? and expires_at <= ?
+						""",
+				showtimeId,
+				Timestamp.from(now));
 		if (hasActiveHolds(showtimeId)) {
 			throw SchedulingException.showtimeNotRemovable();
 		}

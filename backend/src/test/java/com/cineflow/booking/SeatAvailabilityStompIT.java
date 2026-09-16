@@ -7,9 +7,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.lang.reflect.Type;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +27,7 @@ import org.springframework.messaging.simp.stomp.StompHeaders;
 import org.springframework.messaging.simp.stomp.StompSession;
 import org.springframework.messaging.simp.stomp.StompSessionHandlerAdapter;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
@@ -42,6 +44,9 @@ class SeatAvailabilityStompIT {
 
 	@Autowired
 	JdbcTemplate jdbcTemplate;
+
+	@Autowired
+	SimpMessagingTemplate messaging;
 
 	@LocalServerPort
 	int port;
@@ -66,8 +71,9 @@ class SeatAvailabilityStompIT {
 				new StompSessionHandlerAdapter() {
 				})
 			.get(5, TimeUnit.SECONDS);
-		CompletableFuture<Map<String, Object>> invalidation = new CompletableFuture<>();
-		session.subscribe("/topic/showtimes/" + showtimeId + "/availability", frameHandler(invalidation));
+		BlockingQueue<Map<String, Object>> invalidations = new LinkedBlockingQueue<>();
+		session.subscribe("/topic/showtimes/" + showtimeId + "/availability", frameHandler(invalidations));
+		awaitSubscription(showtimeId, invalidations);
 
 		mockMvc.perform(post("/api/showtimes/" + showtimeId + "/holds")
 				.contentType(MediaType.APPLICATION_JSON)
@@ -76,8 +82,21 @@ class SeatAvailabilityStompIT {
 						""".formatted(seatId)))
 			.andExpect(status().isCreated());
 
-		assertThat(invalidation.get(5, TimeUnit.SECONDS)).containsEntry("showtimeId", (int) showtimeId);
+		assertThat(invalidations.poll(5, TimeUnit.SECONDS)).containsEntry("showtimeId", (int) showtimeId);
 		session.disconnect();
+	}
+
+	private void awaitSubscription(long showtimeId, BlockingQueue<Map<String, Object>> invalidations) throws Exception {
+		for (int attempt = 0; attempt < 50; attempt++) {
+			messaging.convertAndSend(
+					"/topic/showtimes/" + showtimeId + "/availability",
+					new SeatAvailabilityInvalidation(showtimeId));
+			Map<String, Object> received = invalidations.poll(100, TimeUnit.MILLISECONDS);
+			if (received != null) {
+				return;
+			}
+		}
+		throw new AssertionError("Timed out waiting for the STOMP subscription");
 	}
 
 	private long createShowtime() {
@@ -117,7 +136,7 @@ class SeatAvailabilityStompIT {
 				movieId);
 	}
 
-	private static StompFrameHandler frameHandler(CompletableFuture<Map<String, Object>> invalidation) {
+	private static StompFrameHandler frameHandler(BlockingQueue<Map<String, Object>> invalidations) {
 		return new StompFrameHandler() {
 			@Override
 			public Type getPayloadType(StompHeaders headers) {
@@ -128,7 +147,7 @@ class SeatAvailabilityStompIT {
 			public void handleFrame(StompHeaders headers, Object payload) {
 				@SuppressWarnings("unchecked")
 				Map<String, Object> body = (Map<String, Object>) payload;
-				invalidation.complete(body);
+				invalidations.add(body);
 			}
 		};
 	}

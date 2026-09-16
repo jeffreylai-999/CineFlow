@@ -253,13 +253,19 @@ describe('SeatSelectionPage', () => {
   })
 
   it('holds selected Seats and shows the remaining hold time', async () => {
+    const createdAt = new Date()
+    const unavailableMap: ShowtimeSeats = {
+      ...seatMap,
+      seats: [{ ...seatMap.seats[0], available: false }, ...seatMap.seats.slice(1)],
+    }
     const client = clientStub({
+      getShowtimeSeats: vi.fn().mockResolvedValueOnce(seatMap).mockResolvedValue(unavailableMap),
       createSeatHold: vi.fn().mockResolvedValue({
         holdId: 'aabccabe-79c4-44d8-b38f-a1b64d4526d8',
         showtimeId: 11,
         seatIds: [1],
-        serverTime: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + 600_000).toISOString(),
+        serverTime: createdAt.toISOString(),
+        expiresAt: new Date(createdAt.getTime() + 600_000).toISOString(),
       }),
     })
     await renderSeats(client)
@@ -269,8 +275,14 @@ describe('SeatSelectionPage', () => {
 
     expect(client.createSeatHold).toHaveBeenCalledWith(11, [1])
     await expect
-      .element(page.getByRole('status', { name: 'Seat Hold' }))
+      .element(page.getByText('Seats held for 10:00.'))
       .toHaveTextContent('Seats held for 10:00.')
+    await expect.element(page.getByRole('button', { name: 'Seat A1, selected' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await page.getByRole('button', { name: 'Seat A1, selected' }).click()
+    await expect.element(page.getByLabelText('Seat A1 Ticket Type')).toBeInTheDocument()
   })
 
   it('refreshes authoritative availability after a Seat Availability event', async () => {
@@ -309,13 +321,14 @@ describe('SeatSelectionPage', () => {
   })
 
   it('returns to current availability when the Seat Hold expires', async () => {
+    const createdAt = new Date()
     const client = clientStub({
       createSeatHold: vi.fn().mockResolvedValue({
         holdId: 'aabccabe-79c4-44d8-b38f-a1b64d4526d8',
         showtimeId: 11,
         seatIds: [1],
-        serverTime: new Date().toISOString(),
-        expiresAt: new Date(Date.now() - 1_000).toISOString(),
+        serverTime: createdAt.toISOString(),
+        expiresAt: new Date(createdAt.getTime() - 1_000).toISOString(),
       }),
     })
     await renderSeats(client)

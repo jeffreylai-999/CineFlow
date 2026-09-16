@@ -1,4 +1,5 @@
 import { Route, Routes } from 'react-router'
+import { SeatSelectionPage } from '@/booking/SeatSelectionPage.tsx'
 import { createCatalogAdminClient } from '@/catalog/api/catalogAdminClient.ts'
 import { createCatalogClient } from '@/catalog/api/catalogClient.ts'
 import { CatalogPage } from '@/catalog/CatalogPage.tsx'
@@ -25,14 +26,18 @@ function App() {
         }
       />
       <Route
+        path="/showtimes/:showtimeId"
+        element={
+          <CustomerShell>
+            <SeatSelectionPage client={catalogClient} />
+          </CustomerShell>
+        }
+      />
+      <Route
         path="/staff/*"
         element={
           <StaffAuthProvider client={identityClient} socket={staffSocket}>
-            <StaffRoutes
-              catalogAdminClient={catalogAdminClient}
-              catalogClient={catalogClient}
-              client={identityClient}
-            />
+            <StaffRoutes catalogAdminClient={catalogAdminClient} client={identityClient} />
           </StaffAuthProvider>
         }
       />

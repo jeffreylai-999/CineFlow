@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router'
 import type { CatalogClient, Movie } from '@/catalog/api/catalogClient.ts'
 import {
   Card,
@@ -7,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card.tsx'
+import { formatMyr } from '@/booking/formatMyr.ts'
 
 type CatalogPageProps = {
   client: CatalogClient
@@ -56,6 +58,10 @@ export function CatalogPage({ client }: CatalogPageProps) {
       {state.status === 'loading' ? <p role="status">Loading Movies…</p> : null}
       {state.status === 'error' ? <p role="alert">{state.message}</p> : null}
 
+      {state.status === 'ready' && state.movies.length === 0 ? (
+        <p>No Movies with current or future Showtimes.</p>
+      ) : null}
+
       {state.status === 'ready' ? (
         <ul className="grid list-none gap-6 p-0">
           {state.movies.map((movie) => (
@@ -82,6 +88,7 @@ export function CatalogPage({ client }: CatalogPageProps) {
                       <p className="max-w-2xl text-sm leading-relaxed text-foreground/90">
                         {movie.synopsis}
                       </p>
+                      <ShowtimeDates movie={movie} />
                     </CardContent>
                   </div>
                 </div>
@@ -104,6 +111,53 @@ export function CatalogPage({ client }: CatalogPageProps) {
           This product uses the TMDB API but is not endorsed or certified by TMDB.
         </p>
       </footer>
+    </div>
+  )
+}
+
+function ShowtimeDates({ movie }: { movie: Movie }) {
+  return (
+    <div className="mt-6 space-y-4">
+      {movie.dates.map((group) => (
+        <section key={group.cinemaDate} aria-labelledby={`date-${movie.id}-${group.cinemaDate}`}>
+          <h3
+            id={`date-${movie.id}-${group.cinemaDate}`}
+            className="text-sm font-medium text-muted-foreground"
+          >
+            {group.cinemaDate}
+          </h3>
+          <ul className="mt-2 grid list-none gap-2 p-0">
+            {group.showtimes.map((showtime) => (
+              <li key={showtime.id}>
+                {showtime.checkoutOpen ? (
+                  <Link
+                    className="inline-flex min-h-11 w-full flex-col rounded-md border border-border/60 bg-secondary px-3 py-2 text-left text-sm focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none sm:flex-row sm:items-center sm:justify-between"
+                    to={`/showtimes/${showtime.id}`}
+                  >
+                    <span>
+                      {showtime.startsAtCinemaTime} · {showtime.hallName}
+                    </span>
+                    <span>
+                      Adult {formatMyr(showtime.adultPriceMyr)} · Child{' '}
+                      {formatMyr(showtime.childPriceMyr)}
+                    </span>
+                  </Link>
+                ) : (
+                  <p>
+                    <span className="block rounded-md border border-border/60 px-3 py-2 text-sm text-muted-foreground">
+                      {showtime.startsAtCinemaTime} · {showtime.hallName} · Adult{' '}
+                      {formatMyr(showtime.adultPriceMyr)} · Child {formatMyr(showtime.childPriceMyr)}
+                    </span>
+                    <span className="mt-1 block text-xs text-muted-foreground">
+                      Online checkout closed 15 minutes before this Showtime.
+                    </span>
+                  </p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
     </div>
   )
 }

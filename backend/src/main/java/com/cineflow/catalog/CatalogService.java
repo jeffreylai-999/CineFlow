@@ -1,6 +1,5 @@
 package com.cineflow.catalog;
 
-import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
@@ -13,14 +12,6 @@ class CatalogService implements Catalog {
 
 	CatalogService(MovieRepository movieRepository) {
 		this.movieRepository = movieRepository;
-	}
-
-	@Override
-	@Transactional(readOnly = true)
-	public List<MovieResponse> listAvailableMovies() {
-		return movieRepository.findByArchivedAtIsNullOrderByTitleAsc().stream()
-			.map(MovieEntity::toResponse)
-			.toList();
 	}
 
 	@Override

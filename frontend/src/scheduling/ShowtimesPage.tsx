@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { type CatalogClient, type Movie } from '@/catalog/api/catalogClient.ts'
+import type { CatalogAdminClient, ManagedMovie } from '@/catalog/api/catalogAdminClient.ts'
 import { Button } from '@/components/ui/button.tsx'
 import { FieldLegend, FieldSet } from '@/components/ui/field.tsx'
 import { Input } from '@/components/ui/input.tsx'
@@ -18,12 +18,12 @@ const CINEMA_TIME_ZONE = 'Asia/Kuala_Lumpur'
 type ShowtimesPageProps = {
   session: StaffSession
   client: SchedulingClient
-  catalogClient: CatalogClient
+  catalogAdminClient: CatalogAdminClient
   onLogout: () => void
 }
 
-export function ShowtimesPage({ session, client, catalogClient, onLogout }: ShowtimesPageProps) {
-  const [movies, setMovies] = useState<Movie[]>([])
+export function ShowtimesPage({ session, client, catalogAdminClient, onLogout }: ShowtimesPageProps) {
+  const [movies, setMovies] = useState<ManagedMovie[]>([])
   const [halls, setHalls] = useState<HallSummary[]>([])
   const [showtimes, setShowtimes] = useState<Showtime[]>([])
   const [movieId, setMovieId] = useState('')
@@ -40,7 +40,7 @@ export function ShowtimesPage({ session, client, catalogClient, onLogout }: Show
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([catalogClient.listMovies(), client.listHalls(), client.listShowtimes()])
+    Promise.all([catalogAdminClient.listMovies(session.accessToken), client.listHalls(), client.listShowtimes()])
       .then(([nextMovies, nextHalls, nextShowtimes]) => {
         if (!cancelled) {
           setMovies(nextMovies)
@@ -61,7 +61,7 @@ export function ShowtimesPage({ session, client, catalogClient, onLogout }: Show
     return () => {
       cancelled = true
     }
-  }, [catalogClient, client])
+  }, [catalogAdminClient, client, session.accessToken])
 
   async function onCreate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()

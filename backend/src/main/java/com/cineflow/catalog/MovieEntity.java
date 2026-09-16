@@ -113,10 +113,6 @@ class MovieEntity {
 		this.ageRating = ageRating;
 	}
 
-	MovieResponse toResponse() {
-		return new MovieResponse(id, title, synopsis, genre, runtimeMinutes, ageRating, posterUrl);
-	}
-
 	MovieAdminResponse toAdminResponse() {
 		return new MovieAdminResponse(
 				id,

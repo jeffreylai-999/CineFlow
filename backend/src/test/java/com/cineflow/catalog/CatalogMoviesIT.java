@@ -38,7 +38,9 @@ class CatalogMoviesIT {
 			.andExpect(jsonPath("$[?(@.title=='Nebula Express')].ageRating").value("PG-13"))
 			.andExpect(jsonPath("$[?(@.title=='Nebula Express')].posterUrl")
 					.value("https://cdn.example.test/posters/nebula-express.jpg"))
-			.andExpect(jsonPath("$[?(@.title=='Nebula Express')].id").exists());
+			.andExpect(jsonPath("$[?(@.title=='Nebula Express')].id").exists())
+			.andExpect(jsonPath("$[?(@.title=='Nebula Express')].dates[0].cinemaDate").value("2099-06-20"))
+			.andExpect(jsonPath("$[?(@.title=='Nebula Express')].dates[0].showtimes[0].checkoutOpen").value(true));
 	}
 
 	@Test

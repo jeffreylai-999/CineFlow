@@ -49,6 +49,60 @@ describe('SeatGrid', () => {
     expect(onSeatActivate).toHaveBeenCalledWith(1)
   })
 
+  it('renders customer available, selected, and unavailable states with marks and labels', async () => {
+    const onSeatActivate = vi.fn()
+    await render(
+      <SeatGrid
+        seats={[
+          {
+            id: 1,
+            label: 'A1',
+            rowLabel: 'A',
+            seatNumber: 1,
+            visualState: 'available',
+            pressed: false,
+            accessibleName: 'Seat A1, available',
+          },
+          {
+            id: 2,
+            label: 'A2',
+            rowLabel: 'A',
+            seatNumber: 2,
+            visualState: 'selected',
+            pressed: true,
+            accessibleName: 'Seat A2, selected',
+          },
+          {
+            id: 3,
+            label: 'A3',
+            rowLabel: 'A',
+            seatNumber: 3,
+            visualState: 'unavailable',
+            pressed: false,
+            accessibleName: 'Seat A3, unavailable',
+          },
+        ]}
+        onSeatActivate={onSeatActivate}
+      />,
+    )
+
+    await expect.element(page.getByRole('button', { name: 'Seat A1, available' })).toHaveAttribute(
+      'data-state',
+      'available',
+    )
+    await expect.element(page.getByRole('button', { name: 'Seat A2, selected' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await expect.element(page.getByRole('button', { name: 'Seat A3, unavailable' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    await expect.element(page.getByText('●')).toBeInTheDocument()
+    await expect.element(page.getByText('■')).toBeInTheDocument()
+    await expect.element(page.getByText('A3')).toBeInTheDocument()
+  })
+
   it('has no serious axe violations', async () => {
     const screen = await render(<SeatGrid seats={seats} onSeatActivate={() => undefined} />)
     await expect.element(page.getByRole('button', { name: 'Seat A1, enabled' })).toBeInTheDocument()

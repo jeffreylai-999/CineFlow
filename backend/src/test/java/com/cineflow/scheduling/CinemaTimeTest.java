@@ -32,4 +32,13 @@ class CinemaTimeTest {
 			.extracting(error -> ((SchedulingException) error).code())
 			.isEqualTo("scheduling.invalid_cinema_time");
 	}
+
+	@Test
+	void onlineCheckoutClosesFifteenMinutesBeforeTheShowtime() {
+		Instant startsAt = Instant.parse("2026-09-20T11:30:00Z");
+		assertThat(CinemaTime.bookingCutoff(startsAt)).isEqualTo(Instant.parse("2026-09-20T11:15:00Z"));
+		assertThat(CinemaTime.onlineCheckoutOpen(startsAt, Instant.parse("2026-09-20T11:14:59Z"))).isTrue();
+		assertThat(CinemaTime.onlineCheckoutOpen(startsAt, Instant.parse("2026-09-20T11:15:00Z"))).isFalse();
+		assertThat(CinemaTime.cinemaDate(startsAt)).isEqualTo("2026-09-20");
+	}
 }

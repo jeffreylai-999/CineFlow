@@ -110,7 +110,7 @@ class CatalogAdministrationIT {
 			.getResponse()
 			.getContentAsString();
 
-		mockMvc.perform(get("/api/movies"))
+		mockMvc.perform(get("/api/admin/movies").header("Authorization", "Bearer " + adminToken()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$[?(@.title=='Imported Gate')]").exists());
 

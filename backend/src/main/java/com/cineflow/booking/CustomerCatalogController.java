@@ -1,4 +1,4 @@
-package com.cineflow.catalog;
+package com.cineflow.booking;
 
 import java.util.List;
 
@@ -13,17 +13,17 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 @RestController
 @RequestMapping(path = "/api/movies", produces = MediaType.APPLICATION_JSON_VALUE)
 @Tag(name = "Catalog")
-public class MovieCatalogController {
+public class CustomerCatalogController {
 
-	private final Catalog catalog;
+	private final Booking booking;
 
-	MovieCatalogController(Catalog catalog) {
-		this.catalog = catalog;
+	CustomerCatalogController(Booking booking) {
+		this.booking = booking;
 	}
 
 	@GetMapping
-	@Operation(summary = "List available Movies")
-	public List<MovieResponse> listMovies() {
-		return catalog.listAvailableMovies();
+	@Operation(summary = "List Movies with current or future Showtimes grouped by Cinema date")
+	public List<CustomerMovieResponse> listCatalog() {
+		return booking.listCatalog();
 	}
 }

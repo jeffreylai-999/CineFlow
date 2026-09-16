@@ -39,6 +39,12 @@
   --color-seat-disabled: var(--seat-disabled);
   --color-seat-disabled-foreground: var(--seat-disabled-foreground);
   --color-seat-disabled-border: var(--seat-disabled-border);
+  --color-seat-unavailable: var(--seat-unavailable);
+  --color-seat-unavailable-foreground: var(--seat-unavailable-foreground);
+  --color-seat-unavailable-border: var(--seat-unavailable-border);
+  --color-seat-selected: var(--seat-selected);
+  --color-seat-selected-foreground: var(--seat-selected-foreground);
+  --color-seat-selected-border: var(--seat-selected-border);
 }
 
 :root,
@@ -81,4 +87,14 @@
   --seat-disabled: #3a2433; /* disabled-foreground on disabled = 10.21:1 */
   --seat-disabled-foreground: #f4efe6;
   --seat-disabled-border: #e8b4c2; /* dashed border against disabled fill ≈ 5.1:1 */
+
+  /* Unavailable Seat (customer collapsed state): dotted border + ■. */
+  --seat-unavailable: #1b2436; /* unavailable-foreground on unavailable ≈ 13.2:1 */
+  --seat-unavailable-foreground: #f4efe6;
+  --seat-unavailable-border: #9aa3b8; /* dotted border against unavailable fill ≈ 4.6:1 */
+
+  /* Selected Seat: solid primary border + ●. */
+  --seat-selected: #3a1520; /* selected-foreground on selected ≈ 11.8:1 */
+  --seat-selected-foreground: #f4efe6;
+  --seat-selected-border: #e11d2e; /* primary border against selected fill ≈ 4.8:1 */
 }

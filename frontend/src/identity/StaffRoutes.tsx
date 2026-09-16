@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { Navigate, Route, Routes, useNavigate } from 'react-router'
 import { AdminMoviesPage } from '@/catalog/AdminMoviesPage.tsx'
 import type { CatalogAdminClient } from '@/catalog/api/catalogAdminClient.ts'
-import type { CatalogClient } from '@/catalog/api/catalogClient.ts'
 import type { IdentityClient } from '@/identity/api/identityClient.ts'
 import { StaffAccountsPage } from '@/identity/StaffAccountsPage.tsx'
 import { StaffHomePage } from '@/identity/StaffHomePage.tsx'
@@ -14,11 +13,10 @@ import { createSchedulingClient } from '@/scheduling/api/schedulingClient.ts'
 
 type StaffRoutesProps = {
   catalogAdminClient: CatalogAdminClient
-  catalogClient: CatalogClient
   client: IdentityClient
 }
 
-export function StaffRoutes({ catalogAdminClient, catalogClient, client }: StaffRoutesProps) {
+export function StaffRoutes({ catalogAdminClient, client }: StaffRoutesProps) {
   const auth = useStaffAuth()
   const navigate = useNavigate()
   const accessToken = auth.session?.accessToken
@@ -76,7 +74,7 @@ export function StaffRoutes({ catalogAdminClient, catalogClient, client }: Staff
             <ShowtimesPage
               session={auth.session}
               client={hallsClient}
-              catalogClient={catalogClient}
+              catalogAdminClient={catalogAdminClient}
               onLogout={() => void auth.signOut()}
             />
           ) : auth.session ? (

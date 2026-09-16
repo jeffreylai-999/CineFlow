@@ -1,6 +1,6 @@
 import { cn } from '@/lib/utils.ts'
 
-export type SeatVisualState = 'enabled' | 'disabled'
+export type SeatVisualState = 'enabled' | 'disabled' | 'available' | 'unavailable' | 'selected'
 
 export type SeatGridItem = {
   id: number
@@ -19,6 +19,9 @@ type SeatGridProps = {
 
 const STATE_MARK: Record<SeatVisualState, string> = {
   enabled: '○',
+  available: '○',
+  selected: '●',
+  unavailable: '■',
   disabled: '✕',
 }
 
@@ -37,6 +40,7 @@ export function SeatGrid({ seats, onSeatActivate }: SeatGridProps) {
                 key={seat.id}
                 type="button"
                 aria-pressed={seat.pressed}
+                aria-disabled={seat.visualState === 'unavailable' ? true : undefined}
                 aria-label={seat.accessibleName}
                 data-state={seat.visualState}
                 className={cn(
@@ -60,7 +64,12 @@ export function SeatGrid({ seats, onSeatActivate }: SeatGridProps) {
 function seatClasses(state: SeatVisualState): string {
   switch (state) {
     case 'enabled':
+    case 'available':
       return 'border-solid border-border bg-secondary text-secondary-foreground'
+    case 'selected':
+      return 'border-solid border-seat-selected-border bg-seat-selected text-seat-selected-foreground'
+    case 'unavailable':
+      return 'border-dotted border-seat-unavailable-border bg-seat-unavailable text-seat-unavailable-foreground'
     case 'disabled':
       return 'border-dashed border-seat-disabled-border bg-seat-disabled text-seat-disabled-foreground'
     default: {

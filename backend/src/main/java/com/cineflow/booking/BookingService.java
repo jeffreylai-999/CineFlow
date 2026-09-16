@@ -413,19 +413,21 @@ class BookingService implements Booking {
 	}
 
 	private HeldSeat mapHeldSeat(ResultSet resultSet, int rowNum) throws SQLException {
-		String rowLabel = resultSet.getString("row_label");
-		int seatNumber = resultSet.getInt("seat_number");
-		return new HeldSeat(resultSet.getLong("seat_id"), rowLabel + seatNumber);
+		return new HeldSeat(
+				resultSet.getLong("seat_id"),
+				seatLabel(resultSet.getString("row_label"), resultSet.getInt("seat_number")));
 	}
 
 	private BookedSeatResponse mapBookedSeat(ResultSet resultSet, int rowNum) throws SQLException {
-		String rowLabel = resultSet.getString("row_label");
-		int seatNumber = resultSet.getInt("seat_number");
 		return new BookedSeatResponse(
 				resultSet.getLong("seat_id"),
-				rowLabel + seatNumber,
+				seatLabel(resultSet.getString("row_label"), resultSet.getInt("seat_number")),
 				TicketType.valueOf(resultSet.getString("ticket_type")),
 				resultSet.getBigDecimal("price_myr"));
+	}
+
+	private static String seatLabel(String rowLabel, int seatNumber) {
+		return rowLabel + seatNumber;
 	}
 
 	private ReplayRow mapReplayRow(ResultSet resultSet, int rowNum) throws SQLException {
@@ -562,7 +564,7 @@ class BookingService implements Booking {
 				resultSet.getLong("id"),
 				rowLabel,
 				seatNumber,
-				rowLabel + seatNumber,
+				seatLabel(rowLabel, seatNumber),
 				resultSet.getBoolean("available"));
 	}
 

@@ -11,6 +11,7 @@ import {
 } from '@/booking/api/customerClient.ts'
 import { formatHoldTime } from '@/booking/formatHoldTime.ts'
 import { formatMyr } from '@/booking/formatMyr.ts'
+import { parseTicketType, ticketPrice } from '@/booking/ticketType.ts'
 import { useSeatHoldCountdown } from '@/booking/useSeatHoldCountdown.ts'
 import { Button, buttonVariants } from '@/components/ui/button.tsx'
 import { Input } from '@/components/ui/input.tsx'
@@ -74,7 +75,8 @@ function CheckoutScreen({ client, hold, holdReceivedAt, initialSelection, map }:
 
   const remainingSeconds = useSeatHoldCountdown(confirmation ? null : hold, holdReceivedAt, handleHoldExpired)
 
-  const total = heldSeats.reduce((sum, seat) => sum + ticketPrice(tickets[seat.id] ?? 'ADULT', map), 0)
+  const ticketTypeFor = (seatId: number): TicketType => tickets[seatId] ?? 'ADULT'
+  const total = heldSeats.reduce((sum, seat) => sum + ticketPrice(ticketTypeFor(seat.id), map), 0)
 
   function setTicketType(seatId: number, ticketType: TicketType) {
     setTickets((current) => ({ ...current, [seatId]: ticketType }))
@@ -91,7 +93,7 @@ function CheckoutScreen({ client, hold, holdReceivedAt, initialSelection, map }:
       const confirmed = await client.checkout(map.showtimeId, {
         holdId: hold.holdId,
         email: email.trim(),
-        tickets: heldSeats.map((seat) => ({ seatId: seat.id, ticketType: tickets[seat.id] ?? 'ADULT' })),
+        tickets: heldSeats.map((seat) => ({ seatId: seat.id, ticketType: ticketTypeFor(seat.id) })),
         cardNumber,
         idempotencyKey,
       })
@@ -101,7 +103,7 @@ function CheckoutScreen({ client, hold, holdReceivedAt, initialSelection, map }:
         switch (failure.code) {
           case 'booking.payment_declined':
             setError(
-              'Payment was declined. No charge was made and your Seats are still held — check the card number and try again.',
+              'Payment was declined. No Payment was recorded and your Seats are still held — check the card number and try again.',
             )
             break
           case 'booking.hold_expired':
@@ -116,7 +118,9 @@ function CheckoutScreen({ client, hold, holdReceivedAt, initialSelection, map }:
             setError('Unable to confirm the Payment. Try again shortly.')
         }
       } else {
-        setError('Unable to confirm the Payment. Retrying is safe — the same Booking is reused, never charged twice.')
+        setError(
+          'Unable to confirm the Payment. Retrying is safe — the same Booking is reused and the Payment is recorded only once.',
+        )
       }
     } finally {
       setSubmitting(false)
@@ -183,7 +187,7 @@ function CheckoutScreen({ client, hold, holdReceivedAt, initialSelection, map }:
                 <select
                   id={`checkout-ticket-type-${seat.id}`}
                   className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                  value={tickets[seat.id] ?? 'ADULT'}
+                  value={ticketTypeFor(seat.id)}
                   disabled={checkoutClosed}
                   onChange={(event) => setTicketType(seat.id, parseTicketType(event.target.value))}
                 >
@@ -349,27 +353,4 @@ function readCheckoutState(value: unknown): CheckoutLocationState | null {
     return null
   }
   return candidate as CheckoutLocationState
-}
-
-function parseTicketType(value: string): TicketType {
-  switch (value) {
-    case 'ADULT':
-    case 'CHILD':
-      return value
-    default:
-      throw new Error(`Unknown Ticket Type: ${value}`)
-  }
-}
-
-function ticketPrice(ticketType: TicketType, map: ShowtimeSeats): number {
-  switch (ticketType) {
-    case 'ADULT':
-      return map.adultPriceMyr
-    case 'CHILD':
-      return map.childPriceMyr
-    default: {
-      const exhaustive: never = ticketType
-      return exhaustive
-    }
-  }
 }

@@ -4,7 +4,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Deterministic stand-in for a card acquirer. The card number decides the
- * outcome of the simulated charge and is never stored: 4242424242424242 (or
+ * outcome of the simulated Payment and is never stored: 4242424242424242 (or
  * any Luhn-valid number) succeeds, 4000000000000002 is always declined.
  */
 @Component

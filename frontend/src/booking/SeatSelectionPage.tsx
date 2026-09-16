@@ -12,6 +12,7 @@ import { BOOKING_CUTOFF_MESSAGE } from '@/booking/bookingCutoffMessage.ts'
 import { type CheckoutLocationState } from '@/booking/CheckoutPage.tsx'
 import { formatHoldTime } from '@/booking/formatHoldTime.ts'
 import { formatMyr } from '@/booking/formatMyr.ts'
+import { parseTicketType, ticketPrice } from '@/booking/ticketType.ts'
 import { useSeatHoldCountdown } from '@/booking/useSeatHoldCountdown.ts'
 import { Button } from '@/components/ui/button.tsx'
 import { Label } from '@/components/ui/label.tsx'
@@ -333,29 +334,6 @@ function SeatSelectionScreen({ client, socket }: SeatSelectionPageProps) {
       ) : null}
     </div>
   )
-}
-
-function parseTicketType(value: string): TicketType {
-  switch (value) {
-    case 'ADULT':
-    case 'CHILD':
-      return value
-    default:
-      throw new Error(`Unknown Ticket Type: ${value}`)
-  }
-}
-
-function ticketPrice(ticketType: TicketType, map: ShowtimeSeats): number {
-  switch (ticketType) {
-    case 'ADULT':
-      return map.adultPriceMyr
-    case 'CHILD':
-      return map.childPriceMyr
-    default: {
-      const exhaustive: never = ticketType
-      return exhaustive
-    }
-  }
 }
 
 function toGridSeat(

@@ -141,7 +141,7 @@ describe('CheckoutPage', () => {
     await expect
       .element(page.getByRole('alert'))
       .toHaveTextContent(
-        'Payment was declined. No charge was made and your Seats are still held — check the card number and try again.',
+        'Payment was declined. No Payment was recorded and your Seats are still held — check the card number and try again.',
       )
 
     await page.getByRole('button', { name: /Pay RM/ }).click()

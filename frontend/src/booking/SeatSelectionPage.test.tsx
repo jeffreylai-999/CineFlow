@@ -1,7 +1,7 @@
 import { Link, MemoryRouter, Route, Routes } from 'react-router'
 import { render } from 'vitest-browser-react'
 import { describe, expect, it, vi } from 'vitest'
-import { page } from 'vitest/browser'
+import { page, userEvent } from 'vitest/browser'
 import axe from 'axe-core'
 import { SeatSelectionPage } from '@/booking/SeatSelectionPage.tsx'
 import {
@@ -86,9 +86,18 @@ describe('SeatSelectionPage', () => {
     await expect.element(page.getByText(/A Booking can include at most 2 Seats/)).toBeInTheDocument()
     await expect.element(page.getByRole('button', { name: 'Seat A4, unavailable' })).toBeInTheDocument()
 
-    await page.getByRole('button', { name: 'Seat A1, available' }).click()
-    await page.getByRole('button', { name: 'Seat A2, available' }).click()
+    const firstSeat = page.getByRole('button', { name: 'Seat A1, available' })
+    firstSeat.element().focus()
+    await userEvent.keyboard('{Enter}')
     await expect.element(page.getByRole('button', { name: 'Seat A1, selected' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+
+    const secondSeat = page.getByRole('button', { name: 'Seat A2, available' })
+    secondSeat.element().focus()
+    await userEvent.keyboard(' ')
+    await expect.element(page.getByRole('button', { name: 'Seat A2, selected' })).toHaveAttribute(
       'aria-pressed',
       'true',
     )
@@ -115,20 +124,49 @@ describe('SeatSelectionPage', () => {
       await renderSeats(clientStub({ getShowtimeSeats: vi.fn().mockResolvedValue(tallMap) }))
       await expect.element(page.getByRole('heading', { name: 'Choose Seats' })).toBeInTheDocument()
 
+      for (const label of ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'B1', 'B2']) {
+        await page.getByRole('button', { name: `Seat ${label}, available` }).click()
+      }
+
       const lastSeat = page.getByRole('button', { name: 'Seat L8, available' })
       await expect.element(lastSeat).toBeInTheDocument()
-      lastSeat.element().scrollIntoView({ block: 'end' })
+      const lastEl = lastSeat.element()
+      lastEl.ownerDocument.defaultView?.scrollTo(0, lastEl.ownerDocument.documentElement.scrollHeight)
 
       const summary = page.getByRole('complementary', { name: 'Booking summary' })
       await expect.element(summary).toBeVisible()
       await expect.element(page.getByRole('heading', { name: 'Booking summary' })).toBeVisible()
       const summaryBox = summary.element().getBoundingClientRect()
+      const lastBox = lastEl.getBoundingClientRect()
       expect(summaryBox.top).toBeGreaterThanOrEqual(0)
       expect(summaryBox.bottom).toBeLessThanOrEqual(844)
       expect(summaryBox.height).toBeGreaterThan(0)
+      expect(lastBox.bottom).toBeLessThanOrEqual(summaryBox.top + 1)
     } finally {
       await page.viewport(1280, 720)
     }
+  })
+
+  it('keeps the Booking summary sticky while a tall Seat Map scrolls on a desktop viewport', async () => {
+    await page.viewport(1280, 720)
+    const tallMap: ShowtimeSeats = {
+      ...seatMap,
+      bookingLimit: 10,
+      seats: manySeats(12, 8),
+    }
+    await renderSeats(clientStub({ getShowtimeSeats: vi.fn().mockResolvedValue(tallMap) }))
+    await expect.element(page.getByRole('heading', { name: 'Choose Seats' })).toBeInTheDocument()
+
+    const lastSeat = page.getByRole('button', { name: 'Seat L8, available' })
+    await expect.element(lastSeat).toBeInTheDocument()
+    lastSeat.element().scrollIntoView({ block: 'end' })
+
+    const summary = page.getByRole('complementary', { name: 'Booking summary' })
+    await expect.element(summary).toBeVisible()
+    const summaryBox = summary.element().getBoundingClientRect()
+    expect(summaryBox.top).toBeGreaterThanOrEqual(0)
+    expect(summaryBox.bottom).toBeLessThanOrEqual(720)
+    expect(summaryBox.height).toBeGreaterThan(0)
   })
 
   it('clears the previous Seat Map when the Showtime route is invalid', async () => {

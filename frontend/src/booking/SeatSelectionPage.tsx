@@ -142,9 +142,9 @@ function SeatSelectionScreen({ client }: SeatSelectionPageProps) {
       {state.status === 'cutoff' ? <p role="alert">{BOOKING_CUTOFF_MESSAGE}</p> : null}
 
       {readyMap ? (
-        <div className="flex flex-col gap-6 md:grid md:grid-cols-[minmax(0,1fr)_18rem] md:items-start">
+        <div className="booking-seat-layout">
           <section
-            className="space-y-4 max-md:pb-56 md:col-start-1 md:row-start-1"
+            className="booking-seat-map space-y-4"
             aria-labelledby="seat-selection-heading"
           >
             <div>
@@ -165,7 +165,7 @@ function SeatSelectionScreen({ client }: SeatSelectionPageProps) {
           </section>
 
           <aside
-            className="booking-summary-dock border-t border-border/60 bg-card p-4 md:col-start-2 md:row-start-1 md:rounded-md md:border"
+            className="booking-summary-dock border-t border-border/60 bg-card p-4 md:rounded-md md:border"
             aria-labelledby="booking-summary-heading"
           >
             <h2 id="booking-summary-heading" className="text-lg font-medium">

@@ -44,6 +44,9 @@ import com.jayway.jsonpath.JsonPath;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class SchedulingShowtimesIT {
 
+	private static final String INVALID_PRICE_TITLE =
+			"Adult and Child Ticket Prices must be numeric Malaysian Ringgit amounts from 0.01 to 999999.99 with at most two decimal places";
+
 	@Autowired
 	MockMvc mockMvc;
 
@@ -133,14 +136,14 @@ class SchedulingShowtimesIT {
 		int seatId = firstSeatId(hallId);
 		long movieId = insertMovie("Removable Gate", 90);
 
-		String created = createShowtime(token, movieId, hallId, "2026-11-01T19:30", "22.00", "12.00")
+		String created = createShowtime(token, movieId, hallId, "2099-03-15T19:30", "22.00", "12.00")
 			.andExpect(status().isCreated())
 			.andReturn()
 			.getResponse()
 			.getContentAsString();
 		int removableId = JsonPath.read(created, "$.id");
 
-		String booked = createShowtime(token, movieId, hallId, "2026-11-02T19:30", "22.00", "12.00")
+		String booked = createShowtime(token, movieId, hallId, "2099-03-16T19:30", "22.00", "12.00")
 			.andExpect(status().isCreated())
 			.andReturn()
 			.getResponse()
@@ -176,7 +179,7 @@ class SchedulingShowtimesIT {
 		int hallId = createHall(token, "Hold remove " + UUID.randomUUID());
 		int seatId = firstSeatId(hallId);
 		long movieId = insertMovie("Held Gate", 90);
-		String created = createShowtime(token, movieId, hallId, "2026-11-03T19:30", "22.00", "12.00")
+		String created = createShowtime(token, movieId, hallId, "2099-03-17T19:30", "22.00", "12.00")
 			.andExpect(status().isCreated())
 			.andReturn()
 			.getResponse()
@@ -195,7 +198,7 @@ class SchedulingShowtimesIT {
 		int hallId = createHall(token, "Expired hold " + UUID.randomUUID());
 		int seatId = firstSeatId(hallId);
 		long movieId = insertMovie("Expired Hold Gate", 90);
-		String created = createShowtime(token, movieId, hallId, "2026-11-04T19:30", "22.00", "12.00")
+		String created = createShowtime(token, movieId, hallId, "2099-03-18T19:30", "22.00", "12.00")
 			.andExpect(status().isCreated())
 			.andReturn()
 			.getResponse()
@@ -214,7 +217,7 @@ class SchedulingShowtimesIT {
 		int hallId = createHall(token, "Race hold " + UUID.randomUUID());
 		int seatId = firstSeatId(hallId);
 		long movieId = insertMovie("Race Hold Gate", 90);
-		String created = createShowtime(token, movieId, hallId, "2026-11-05T19:30", "22.00", "12.00")
+		String created = createShowtime(token, movieId, hallId, "2099-03-19T19:30", "22.00", "12.00")
 			.andExpect(status().isCreated())
 			.andReturn()
 			.getResponse()
@@ -280,7 +283,8 @@ class SchedulingShowtimesIT {
 		String token = adminToken();
 		createShowtime(token, 1, 1, "2026-12-20T19:30", "0", "18.00")
 			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.code").value("scheduling.invalid_price"));
+			.andExpect(jsonPath("$.code").value("scheduling.invalid_price"))
+			.andExpect(jsonPath("$.title").value(INVALID_PRICE_TITLE));
 		mockMvc.perform(patch("/api/showtimes/1")
 				.header("Authorization", "Bearer " + token)
 				.contentType(MediaType.APPLICATION_JSON)
@@ -288,7 +292,8 @@ class SchedulingShowtimesIT {
 						{"adultPriceMyr":28.001,"childPriceMyr":16.00}
 						"""))
 			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.code").value("scheduling.invalid_price"));
+			.andExpect(jsonPath("$.code").value("scheduling.invalid_price"))
+			.andExpect(jsonPath("$.title").value(INVALID_PRICE_TITLE));
 	}
 
 	@Test
@@ -308,7 +313,8 @@ class SchedulingShowtimesIT {
 						}
 						"""))
 			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.code").value("scheduling.invalid_price"));
+			.andExpect(jsonPath("$.code").value("scheduling.invalid_price"))
+			.andExpect(jsonPath("$.title").value(INVALID_PRICE_TITLE));
 		mockMvc.perform(patch("/api/showtimes/1")
 				.header("Authorization", "Bearer " + token)
 				.contentType(MediaType.APPLICATION_JSON)
@@ -316,7 +322,8 @@ class SchedulingShowtimesIT {
 						{"adultPriceMyr":"abc","childPriceMyr":16.00}
 						"""))
 			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.code").value("scheduling.invalid_price"));
+			.andExpect(jsonPath("$.code").value("scheduling.invalid_price"))
+			.andExpect(jsonPath("$.title").value(INVALID_PRICE_TITLE));
 	}
 
 	@Test

@@ -41,7 +41,7 @@ export function showtimeErrorMessage(error: unknown): string {
     case 'scheduling.showtime_not_found':
       return 'That Showtime is no longer available.'
     case 'scheduling.invalid_price':
-      return 'Adult and Child Ticket Prices must be greater than zero.'
+      return 'Adult and Child Ticket Prices must be numeric Malaysian Ringgit amounts from 0.01 to 999999.99 with at most two decimal places.'
     default: {
       const exhausted: never = error.code
       return exhausted

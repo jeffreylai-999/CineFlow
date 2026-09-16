@@ -1,6 +1,8 @@
 package com.cineflow.scheduling;
 
 import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Clock;
 import java.time.Instant;
@@ -18,6 +20,14 @@ import com.cineflow.catalog.MovieForSchedule;
 
 @Service
 class SchedulingService implements Scheduling {
+
+	private static final String SHOWTIME_SELECT = """
+			select s.id, s.movie_id, m.title, m.runtime_minutes, s.hall_id, h.name,
+			       s.starts_at, s.adult_price_myr, s.child_price_myr
+			from cineflow.showtimes s
+			join cineflow.movies m on m.id = s.movie_id
+			join cineflow.halls h on h.id = s.hall_id
+			""";
 
 	private final HallRepository halls;
 	private final SeatRepository seats;
@@ -111,25 +121,7 @@ class SchedulingService implements Scheduling {
 	@Override
 	@Transactional(readOnly = true)
 	public List<ShowtimeResponse> listShowtimes() {
-		return jdbcTemplate.query(
-				"""
-						select s.id, s.movie_id, m.title, m.runtime_minutes, s.hall_id, h.name,
-						       s.starts_at, s.adult_price_myr, s.child_price_myr
-						from cineflow.showtimes s
-						join cineflow.movies m on m.id = s.movie_id
-						join cineflow.halls h on h.id = s.hall_id
-						order by s.starts_at, s.id
-						""",
-				(rs, rowNum) -> toResponse(
-						rs.getLong("id"),
-						rs.getLong("movie_id"),
-						rs.getString("title"),
-						rs.getInt("runtime_minutes"),
-						rs.getLong("hall_id"),
-						rs.getString("name"),
-						rs.getTimestamp("starts_at").toInstant(),
-						rs.getBigDecimal("adult_price_myr"),
-						rs.getBigDecimal("child_price_myr")));
+		return jdbcTemplate.query(SHOWTIME_SELECT + " order by s.starts_at, s.id", this::mapShowtime);
 	}
 
 	@Override
@@ -235,10 +227,25 @@ class SchedulingService implements Scheduling {
 	}
 
 	private ShowtimeResponse requireResponse(long showtimeId) {
-		return listShowtimes().stream()
-			.filter(showtime -> showtime.id() == showtimeId)
-			.findFirst()
-			.orElseThrow(SchedulingException::showtimeNotFound);
+		List<ShowtimeResponse> found = jdbcTemplate.query(
+				SHOWTIME_SELECT + " where s.id = ?", this::mapShowtime, showtimeId);
+		if (found.isEmpty()) {
+			throw SchedulingException.showtimeNotFound();
+		}
+		return found.getFirst();
+	}
+
+	private ShowtimeResponse mapShowtime(ResultSet resultSet, int rowNum) throws SQLException {
+		return toResponse(
+				resultSet.getLong("id"),
+				resultSet.getLong("movie_id"),
+				resultSet.getString("title"),
+				resultSet.getInt("runtime_minutes"),
+				resultSet.getLong("hall_id"),
+				resultSet.getString("name"),
+				resultSet.getTimestamp("starts_at").toInstant(),
+				resultSet.getBigDecimal("adult_price_myr"),
+				resultSet.getBigDecimal("child_price_myr"));
 	}
 
 	private static void requirePositivePrices(BigDecimal adultPriceMyr, BigDecimal childPriceMyr) {

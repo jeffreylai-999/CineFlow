@@ -199,6 +199,37 @@ describe('ShowtimesPage', () => {
     expect(client.removeShowtime).toHaveBeenCalledWith(11)
   })
 
+  it('surfaces invalid Ticket Prices without dropping the schedule', async () => {
+    const client = clientStub({
+      listShowtimes: vi.fn().mockResolvedValue([scheduled]),
+      updateShowtimePrices: vi
+        .fn()
+        .mockRejectedValue(new SchedulingRequestError(400, 'scheduling.invalid_price')),
+    })
+
+    await renderShowtimes(
+      <ShowtimesPage
+        session={administrator}
+        client={client}
+        catalogClient={catalogStub()}
+        onLogout={() => undefined}
+      />,
+    )
+
+    const prices = page.getByRole('group', {
+      name: 'Ticket Prices for Nebula Express at 2026-09-20T19:30:00',
+    })
+    await prices.getByLabelText('Adult Ticket Price (MYR)').fill('abc')
+    await prices.getByRole('button', { name: 'Update Ticket Prices' }).click()
+
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent(
+        'Adult and Child Ticket Prices must be numeric Malaysian Ringgit amounts from 0.01 to 999999.99 with at most two decimal places.',
+      )
+    await expect.element(page.getByText('Hall 1 · 2026-09-20T19:30:00 Asia/Kuala_Lumpur')).toBeInTheDocument()
+  })
+
   it('lets an Administrator change Ticket Prices after scheduling', async () => {
     const updated: Showtime = {
       ...scheduled,

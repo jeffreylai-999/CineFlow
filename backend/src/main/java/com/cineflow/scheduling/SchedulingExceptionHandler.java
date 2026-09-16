@@ -28,10 +28,7 @@ class SchedulingExceptionHandler {
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	ResponseEntity<ProblemDetail> handleInvalid(MethodArgumentNotValidException exception) {
 		if (isTicketPriceViolation(exception)) {
-			return problem(
-					HttpStatus.BAD_REQUEST,
-					"scheduling.invalid_price",
-					"Adult and Child prices must be greater than zero");
+			return handleScheduling(SchedulingException.invalidPrice());
 		}
 		return problem(HttpStatus.BAD_REQUEST, "request.invalid", "Bad Request");
 	}
@@ -39,10 +36,7 @@ class SchedulingExceptionHandler {
 	@ExceptionHandler(HttpMessageNotReadableException.class)
 	ResponseEntity<ProblemDetail> handleUnreadable(HttpMessageNotReadableException exception) {
 		if (isMalformedTicketPrice(exception)) {
-			return problem(
-					HttpStatus.BAD_REQUEST,
-					"scheduling.invalid_price",
-					"Adult and Child prices must be greater than zero");
+			return handleScheduling(SchedulingException.invalidPrice());
 		}
 		return problem(HttpStatus.BAD_REQUEST, "request.invalid", "Bad Request");
 	}

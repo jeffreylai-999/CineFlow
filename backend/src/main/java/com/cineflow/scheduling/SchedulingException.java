@@ -72,7 +72,9 @@ public class SchedulingException extends RuntimeException {
 
 	public static SchedulingException invalidPrice() {
 		return new SchedulingException(
-				HttpStatus.BAD_REQUEST, "scheduling.invalid_price", "Adult and Child prices must be greater than zero");
+				HttpStatus.BAD_REQUEST,
+				"scheduling.invalid_price",
+				"Adult and Child Ticket Prices must be numeric Malaysian Ringgit amounts from 0.01 to 999999.99 with at most two decimal places");
 	}
 
 	public HttpStatus status() {

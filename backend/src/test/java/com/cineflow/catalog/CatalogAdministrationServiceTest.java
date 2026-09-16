@@ -3,6 +3,7 @@ package com.cineflow.catalog;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -38,6 +39,7 @@ class CatalogAdministrationServiceTest {
 		when(provider.providerId()).thenReturn("tmdb");
 		when(providers.active()).thenReturn(provider);
 		when(providers.activeProviderId()).thenReturn("tmdb");
+		when(providers.requireActive("tmdb")).thenReturn(provider);
 		when(providers.source("tmdb")).thenReturn(provider);
 		service = new CatalogAdministrationService(
 				providers,
@@ -61,7 +63,7 @@ class CatalogAdministrationServiceTest {
 
 	@Test
 	void importRejectsAHitWhenTheActiveProviderHasChanged() {
-		when(providers.activeProviderId()).thenReturn("omdb");
+		when(providers.requireActive("tmdb")).thenThrow(CatalogException.providerMismatch());
 
 		assertThatThrownBy(() -> service.importMovie(2L, "tmdb", "4242", null, null))
 				.isInstanceOf(CatalogException.class)
@@ -69,6 +71,20 @@ class CatalogAdministrationServiceTest {
 				.isEqualTo("catalog.provider_mismatch");
 		verify(provider, never()).fetch(any());
 		verify(providers, never()).active();
+	}
+
+	@Test
+	void importDoesNotPersistWhenTheActiveProviderChangesDuringFetch() {
+		when(movieRepository.findBySourceProviderAndExternalId("tmdb", "4242")).thenReturn(Optional.empty());
+		when(provider.fetch("4242")).thenReturn(providerRecord());
+		doThrow(CatalogException.providerMismatch()).when(providers).requireStillActive("tmdb");
+
+		assertThatThrownBy(() -> service.importMovie(2L, "tmdb", "4242", null, null))
+				.isInstanceOf(CatalogException.class)
+				.extracting(error -> ((CatalogException) error).code())
+				.isEqualTo("catalog.provider_mismatch");
+		verify(provider).fetch("4242");
+		verify(movieRepository, never()).saveAndFlush(any());
 	}
 
 	@Test

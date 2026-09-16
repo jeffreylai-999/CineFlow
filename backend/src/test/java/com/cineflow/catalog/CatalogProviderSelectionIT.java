@@ -13,6 +13,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -158,6 +161,48 @@ class CatalogProviderSelectionIT {
 
 		verify(tmdb, never()).fetch(anyString());
 		verify(omdb, never()).fetch(anyString());
+	}
+
+	@Test
+	void importRejectsWhenTheActiveProviderChangesDuringFetch() throws Exception {
+		CountDownLatch fetchStarted = new CountDownLatch(1);
+		CountDownLatch allowFetch = new CountDownLatch(1);
+		when(tmdb.fetch("9010")).thenAnswer(invocation -> {
+			fetchStarted.countDown();
+			assertThat(allowFetch.await(5, TimeUnit.SECONDS)).isTrue();
+			return tmdbRecord("9010", "Imported Gate", "Adventure", 101, "PG");
+		});
+
+		String token = adminToken();
+		var importer = Executors.newSingleThreadExecutor();
+		try {
+			var pending = importer.submit(() -> mockMvc.perform(post("/api/admin/movies/import")
+					.header("Authorization", "Bearer " + token)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("""
+							{"providerId":"tmdb","externalId":"9010"}
+							"""))
+				.andExpect(status().isConflict())
+				.andExpect(jsonPath("$.code").value("catalog.provider_mismatch")));
+			assertThat(fetchStarted.await(5, TimeUnit.SECONDS)).isTrue();
+			mockMvc.perform(put("/api/admin/movie-providers/active")
+					.header("Authorization", "Bearer " + token)
+					.contentType(MediaType.APPLICATION_JSON)
+					.content("""
+							{"providerId":"omdb"}
+							"""))
+				.andExpect(status().isOk());
+			allowFetch.countDown();
+			pending.get(10, TimeUnit.SECONDS);
+		}
+		finally {
+			importer.shutdownNow();
+		}
+
+		verify(omdb, never()).fetch(anyString());
+		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from cineflow.movies where external_id = '9010'",
+				Integer.class)).isZero();
 	}
 
 	@Test

@@ -42,6 +42,26 @@ class MovieMetadataProviders {
 		return requireConfigured(activeProviderId());
 	}
 
+	MovieMetadataProvider requireActive(String requestedProviderId) {
+		if (requestedProviderId == null || requestedProviderId.isBlank()) {
+			throw CatalogException.invalidRequest();
+		}
+		String active = activeProviderId();
+		if (!requestedProviderId.equals(active)) {
+			throw CatalogException.providerMismatch();
+		}
+		return requireConfigured(active);
+	}
+
+	void requireStillActive(String requestedProviderId) {
+		CatalogSettingsEntity row = settings.findByIdForUpdate(1).orElseThrow(CatalogException::saveFailed);
+		if (requestedProviderId == null
+				|| requestedProviderId.isBlank()
+				|| !requestedProviderId.equals(row.getActiveProvider())) {
+			throw CatalogException.providerMismatch();
+		}
+	}
+
 	MovieMetadataProvider source(String providerId) {
 		if (TMDB.equals(providerId)) {
 			return tmdb;
@@ -96,7 +116,7 @@ class MovieMetadataProviders {
 		if (configured().stream().noneMatch(option -> option.id().equals(providerId))) {
 			throw CatalogException.providerNotConfigured();
 		}
-		CatalogSettingsEntity row = settings.findById(1).orElseThrow(CatalogException::saveFailed);
+		CatalogSettingsEntity row = settings.findByIdForUpdate(1).orElseThrow(CatalogException::saveFailed);
 		row.setActiveProvider(providerId);
 		settings.save(row);
 		audit.record(actorStaffId, AuditAction.MOVIE_PROVIDER_SELECTED, "movie_provider", providerId);

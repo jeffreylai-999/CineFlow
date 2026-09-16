@@ -34,6 +34,7 @@ class MovieMetadataProvidersTest {
 		CatalogSettingsEntity row = new CatalogSettingsEntity();
 		row.setActiveProvider("tmdb");
 		when(settings.findById(1)).thenReturn(Optional.of(row));
+		when(settings.findByIdForUpdate(1)).thenReturn(Optional.of(row));
 		providers = new MovieMetadataProviders(
 				tmdb,
 				omdb,
@@ -60,6 +61,27 @@ class MovieMetadataProvidersTest {
 				org.mockito.ArgumentMatchers.eq(AuditAction.MOVIE_PROVIDER_SELECTED),
 				org.mockito.ArgumentMatchers.any(),
 				org.mockito.ArgumentMatchers.any());
+	}
+
+	@Test
+	void requireActiveRejectsWhenTheStoredSelectionDiffers() {
+		assertThat(providers.requireActive("tmdb")).isSameAs(tmdb);
+		assertThatThrownBy(() -> providers.requireActive("omdb"))
+			.isInstanceOf(CatalogException.class)
+			.extracting(error -> ((CatalogException) error).code())
+			.isEqualTo("catalog.provider_mismatch");
+	}
+
+	@Test
+	void requireStillActiveRejectsAfterTheStoredSelectionChanges() {
+		CatalogSettingsEntity row = new CatalogSettingsEntity();
+		row.setActiveProvider("omdb");
+		when(settings.findByIdForUpdate(1)).thenReturn(Optional.of(row));
+
+		assertThatThrownBy(() -> providers.requireStillActive("tmdb"))
+			.isInstanceOf(CatalogException.class)
+			.extracting(error -> ((CatalogException) error).code())
+			.isEqualTo("catalog.provider_mismatch");
 	}
 
 	@Test

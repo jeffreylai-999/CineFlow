@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils.ts'
+import './seat-grid.css'
 
 export type SeatVisualState = 'enabled' | 'disabled' | 'available' | 'unavailable' | 'selected'
 
@@ -65,7 +66,7 @@ function seatClasses(state: SeatVisualState): string {
   switch (state) {
     case 'enabled':
     case 'available':
-      return 'border-solid border-border bg-secondary text-secondary-foreground'
+      return 'border-solid border-seat-available-border bg-secondary text-secondary-foreground'
     case 'selected':
       return 'border-solid border-seat-selected-border bg-seat-selected text-seat-selected-foreground'
     case 'unavailable':

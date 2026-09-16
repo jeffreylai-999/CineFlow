@@ -206,7 +206,9 @@ function SeatSelectionScreen({ client }: SeatSelectionPageProps) {
                   })}
               </ul>
             )}
-            <p className="mt-4 text-base font-medium">Total {formatMyr(total)}</p>
+            <p className="mt-4 text-base font-medium" role="status">
+              Total {formatMyr(total)}
+            </p>
             <p className="mt-4 text-sm text-muted-foreground">
               Payment is the next step after Seat selection.
             </p>

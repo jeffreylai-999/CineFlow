@@ -101,10 +101,10 @@ describe('SeatSelectionPage', () => {
       'aria-pressed',
       'true',
     )
-    await expect.element(page.getByText('Total RM 56.00')).toBeInTheDocument()
+    await expect.element(page.getByText('Total RM 56.00')).toHaveAttribute('role', 'status')
 
     await page.getByLabelText('Seat A2 Ticket Type').selectOptions('CHILD')
-    await expect.element(page.getByText('Total RM 46.00')).toBeInTheDocument()
+    await expect.element(page.getByText('Total RM 46.00')).toHaveAttribute('role', 'status')
 
     await page.getByRole('button', { name: 'Seat A3, available' }).click()
     await expect

@@ -86,10 +86,9 @@ describe('SeatGrid', () => {
       />,
     )
 
-    await expect.element(page.getByRole('button', { name: 'Seat A1, available' })).toHaveAttribute(
-      'data-state',
-      'available',
-    )
+    const available = page.getByRole('button', { name: 'Seat A1, available' })
+    await expect.element(available).toHaveAttribute('data-state', 'available')
+    expect(getComputedStyle(available.element()).borderTopColor).toBe('rgb(125, 135, 153)')
     await expect.element(page.getByRole('button', { name: 'Seat A2, selected' })).toHaveAttribute(
       'aria-pressed',
       'true',

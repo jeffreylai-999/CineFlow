@@ -27,7 +27,7 @@ class BookingService implements Booking {
 			join cineflow.showtimes s on s.movie_id = m.id
 			join cineflow.halls h on h.id = s.hall_id
 			where m.archived_at is null
-			  and s.starts_at + make_interval(mins => m.runtime_minutes) > ?
+			  and s.starts_at > (cast(? as timestamptz) - make_interval(mins => m.runtime_minutes))
 			order by m.title, s.starts_at, s.id
 			""";
 

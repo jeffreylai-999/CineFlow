@@ -1,0 +1,5 @@
+/* Hardcoded: Tailwind theme tokens and :root --seat-available-border do not reach this iframe. */
+[data-state='available'],
+[data-state='enabled'] {
+  border-color: #7d8799;
+}

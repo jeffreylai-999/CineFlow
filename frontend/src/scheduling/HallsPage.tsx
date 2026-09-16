@@ -284,6 +284,5 @@ function toGridSeat(seat: Hall['seats'][number]): SeatGridItem {
     seatNumber: seat.seatNumber,
     visualState: seat.disabled ? 'disabled' : 'enabled',
     pressed: seat.disabled,
-    accessibleName: seat.disabled ? `Seat ${seat.label}, disabled` : `Seat ${seat.label}, enabled`,
   }
 }

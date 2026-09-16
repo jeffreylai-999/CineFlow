@@ -157,16 +157,22 @@ describe('SeatSelectionPage', () => {
     await renderSeats(clientStub({ getShowtimeSeats: vi.fn().mockResolvedValue(tallMap) }))
     await expect.element(page.getByRole('heading', { name: 'Choose Seats' })).toBeInTheDocument()
 
+    for (const label of ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'B1', 'B2']) {
+      await page.getByRole('button', { name: `Seat ${label}, available` }).click()
+    }
+
     const lastSeat = page.getByRole('button', { name: 'Seat L8, available' })
     await expect.element(lastSeat).toBeInTheDocument()
     lastSeat.element().scrollIntoView({ block: 'end' })
 
     const summary = page.getByRole('complementary', { name: 'Booking summary' })
     await expect.element(summary).toBeVisible()
-    const summaryBox = summary.element().getBoundingClientRect()
+    const summaryEl = summary.element()
+    const summaryBox = summaryEl.getBoundingClientRect()
     expect(summaryBox.top).toBeGreaterThanOrEqual(0)
     expect(summaryBox.bottom).toBeLessThanOrEqual(720)
     expect(summaryBox.height).toBeGreaterThan(0)
+    expect(getComputedStyle(summaryEl).overflowY).toBe('auto')
   })
 
   it('clears the previous Seat Map when the Showtime route is invalid', async () => {

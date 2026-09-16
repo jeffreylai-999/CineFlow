@@ -10,7 +10,6 @@ export type SeatGridItem = {
   seatNumber: number
   visualState: SeatVisualState
   pressed: boolean
-  accessibleName: string
 }
 
 type SeatGridProps = {
@@ -42,7 +41,7 @@ export function SeatGrid({ seats, onSeatActivate }: SeatGridProps) {
                 type="button"
                 aria-pressed={seat.pressed}
                 aria-disabled={seat.visualState === 'unavailable' ? true : undefined}
-                aria-label={seat.accessibleName}
+                aria-label={seatAccessibleName(seat.label, seat.visualState)}
                 data-state={seat.visualState}
                 className={cn(
                   'flex size-12 flex-col items-center justify-center rounded-md border-2 text-xs font-medium',
@@ -60,6 +59,10 @@ export function SeatGrid({ seats, onSeatActivate }: SeatGridProps) {
       ))}
     </div>
   )
+}
+
+function seatAccessibleName(label: string, visualState: SeatVisualState): string {
+  return `Seat ${label}, ${visualState}`
 }
 
 function seatClasses(state: SeatVisualState): string {

@@ -12,7 +12,6 @@ const seats: SeatGridItem[] = [
     seatNumber: 1,
     visualState: 'enabled',
     pressed: false,
-    accessibleName: 'Seat A1, enabled',
   },
   {
     id: 2,
@@ -21,7 +20,6 @@ const seats: SeatGridItem[] = [
     seatNumber: 2,
     visualState: 'disabled',
     pressed: true,
-    accessibleName: 'Seat A2, disabled',
   },
 ]
 
@@ -61,7 +59,6 @@ describe('SeatGrid', () => {
             seatNumber: 1,
             visualState: 'available',
             pressed: false,
-            accessibleName: 'Seat A1, available',
           },
           {
             id: 2,
@@ -70,7 +67,6 @@ describe('SeatGrid', () => {
             seatNumber: 2,
             visualState: 'selected',
             pressed: true,
-            accessibleName: 'Seat A2, selected',
           },
           {
             id: 3,
@@ -79,7 +75,6 @@ describe('SeatGrid', () => {
             seatNumber: 3,
             visualState: 'unavailable',
             pressed: false,
-            accessibleName: 'Seat A3, unavailable',
           },
         ]}
         onSeatActivate={onSeatActivate}

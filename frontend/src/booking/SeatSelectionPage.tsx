@@ -257,7 +257,6 @@ function toGridSeat(
       seatNumber: seat.seatNumber,
       visualState: 'unavailable',
       pressed: false,
-      accessibleName: `Seat ${seat.label}, unavailable`,
     }
   }
   if (selection[seat.id]) {
@@ -268,7 +267,6 @@ function toGridSeat(
       seatNumber: seat.seatNumber,
       visualState: 'selected',
       pressed: true,
-      accessibleName: `Seat ${seat.label}, selected`,
     }
   }
   return {
@@ -278,6 +276,5 @@ function toGridSeat(
     seatNumber: seat.seatNumber,
     visualState: 'available',
     pressed: false,
-    accessibleName: `Seat ${seat.label}, available`,
   }
 }

@@ -19,6 +19,12 @@ BEGIN
 END;
 $function$;
 
+-- Bounds every anonymization run to the rows still awaiting it: anonymized Bookings
+-- leave this partial index, so the hourly scan does not grow with retained history.
+CREATE INDEX bookings_pending_anonymization_idx
+    ON cineflow.bookings (showtime_id)
+    WHERE email <> 'anonymized@cineflow.invalid';
+
 -- Supabase Cron runs the function hourly and records each run in cron.job_run_details.
 -- Local and CI PostgreSQL has no pg_cron, so scheduling is skipped there; the function
 -- above is still migrated and tested everywhere.

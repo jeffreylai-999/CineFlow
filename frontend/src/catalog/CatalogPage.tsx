@@ -54,6 +54,12 @@ export function CatalogPage({ client }: CatalogPageProps) {
           CineFlow
         </p>
         <h1 className="text-xl font-medium text-muted-foreground sm:text-2xl">Now showing</h1>
+        <p className="text-sm">
+          Already booked?{' '}
+          <Link className="underline-offset-4 hover:underline" to="/ticket">
+            Find your Ticket
+          </Link>
+        </p>
       </header>
 
       {state.status === 'loading' ? <p role="status">Loading Movies…</p> : null}

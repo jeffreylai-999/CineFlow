@@ -56,7 +56,7 @@ pg_dump "postgresql://postgres.<project-ref>@aws-0-ap-southeast-1.pooler.supabas
 
 1. In the Render Dashboard, create a Blueprint from this repository. `render.yaml` defines a Free Docker web service named `cineflow` in Singapore, with readiness checks at `/actuator/health/readiness`.
 2. When prompted, paste the three `CINEFLOW_DATASOURCE_*` values plus `CINEFLOW_JWT_SECRET`, the bootstrap Administrator username and password, `CINEFLOW_TMDB_ACCESS_TOKEN`, and `CINEFLOW_OMDB_API_KEY`. Leave them out of git. The Blueprint sets `CINEFLOW_AUTH_COOKIE_SECURE=true`.
-3. Wait for the first deploy. Flyway applies all packaged migrations once (`V1__movie_catalog.sql` through `V6__customer_catalog_booking_limit.sql`, including hall seat maps, catalog provider settings, Showtimes, and the cinema-wide Booking Limit); later deploys reuse the same schema. Production does not seed Booking Staff; the first Administrator comes from the bootstrap secrets.
+3. Wait for the first deploy. Flyway applies all packaged migrations once (`V1__movie_catalog.sql` through `V9__booking_email_anonymization.sql`, including hall seat maps, catalog provider settings, Showtimes, the cinema-wide Booking Limit, Seat Holds, online checkout, and the email-anonymization Cron job); later deploys reuse the same schema. Production does not seed Booking Staff; the first Administrator comes from the bootstrap secrets.
 4. Confirm one HTTPS origin:
    - `https://<service>.onrender.com/` serves the Movie catalog page
    - `https://<service>.onrender.com/api/movies` returns Movies that have current or future Showtimes
@@ -95,6 +95,32 @@ To restore (available for **one year** after pause):
 The project returns with its data and configuration. Render will fail readiness until Postgres accepts connections again; the next inbound request after resume should reach a healthy app once Flyway validates the existing schema (it will not re-insert fixtures).
 
 If the one-year window has passed, create a new project and restore from the independent `pg_dump`.
+
+## Cron jobs
+
+Database-only automation runs as idempotent PostgreSQL functions scheduled by [Supabase Cron](https://supabase.com/docs/guides/cron) (pg_cron). Each migration schedules its own job when the `pg_cron` extension is available, so local PostgreSQL and CI containers migrate cleanly without it.
+
+| Job | Schedule | Function | Purpose |
+| --- | --- | --- | --- |
+| `anonymize-expired-booking-emails` | `17 * * * *` (hourly) | `cineflow.anonymize_expired_booking_emails()` | Replace the Online Customer email with `anonymized@cineflow.invalid` seven days after the Showtime. Booking, Payment, booked Seats, Ticket, and Admission history are preserved |
+
+Inspect job definitions and run history in the `cron` schema:
+
+```sql
+select jobid, jobname, schedule, command from cron.job;
+select jobid, status, return_message, start_time, end_time
+from cron.job_run_details
+order by start_time desc
+limit 20;
+```
+
+Run a function manually (for example after restoring a paused project) with:
+
+```sql
+select cineflow.anonymize_expired_booking_emails();
+```
+
+The function takes an optional `as_of TIMESTAMPTZ` argument (defaulting to `now()`) so retention boundaries can be exercised in tests. It returns the number of Bookings anonymized and is idempotent: repeated runs anonymize nothing further.
 
 ## Local stand-in
 

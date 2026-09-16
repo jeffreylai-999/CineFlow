@@ -88,11 +88,17 @@ export type BookingConfirmation = {
   admissionToken: string | null
 }
 
+export type RetrieveTicketRequest = {
+  email: string
+  bookingReference: string
+}
+
 export type CustomerClient = {
   listMovies: () => Promise<Movie[]>
   getShowtimeSeats: (showtimeId: number) => Promise<ShowtimeSeats>
   createSeatHold: (showtimeId: number, seatIds: number[]) => Promise<SeatHold>
   checkout: (showtimeId: number, request: CheckoutRequest) => Promise<BookingConfirmation>
+  retrieveTicket: (request: RetrieveTicketRequest) => Promise<BookingConfirmation>
 }
 
 export class CustomerRequestError extends Error {
@@ -132,6 +138,15 @@ export function createCustomerClient(fetcher: typeof fetch = fetch): CustomerCli
     async checkout(showtimeId, request) {
       return readJson<BookingConfirmation>(
         fetcher(`/api/showtimes/${showtimeId}/checkout`, {
+          method: 'POST',
+          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify(request),
+        }),
+      )
+    },
+    async retrieveTicket(request) {
+      return readJson<BookingConfirmation>(
+        fetcher('/api/bookings/retrieve', {
           method: 'POST',
           headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
           body: JSON.stringify(request),

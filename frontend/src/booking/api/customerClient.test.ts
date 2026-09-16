@@ -115,4 +115,52 @@ describe('createCustomerClient', () => {
       code: 'booking.payment_declined',
     })
   })
+
+  it('retrieves a Ticket with the email and Booking Reference', async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          bookingReference: 'K7QX2M9T4D',
+          showtimeId: 11,
+          movieTitle: 'Nebula Express',
+          hallName: 'Fixture Hall',
+          startsAtCinemaTime: '2099-06-20T19:30:00',
+          timeZone: 'Asia/Kuala_Lumpur',
+          email: 'aisyah@example.com',
+          seats: [{ seatId: 1, label: 'A1', ticketType: 'ADULT', priceMyr: 28 }],
+          totalMyr: 28,
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+    const client = createCustomerClient(fetcher)
+    const request = { email: 'aisyah@example.com', bookingReference: 'K7QX2M9T4D' }
+
+    await expect(client.retrieveTicket(request)).resolves.toMatchObject({
+      bookingReference: 'K7QX2M9T4D',
+      totalMyr: 28,
+    })
+    expect(fetcher).toHaveBeenCalledWith('/api/bookings/retrieve', {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    })
+  })
+
+  it('surfaces the safe response when retrieval finds no Booking', async () => {
+    const fetcher = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ code: 'booking.retrieval_failed' }), {
+        status: 404,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    const client = createCustomerClient(fetcher)
+
+    await expect(
+      client.retrieveTicket({ email: 'aisyah@example.com', bookingReference: 'ZZZZZZZZZZ' }),
+    ).rejects.toMatchObject({
+      status: 404,
+      code: 'booking.retrieval_failed',
+    })
+  })
 })

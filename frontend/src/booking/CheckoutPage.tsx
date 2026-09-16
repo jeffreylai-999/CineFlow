@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useParams } from 'react-router'
-import QRCode from 'qrcode'
 import {
   CustomerRequestError,
   type BookingConfirmation,
@@ -11,9 +10,10 @@ import {
 } from '@/booking/api/customerClient.ts'
 import { formatHoldTime } from '@/booking/formatHoldTime.ts'
 import { formatMyr } from '@/booking/formatMyr.ts'
+import { TicketView } from '@/booking/TicketView.tsx'
 import { parseTicketType, ticketPrice } from '@/booking/ticketType.ts'
 import { useSeatHoldCountdown } from '@/booking/useSeatHoldCountdown.ts'
-import { Button, buttonVariants } from '@/components/ui/button.tsx'
+import { Button } from '@/components/ui/button.tsx'
 import { Input } from '@/components/ui/input.tsx'
 import { Label } from '@/components/ui/label.tsx'
 
@@ -149,7 +149,25 @@ function CheckoutScreen({ client, hold, holdReceivedAt, initialSelection, map }:
   }
 
   if (confirmation) {
-    return <TicketConfirmation confirmation={confirmation} />
+    return (
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-8">
+        <nav aria-label="Booking steps" className="print:hidden">
+          <ol className="flex flex-wrap gap-3 text-sm">
+            <li>
+              <Link className="underline-offset-4 hover:underline" to="/">
+                Showtime
+              </Link>
+            </li>
+            <li>Seats</li>
+            <li aria-current="step" className="font-medium">
+              Payment
+            </li>
+          </ol>
+        </nav>
+
+        <TicketView confirmation={confirmation} />
+      </div>
+    )
   }
 
   const checkoutClosed = holdLost !== null || remainingSeconds === 0
@@ -260,107 +278,6 @@ function CheckoutScreen({ client, hold, holdReceivedAt, initialSelection, map }:
           {submitting ? 'Confirming Payment…' : `Pay ${formatMyr(total)}`}
         </Button>
       </form>
-    </div>
-  )
-}
-
-function TicketConfirmation({ confirmation }: { confirmation: BookingConfirmation }) {
-  const [qrSvg, setQrSvg] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (confirmation.admissionToken === null) {
-      return
-    }
-    let cancelled = false
-    QRCode.toString(confirmation.admissionToken, { type: 'svg', margin: 1 })
-      .then((svg) => {
-        if (!cancelled) {
-          setQrSvg(svg)
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setQrSvg(null)
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [confirmation.admissionToken])
-
-  return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-8">
-      <nav aria-label="Booking steps" className="print:hidden">
-        <ol className="flex flex-wrap gap-3 text-sm">
-          <li>
-            <Link className="underline-offset-4 hover:underline" to="/">
-              Showtime
-            </Link>
-          </li>
-          <li>Seats</li>
-          <li aria-current="step" className="font-medium">
-            Payment
-          </li>
-        </ol>
-      </nav>
-
-      <section
-        aria-labelledby="booking-confirmed-heading"
-        className="space-y-4 rounded-md border-2 border-dashed border-border p-6 print:border-black print:bg-white print:text-black"
-      >
-        <div className="space-y-1">
-          <h1 id="booking-confirmed-heading" className="text-2xl font-semibold">
-            Booking confirmed
-          </h1>
-          <p className="text-sm">
-            {confirmation.movieTitle} · {confirmation.startsAtCinemaTime} {confirmation.timeZone} ·{' '}
-            {confirmation.hallName}
-          </p>
-          <p className="text-sm">Ticket for {confirmation.email}</p>
-        </div>
-
-        <p className="text-lg">
-          Booking Reference{' '}
-          <strong className="font-mono text-2xl tracking-widest">{confirmation.bookingReference}</strong>
-        </p>
-
-        {qrSvg ? (
-          <div
-            className="h-48 w-48 [&>svg]:h-full [&>svg]:w-full"
-            role="img"
-            aria-label="Ticket QR code"
-            dangerouslySetInnerHTML={{ __html: qrSvg }}
-          />
-        ) : null}
-        {confirmation.admissionToken === null ? (
-          <p className="text-sm">
-            This Booking was already confirmed. The Ticket QR code was shown when the Payment first succeeded.
-          </p>
-        ) : null}
-
-        <ul className="grid list-none gap-1 p-0">
-          {confirmation.seats.map((seat) => (
-            <li key={seat.seatId} className="text-sm">
-              Seat {seat.label} — {seat.ticketType === 'ADULT' ? 'Adult' : 'Child'} {formatMyr(seat.priceMyr)}
-            </li>
-          ))}
-        </ul>
-        <p className="text-base font-medium" role="status">
-          Total {formatMyr(confirmation.totalMyr)}
-        </p>
-        <p className="text-sm">
-          One Ticket covers every Seat in this Booking. Present it on screen or in print at admission.
-        </p>
-      </section>
-
-      <div className="flex gap-3 print:hidden">
-        <Button type="button" onClick={() => window.print()}>
-          Print Ticket
-        </Button>
-        <Link to="/" className={buttonVariants({ variant: 'outline' })}>
-          Back to Showtimes
-        </Link>
-      </div>
     </div>
   )
 }

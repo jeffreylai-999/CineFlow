@@ -475,6 +475,57 @@ class CheckoutIT {
 		assertThat(paymentCount(showtimeId)).isOne();
 	}
 
+	@Test
+	void aReplayToADifferentShowtimeUrlIsAConflict() throws Exception {
+		clock.set(START);
+		int hallId = createHall("Scope " + UUID.randomUUID(), 1, 2);
+		long movieId = insertMovie("Scoped Replay", 90);
+		long showtimeId = insertShowtime(hallId, movieId);
+		int otherHallId = createHall("Scope other " + UUID.randomUUID(), 1, 2);
+		long otherShowtimeId = insertShowtime(otherHallId, movieId);
+		int seatId = seatIds(hallId)[0];
+		jdbcTemplate.update("update cineflow.halls set seat_map_locked = true where id = ?", hallId);
+		String holdId = createHold(showtimeId, seatId);
+		String idempotencyKey = UUID.randomUUID().toString();
+
+		checkout(showtimeId, holdId, "aisyah@example.com", SUCCESS_CARD, idempotencyKey, ticket(seatId, "ADULT"))
+			.andExpect(status().isCreated());
+
+		checkout(otherShowtimeId, holdId, "aisyah@example.com", SUCCESS_CARD, idempotencyKey, ticket(seatId, "ADULT"))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("booking.idempotency_conflict"));
+
+		assertThat(bookingCount(showtimeId)).isOne();
+		assertThat(bookingCount(otherShowtimeId)).isZero();
+		assertThat(paymentCount(showtimeId)).isOne();
+	}
+
+	@Test
+	void aLargeBookingTotalIsRecordedExactly() throws Exception {
+		clock.set(START);
+		int hallId = createHall("Large " + UUID.randomUUID(), 1, 2);
+		long showtimeId = insertShowtime(hallId, insertMovie("Large Total", 90));
+		int[] seats = seatIds(hallId);
+		jdbcTemplate.update("update cineflow.halls set seat_map_locked = true where id = ?", hallId);
+		jdbcTemplate.update("update cineflow.showtimes set adult_price_myr = 999999.99 where id = ?", showtimeId);
+		String holdId = createHold(showtimeId, seats);
+
+		checkout(showtimeId, holdId, "aisyah@example.com", SUCCESS_CARD, UUID.randomUUID().toString(),
+				ticket(seats[0], "ADULT") + "," + ticket(seats[1], "ADULT"))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.totalMyr").value(1999999.98));
+
+		var payment = jdbcTemplate.queryForMap(
+				"""
+						select p.amount_myr
+						from cineflow.payments p
+						join cineflow.bookings b on b.id = p.booking_id
+						where b.showtime_id = ?
+						""",
+				showtimeId);
+		assertThat(payment.get("amount_myr").toString()).isEqualTo("1999999.98");
+	}
+
 	private int bookingCount(long showtimeId) {
 		Integer count = jdbcTemplate.queryForObject(
 				"select count(*) from cineflow.bookings where showtime_id = ?",

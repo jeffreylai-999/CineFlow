@@ -268,7 +268,7 @@ class BookingService implements Booking {
 			throw BookingException.showtimeNotFound();
 		}
 
-		String requestFingerprint = requestFingerprint(request);
+		String requestFingerprint = requestFingerprint(showtimeId, request);
 		Optional<CheckoutResult> replay = findReplay(request.idempotencyKey(), requestFingerprint);
 		if (replay.isPresent()) {
 			return replay.get();
@@ -351,13 +351,14 @@ class BookingService implements Booking {
 				false);
 	}
 
-	private static String requestFingerprint(CheckoutRequest request) {
+	private static String requestFingerprint(long showtimeId, CheckoutRequest request) {
 		String tickets = request.tickets().stream()
 			.sorted(Comparator.comparing(CheckoutTicketRequest::seatId))
 			.map(ticket -> ticket.seatId() + ":" + ticket.ticketType())
 			.collect(Collectors.joining(","));
 		return Sha256.hash(
-				request.holdId()
+				showtimeId
+						+ "\n" + request.holdId()
 						+ "\n" + request.email().trim().toLowerCase(Locale.ROOT)
 						+ "\n" + tickets);
 	}

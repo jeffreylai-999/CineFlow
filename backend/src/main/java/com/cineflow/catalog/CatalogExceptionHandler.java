@@ -1,6 +1,7 @@
 package com.cineflow.catalog;
 
 import org.slf4j.MDC;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -9,7 +10,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.cineflow.platform.CorrelationIdFilter;
 
-@RestControllerAdvice
+@RestControllerAdvice(basePackages = "com.cineflow.catalog")
 class CatalogExceptionHandler {
 
 	@ExceptionHandler(CatalogException.class)
@@ -20,6 +21,15 @@ class CatalogExceptionHandler {
 	@ExceptionHandler(MovieProviderException.class)
 	ResponseEntity<ProblemDetail> handleProvider(MovieProviderException exception) {
 		return problem(CatalogException.from(exception));
+	}
+
+	@ExceptionHandler(DataAccessException.class)
+	ResponseEntity<ProblemDetail> handleDataAccess(DataAccessException exception) {
+		String message = String.valueOf(exception.getMostSpecificCause().getMessage());
+		if (message.contains("showtimes_hall_occupancy_excl")) {
+			return problem(CatalogException.showtimeOverlap());
+		}
+		throw exception;
 	}
 
 	@ExceptionHandler(CatalogRateLimitException.class)

@@ -76,6 +76,15 @@ class CatalogAdministrationService implements CatalogAdministration {
 		}
 		MovieEntity movie = movieRepository.findById(movieId).orElseThrow(CatalogException::movieNotFound);
 		movie.updateScheduling(runtimeMinutes, ageRating);
+		try {
+			movieRepository.flush();
+		}
+		catch (DataIntegrityViolationException exception) {
+			if (isShowtimeOccupancyConflict(exception)) {
+				throw CatalogException.showtimeOverlap();
+			}
+			throw exception;
+		}
 		return movie.toAdminResponse();
 	}
 
@@ -151,6 +160,18 @@ class CatalogAdministrationService implements CatalogAdministration {
 			return false;
 		}
 		return movieRepository.findBySourceProviderAndExternalId(providerId, externalId).isPresent();
+	}
+
+	static boolean isShowtimeOccupancyConflict(DataIntegrityViolationException exception) {
+		Throwable current = exception;
+		while (current != null) {
+			String message = current.getMessage();
+			if (message != null && message.contains("showtimes_hall_occupancy_excl")) {
+				return true;
+			}
+			current = current.getCause();
+		}
+		return false;
 	}
 
 	static boolean isProviderIdentityConflict(DataIntegrityViolationException exception) {

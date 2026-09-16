@@ -130,6 +130,14 @@ class CatalogAdministrationServiceTest {
 	}
 
 	@Test
+	void showtimeOccupancyConflictLooksAtTheConstraintName() {
+		assertThat(CatalogAdministrationService.isShowtimeOccupancyConflict(new DataIntegrityViolationException(
+				"could not execute statement [showtimes_hall_occupancy_excl]"))).isTrue();
+		assertThat(CatalogAdministrationService.isShowtimeOccupancyConflict(
+				new DataIntegrityViolationException("could not execute statement [movies_runtime_check]"))).isFalse();
+	}
+
+	@Test
 	void providerIdentityConflictLooksAtTheConstraintName() {
 		assertThat(CatalogAdministrationService.isProviderIdentityConflict(new DataIntegrityViolationException(
 				"could not execute statement [movies_provider_external_unique]"))).isTrue();

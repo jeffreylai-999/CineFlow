@@ -46,7 +46,7 @@ class SecurityConfiguration {
 				.hasRole("ADMINISTRATOR")
 				.requestMatchers("/api/staff/accounts", "/api/staff/accounts/**")
 				.hasRole("ADMINISTRATOR")
-				.requestMatchers("/api/halls/**")
+				.requestMatchers("/api/halls/**", "/api/showtimes", "/api/showtimes/**")
 				.hasRole("ADMINISTRATOR")
 				.requestMatchers("/api/**")
 				.authenticated()

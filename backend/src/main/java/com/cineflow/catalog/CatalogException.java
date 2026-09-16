@@ -67,6 +67,13 @@ public class CatalogException extends RuntimeException {
 				"Runtime and age rating are required");
 	}
 
+	public static CatalogException showtimeOverlap() {
+		return new CatalogException(
+				HttpStatus.CONFLICT,
+				"catalog.showtime_overlap",
+				"That Hall is occupied through the movie runtime and Cleaning Buffer");
+	}
+
 	public static CatalogException providerNotConfigured() {
 		return new CatalogException(
 				HttpStatus.SERVICE_UNAVAILABLE,

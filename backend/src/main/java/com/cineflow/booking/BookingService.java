@@ -18,8 +18,6 @@ import java.util.UUID;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import com.cineflow.scheduling.CinemaTime;
 
@@ -43,16 +41,14 @@ class BookingService implements Booking {
 			from cineflow.showtimes s
 			join cineflow.movies m on m.id = s.movie_id
 			join cineflow.halls h on h.id = s.hall_id
+			""";
+
+	private static final String SHOWTIME_BY_ID_SELECT = SHOWTIME_SELECT + """
 			where s.id = ?
 			  and m.archived_at is null
 			""";
 
-	private static final String SHOWTIME_FOR_HOLD_SELECT = """
-			select s.id, s.movie_id, m.title, m.runtime_minutes, s.hall_id, h.name as hall_name,
-			       s.starts_at, s.adult_price_myr, s.child_price_myr
-			from cineflow.showtimes s
-			join cineflow.movies m on m.id = s.movie_id
-			join cineflow.halls h on h.id = s.hall_id
+	private static final String SHOWTIME_FOR_HOLD_SELECT = SHOWTIME_SELECT + """
 			where s.id = ?
 			  and m.archived_at is null
 			for update of s
@@ -105,7 +101,7 @@ class BookingService implements Booking {
 	@Transactional(readOnly = true)
 	public CustomerSeatMapResponse showtimeSeats(long showtimeId) {
 		Instant now = clock.instant();
-		List<ShowtimeRow> found = jdbcTemplate.query(SHOWTIME_SELECT, this::mapShowtimeRow, showtimeId);
+		List<ShowtimeRow> found = jdbcTemplate.query(SHOWTIME_BY_ID_SELECT, this::mapShowtimeRow, showtimeId);
 		if (found.isEmpty()) {
 			throw BookingException.showtimeNotFound();
 		}
@@ -139,8 +135,8 @@ class BookingService implements Booking {
 	@Override
 	@Transactional
 	public SeatHoldResponse createSeatHold(long showtimeId, List<Long> seatIds) {
-		Instant now = clock.instant();
 		ShowtimeRow showtime = requireShowtimeForHold(showtimeId);
+		Instant now = clock.instant();
 		if (!CinemaTime.stillScreening(showtime.startsAt(), showtime.runtimeMinutes(), now)) {
 			throw BookingException.showtimeNotFound();
 		}
@@ -184,7 +180,7 @@ class BookingService implements Booking {
 					holdId);
 		}
 
-		publishAvailabilityAfterCommit(showtimeId);
+		availabilityPublisher.publishAfterCommit(showtimeId);
 		return new SeatHoldResponse(
 				holdId,
 				showtimeId,
@@ -276,15 +272,6 @@ class BookingService implements Booking {
 			parameters[index + offset] = seats.get(index).id();
 		}
 		return parameters;
-	}
-
-	private void publishAvailabilityAfterCommit(long showtimeId) {
-		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-			@Override
-			public void afterCommit() {
-				availabilityPublisher.publish(showtimeId);
-			}
-		});
 	}
 
 	private CatalogRow mapCatalogRow(ResultSet resultSet, int rowNum) throws SQLException {

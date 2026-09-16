@@ -1,6 +1,7 @@
 package com.cineflow.booking;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -51,6 +52,9 @@ class SeatHoldIT {
 
 	@Autowired
 	Booking booking;
+
+	@Autowired
+	SeatHoldExpiryService seatHoldExpiryService;
 
 	@Test
 	void onlineCustomerCanHoldSelectedSeatsForTenMinutes() throws Exception {
@@ -112,6 +116,32 @@ class SeatHoldIT {
 				Integer.class,
 				showtimeId,
 				seatId)).isEqualTo(1);
+	}
+
+	@Test
+	void expiryCleanupReturnsSeatsToCustomerAvailabilityAndRemovesExpiredHoldRecords() throws Exception {
+		clock.set(START);
+		int hallId = createHall("Expiry cleanup " + UUID.randomUUID(), 1, 2);
+		long showtimeId = insertShowtime(hallId, insertMovie("Expired Seat Hold Cleanup", 90));
+		int seatId = seatIds(hallId)[0];
+		jdbcTemplate.update("update cineflow.halls set seat_map_locked = true where id = ?", hallId);
+		createHold(showtimeId, seatId)
+			.andExpect(status().isCreated());
+
+		clock.set(START.plusSeconds(600));
+		seatHoldExpiryService.releaseExpiredHolds();
+
+		mockMvc.perform(get("/api/showtimes/" + showtimeId + "/seats"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.seats[0].available").value(true));
+		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from cineflow.seat_claims where showtime_id = ?",
+				Integer.class,
+				showtimeId)).isZero();
+		assertThat(jdbcTemplate.queryForObject(
+				"select count(*) from cineflow.seat_holds where showtime_id = ?",
+				Integer.class,
+				showtimeId)).isZero();
 	}
 
 	@Test

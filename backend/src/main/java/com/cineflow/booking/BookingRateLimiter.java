@@ -10,7 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Component;
 
 @Component
-class SeatHoldRateLimiter {
+class BookingRateLimiter {
 
 	private static final int LIMIT = 10;
 	private static final int MAX_KEYS = 10_000;
@@ -21,28 +21,36 @@ class SeatHoldRateLimiter {
 	private final Clock clock;
 	private Instant nextEviction;
 
-	SeatHoldRateLimiter(Clock clock) {
+	BookingRateLimiter(Clock clock) {
 		this.clock = clock;
 	}
 
-	void check(String clientAddress) {
+	void checkSeatHold(String clientAddress) {
+		check("seat-hold:" + clientAddress);
+	}
+
+	void checkCheckout(String clientAddress) {
+		check("checkout:" + clientAddress);
+	}
+
+	private void check(String key) {
 		Instant now = clock.instant();
 		Instant windowStart = now.minus(WINDOW);
 		synchronized (admission) {
-			if (!attempts.containsKey(clientAddress) && attempts.size() >= MAX_KEYS) {
+			if (!attempts.containsKey(key) && attempts.size() >= MAX_KEYS) {
 				if (nextEviction == null || !now.isBefore(nextEviction)) {
 					evictExpired(windowStart);
 				}
 			}
-			if (!attempts.containsKey(clientAddress) && attempts.size() >= MAX_KEYS) {
+			if (!attempts.containsKey(key) && attempts.size() >= MAX_KEYS) {
 				throw BookingException.rateLimited(WINDOW);
 			}
-			recordAttempt(clientAddress, now, windowStart);
+			recordAttempt(key, now, windowStart);
 		}
 	}
 
-	private void recordAttempt(String clientAddress, Instant now, Instant windowStart) {
-		attempts.compute(clientAddress, (ignored, recorded) -> {
+	private void recordAttempt(String key, Instant now, Instant windowStart) {
+		attempts.compute(key, (ignored, recorded) -> {
 			List<Instant> current = recorded == null ? new ArrayList<>() : recorded;
 			current.removeIf(attempt -> attempt.isBefore(windowStart));
 			if (current.size() >= LIMIT) {

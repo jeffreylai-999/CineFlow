@@ -71,6 +71,28 @@ public class BookingException extends RuntimeException {
 				"The Seat selection exceeds the Booking Limit");
 	}
 
+	public static BookingException holdNotFound() {
+		return new BookingException(HttpStatus.NOT_FOUND, "booking.hold_not_found", "Seat Hold not found");
+	}
+
+	public static BookingException holdExpired() {
+		return new BookingException(HttpStatus.CONFLICT, "booking.hold_expired", "The Seat Hold has expired");
+	}
+
+	public static BookingException holdUnavailable() {
+		return new BookingException(
+				HttpStatus.CONFLICT,
+				"booking.hold_unavailable",
+				"The Seat Hold is no longer available");
+	}
+
+	public static BookingException paymentDeclined() {
+		return new BookingException(
+				HttpStatus.PAYMENT_REQUIRED,
+				"booking.payment_declined",
+				"Payment was declined");
+	}
+
 	public static BookingException rateLimited(Duration retryAfter) {
 		return new BookingException(
 				HttpStatus.TOO_MANY_REQUESTS,

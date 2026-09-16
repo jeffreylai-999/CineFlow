@@ -9,4 +9,6 @@ public interface Booking {
 	CustomerSeatMapResponse showtimeSeats(long showtimeId);
 
 	SeatHoldResponse createSeatHold(long showtimeId, List<Long> seatIds);
+
+	CheckoutResult checkout(long showtimeId, CheckoutRequest request);
 }

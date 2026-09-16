@@ -3,6 +3,7 @@ export type MovieSearchHit = {
   title: string
   year: string | null
   posterUrl: string | null
+  providerId: string
 }
 
 export type ManagedMovie = {
@@ -19,13 +20,26 @@ export type ManagedMovie = {
 }
 
 export type ImportMovieInput = {
+  providerId: string
   externalId: string
   runtimeMinutes?: number
   ageRating?: string
 }
 
+export type MovieProviderOption = {
+  id: string
+  displayName: string
+}
+
+export type MovieProviderSettings = {
+  activeProviderId: string
+  providers: MovieProviderOption[]
+}
+
 export type CatalogAdminClient = {
   listMovies: (accessToken: string) => Promise<ManagedMovie[]>
+  listProviders: (accessToken: string) => Promise<MovieProviderSettings>
+  selectProvider: (providerId: string, accessToken: string) => Promise<MovieProviderSettings>
   search: (query: string, accessToken: string) => Promise<MovieSearchHit[]>
   importMovie: (input: ImportMovieInput, accessToken: string) => Promise<ManagedMovie>
   refresh: (movieId: number, accessToken: string) => Promise<ManagedMovie>
@@ -53,6 +67,18 @@ export function createCatalogAdminClient(fetcher: typeof fetch = fetch): Catalog
   return {
     listMovies(accessToken) {
       return readJson(fetcher('/api/admin/movies', { headers: headers(accessToken) }))
+    },
+    listProviders(accessToken) {
+      return readJson(fetcher('/api/admin/movie-providers', { headers: headers(accessToken) }))
+    },
+    selectProvider(providerId, accessToken) {
+      return readJson(
+        fetcher('/api/admin/movie-providers/active', {
+          method: 'PUT',
+          headers: jsonHeaders(accessToken),
+          body: JSON.stringify({ providerId }),
+        }),
+      )
     },
     search(query, accessToken) {
       return readJson(

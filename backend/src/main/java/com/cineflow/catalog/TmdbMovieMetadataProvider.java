@@ -3,6 +3,7 @@ package com.cineflow.catalog;
 import java.util.List;
 import java.util.function.Supplier;
 
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
@@ -18,7 +19,7 @@ class TmdbMovieMetadataProvider implements MovieMetadataProvider {
 	private final RestClient tmdbRestClient;
 	private final TmdbProperties properties;
 
-	TmdbMovieMetadataProvider(RestClient tmdbRestClient, TmdbProperties properties) {
+	TmdbMovieMetadataProvider(@Qualifier("tmdbRestClient") RestClient tmdbRestClient, TmdbProperties properties) {
 		this.tmdbRestClient = tmdbRestClient;
 		this.properties = properties;
 	}
@@ -86,6 +87,9 @@ class TmdbMovieMetadataProvider implements MovieMetadataProvider {
 		if (status == HttpStatus.TOO_MANY_REQUESTS.value()) {
 			return MovieProviderException.quota();
 		}
+		if (status == HttpStatus.UNAUTHORIZED.value()) {
+			return MovieProviderException.notConfigured();
+		}
 		return MovieProviderException.unavailable();
 	}
 
@@ -94,7 +98,8 @@ class TmdbMovieMetadataProvider implements MovieMetadataProvider {
 				Long.toString(result.id()),
 				result.title(),
 				year(result.releaseDate()),
-				posterUrl(result.posterPath()));
+				posterUrl(result.posterPath()),
+				providerId());
 	}
 
 	private String posterUrl(String posterPath) {

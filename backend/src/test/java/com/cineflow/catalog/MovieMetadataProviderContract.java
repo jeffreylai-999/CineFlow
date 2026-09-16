@@ -21,6 +21,8 @@ abstract class MovieMetadataProviderContract {
 
 	abstract void givenProviderUnavailable();
 
+	abstract void givenSearchCredentialsRejected();
+
 	abstract void givenQuotaExceeded();
 
 	abstract void givenMovieMissing();
@@ -35,7 +37,8 @@ abstract class MovieMetadataProviderContract {
 				"4242",
 				"The Courier Gate",
 				"2024",
-				"https://image.tmdb.org/t/p/w500/courier-gate.jpg"));
+				"https://image.tmdb.org/t/p/w500/courier-gate.jpg",
+				expectedProviderId()));
 	}
 
 	@Test
@@ -98,6 +101,15 @@ abstract class MovieMetadataProviderContract {
 	@Test
 	void searchFailsSafelyWhenCredentialsAreMissing() {
 		assertThatThrownBy(() -> unconfiguredProvider().search("courier gate"))
+			.isInstanceOf(MovieProviderException.class)
+			.extracting(error -> ((MovieProviderException) error).kind())
+			.isEqualTo(MovieProviderException.Kind.NOT_CONFIGURED);
+	}
+
+	@Test
+	void searchFailsSafelyWhenCredentialsAreRejected() {
+		givenSearchCredentialsRejected();
+		assertThatThrownBy(() -> provider().search("courier gate"))
 			.isInstanceOf(MovieProviderException.class)
 			.extracting(error -> ((MovieProviderException) error).kind())
 			.isEqualTo(MovieProviderException.Kind.NOT_CONFIGURED);

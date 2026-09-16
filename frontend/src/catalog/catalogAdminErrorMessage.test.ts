@@ -17,4 +17,10 @@ describe('catalogAdminErrorMessage', () => {
       'Search is temporarily limited. Wait a moment and try again.',
     )
   })
+
+  it('tells the Administrator to search again when the import provider is stale', () => {
+    expect(catalogAdminErrorMessage(new CatalogAdminRequestError(409, 'catalog.provider_mismatch'))).toBe(
+      'The active provider changed. Search again before importing.',
+    )
+  })
 })

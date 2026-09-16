@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -44,7 +45,7 @@ class CatalogAdministrationIT {
 	@Autowired
 	JdbcTemplate jdbcTemplate;
 
-	@MockitoBean
+	@MockitoBean(name = "tmdbMovieMetadataProvider")
 	MovieMetadataProvider movieMetadataProvider;
 
 	@Test
@@ -59,6 +60,7 @@ class CatalogAdministrationIT {
 			.andExpect(jsonPath("$[0].title").value("The Courier Gate"))
 			.andExpect(jsonPath("$[0].year").value("2024"))
 			.andExpect(jsonPath("$[0].posterUrl").value("https://image.tmdb.org/t/p/w500/courier-gate.jpg"))
+			.andExpect(jsonPath("$[0].providerId").value("tmdb"))
 			.andExpect(content().string(not(containsString("tmdb-token"))))
 			.andExpect(content().string(not(containsString("CINEFLOW_TMDB"))));
 	}
@@ -75,7 +77,7 @@ class CatalogAdministrationIT {
 				.header("Authorization", "Bearer " + staffToken)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"externalId":"4242"}
+						{"providerId":"tmdb","externalId":"4242"}
 						"""))
 			.andExpect(status().isForbidden());
 	}
@@ -91,7 +93,7 @@ class CatalogAdministrationIT {
 				.header("Authorization", "Bearer " + adminToken())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"externalId":"9001"}
+						{"providerId":"tmdb","externalId":"9001"}
 						"""))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.title").value("Imported Gate"))
@@ -111,7 +113,7 @@ class CatalogAdministrationIT {
 				.header("Authorization", "Bearer " + adminToken())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"externalId":"9001"}
+						{"providerId":"tmdb","externalId":"9001"}
 						"""))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("catalog.duplicate_import"));
@@ -132,7 +134,7 @@ class CatalogAdministrationIT {
 				.header("Authorization", "Bearer " + adminToken())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"externalId":"9002","runtimeMinutes":121,"ageRating":"PG-13"}
+						{"providerId":"tmdb","externalId":"9002","runtimeMinutes":121,"ageRating":"PG-13"}
 						"""))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.runtimeMinutes").value(121))
@@ -181,7 +183,7 @@ class CatalogAdministrationIT {
 				.header("Authorization", "Bearer " + adminToken())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"externalId":"9004","runtimeMinutes":121,"ageRating":"PG-13"}
+						{"providerId":"tmdb","externalId":"9004","runtimeMinutes":121,"ageRating":"PG-13"}
 						"""))
 			.andExpect(status().isCreated())
 			.andReturn()
@@ -222,12 +224,40 @@ class CatalogAdministrationIT {
 				.header("Authorization", "Bearer " + adminToken())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
-						{"externalId":"4290"}
+						{"providerId":"tmdb","externalId":"4290"}
 						"""))
 			.andExpect(status().isTooManyRequests())
 			.andExpect(jsonPath("$.code").value("catalog.provider_quota"))
 			.andExpect(jsonPath("$.detail").doesNotExist())
 			.andExpect(header().exists("Retry-After"));
+	}
+
+	@Test
+	void administratorCannotSelectAnUnconfiguredProvider() throws Exception {
+		mockMvc.perform(put("/api/admin/movie-providers/active")
+				.header("Authorization", "Bearer " + adminToken())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"providerId":"omdb"}
+						"""))
+			.andExpect(status().isServiceUnavailable())
+			.andExpect(jsonPath("$.code").value("catalog.provider_not_configured"));
+		assertThat(jdbcTemplate.queryForObject(
+				"select active_provider from cineflow.catalog_settings where id = 1",
+				String.class)).isEqualTo("tmdb");
+	}
+
+	@Test
+	void portalListsOnlyTheConfiguredProvider() throws Exception {
+		mockMvc.perform(get("/api/admin/movie-providers")
+				.header("Authorization", "Bearer " + adminToken()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.activeProviderId").value("tmdb"))
+			.andExpect(jsonPath("$.providers.length()").value(1))
+			.andExpect(jsonPath("$.providers[0].id").value("tmdb"))
+			.andExpect(jsonPath("$.providers[0].displayName").value("TMDB"))
+			.andExpect(content().string(not(containsString("omdb"))))
+			.andExpect(content().string(not(containsString("tmdb-token"))));
 	}
 
 	@Test
@@ -247,12 +277,25 @@ class CatalogAdministrationIT {
 			.andExpect(jsonPath("$.detail").doesNotExist());
 	}
 
+	@Test
+	void refreshOfAFixtureMovieIsRejectedWithoutLookingLikeAnOutage() throws Exception {
+		Long movieId = jdbcTemplate.queryForObject(
+				"select id from cineflow.movies where source_provider = 'fixture' and external_id = 'nebula-express'",
+				Long.class);
+
+		mockMvc.perform(post("/api/admin/movies/" + movieId + "/refresh")
+				.header("Authorization", "Bearer " + adminToken()))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("catalog.invalid_request"));
+	}
+
 	private static MovieSearchHit courierHit() {
 		return new MovieSearchHit(
 				"4242",
 				"The Courier Gate",
 				"2024",
-				"https://image.tmdb.org/t/p/w500/courier-gate.jpg");
+				"https://image.tmdb.org/t/p/w500/courier-gate.jpg",
+				"tmdb");
 	}
 
 	private static MovieProviderRecord providerRecord(
@@ -272,12 +315,18 @@ class CatalogAdministrationIT {
 				ageRating);
 	}
 
+	private String cachedAdminToken;
+
 	private String adminToken() throws Exception {
 		return accessToken("administrator", "AdminPassw0rd!");
 	}
 
 	private String accessToken(String username, String password) throws Exception {
+		if ("administrator".equals(username) && cachedAdminToken != null) {
+			return cachedAdminToken;
+		}
 		String body = mockMvc.perform(post("/api/auth/login")
+				.header("X-Forwarded-For", "198.51.100.40")
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 						{"username":"%s","password":"%s"}
@@ -286,7 +335,11 @@ class CatalogAdministrationIT {
 			.andReturn()
 			.getResponse()
 			.getContentAsString();
-		return JsonPath.read(body, "$.accessToken");
+		String token = JsonPath.read(body, "$.accessToken");
+		if ("administrator".equals(username)) {
+			cachedAdminToken = token;
+		}
+		return token;
 	}
 
 	private List<String> auditActions() {

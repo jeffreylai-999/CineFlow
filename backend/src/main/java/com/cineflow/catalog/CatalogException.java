@@ -45,6 +45,13 @@ public class CatalogException extends RuntimeException {
 		return new CatalogException(HttpStatus.BAD_REQUEST, "catalog.invalid_request", "Invalid request");
 	}
 
+	public static CatalogException providerMismatch() {
+		return new CatalogException(
+				HttpStatus.CONFLICT,
+				"catalog.provider_mismatch",
+				"Import no longer matches the active provider");
+	}
+
 	public static CatalogException duplicateImport() {
 		return new CatalogException(HttpStatus.CONFLICT, "catalog.duplicate_import", "Movie already imported");
 	}

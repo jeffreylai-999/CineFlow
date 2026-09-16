@@ -87,6 +87,11 @@ cineflow:
     image-base-url: ${CINEFLOW_TMDB_IMAGE_BASE_URL:https://image.tmdb.org/t/p/w500}
     connect-timeout: PT3S
     read-timeout: PT5S
+  omdb:
+    api-key: ${CINEFLOW_OMDB_API_KEY:}
+    base-url: ${CINEFLOW_OMDB_BASE_URL:https://www.omdbapi.com}
+    connect-timeout: PT3S
+    read-timeout: PT5S
   catalog:
     search-rate-limit: 20
     rate-limit-window: PT1M

@@ -13,6 +13,5 @@ public record CustomerSeatMapResponse(
 		BigDecimal adultPriceMyr,
 		BigDecimal childPriceMyr,
 		int bookingLimit,
-		boolean checkoutOpen,
 		List<CustomerSeatResponse> seats) {
 }

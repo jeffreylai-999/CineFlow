@@ -89,7 +89,6 @@ class BookingCustomerIT {
 			.andExpect(jsonPath("$.showtimeId").value(showtimeId))
 			.andExpect(jsonPath("$.movieTitle").value("Availability Gate"))
 			.andExpect(jsonPath("$.bookingLimit").value(10))
-			.andExpect(jsonPath("$.checkoutOpen").value(true))
 			.andExpect(jsonPath("$.adultPriceMyr").value(28.00))
 			.andExpect(jsonPath("$.childPriceMyr").value(18.00))
 			.andExpect(jsonPath("$.seats.length()").value(4))
@@ -146,7 +145,7 @@ class BookingCustomerIT {
 		mockMvc.perform(get("/api/showtimes/" + showtimeId + "/seats").accept(MediaType.APPLICATION_JSON))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("booking.cutoff"))
-			.andExpect(jsonPath("$.title").value("Online checkout is closed for this Showtime"))
+			.andExpect(jsonPath("$.title").value("Online checkout is closed at the Booking Cutoff"))
 			.andExpect(jsonPath("$.detail").doesNotExist());
 	}
 

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
-import type { CatalogClient, Movie } from '@/catalog/api/catalogClient.ts'
+import type { CustomerClient, Movie } from '@/booking/api/customerClient.ts'
+import { BOOKING_CUTOFF_MESSAGE } from '@/booking/bookingCutoffMessage.ts'
+import { formatMyr } from '@/booking/formatMyr.ts'
 import {
   Card,
   CardContent,
@@ -8,10 +10,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card.tsx'
-import { formatMyr } from '@/booking/formatMyr.ts'
 
 type CatalogPageProps = {
-  client: CatalogClient
+  client: CustomerClient
 }
 
 type LoadState =
@@ -135,7 +136,7 @@ function ShowtimeDates({ movie }: { movie: Movie }) {
                     to={`/showtimes/${showtime.id}`}
                   >
                     <span>
-                      {showtime.startsAtCinemaTime} · {showtime.hallName}
+                      {showtime.startsAtCinemaTime} {showtime.timeZone} · {showtime.hallName}
                     </span>
                     <span>
                       Adult {formatMyr(showtime.adultPriceMyr)} · Child{' '}
@@ -145,11 +146,11 @@ function ShowtimeDates({ movie }: { movie: Movie }) {
                 ) : (
                   <p>
                     <span className="block rounded-md border border-border/60 px-3 py-2 text-sm text-muted-foreground">
-                      {showtime.startsAtCinemaTime} · {showtime.hallName} · Adult{' '}
+                      {showtime.startsAtCinemaTime} {showtime.timeZone} · {showtime.hallName} · Adult{' '}
                       {formatMyr(showtime.adultPriceMyr)} · Child {formatMyr(showtime.childPriceMyr)}
                     </span>
                     <span className="mt-1 block text-xs text-muted-foreground">
-                      Online checkout closed 15 minutes before this Showtime.
+                      {BOOKING_CUTOFF_MESSAGE}
                     </span>
                   </p>
                 )}

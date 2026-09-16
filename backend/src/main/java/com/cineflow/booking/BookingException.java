@@ -35,6 +35,6 @@ public class BookingException extends RuntimeException {
 		return new BookingException(
 				HttpStatus.CONFLICT,
 				"booking.cutoff",
-				"Online checkout is closed for this Showtime");
+				"Online checkout is closed at the Booking Cutoff");
 	}
 }

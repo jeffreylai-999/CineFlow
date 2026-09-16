@@ -4,7 +4,11 @@ import { describe, expect, it, vi } from 'vitest'
 import { page, userEvent } from 'vitest/browser'
 import axe from 'axe-core'
 import { SeatSelectionPage } from '@/booking/SeatSelectionPage.tsx'
-import { CatalogRequestError, type CatalogClient, type ShowtimeSeats } from '@/catalog/api/catalogClient.ts'
+import {
+  CustomerRequestError,
+  type CustomerClient,
+  type ShowtimeSeats,
+} from '@/booking/api/customerClient.ts'
 
 const seatMap: ShowtimeSeats = {
   showtimeId: 11,
@@ -16,7 +20,6 @@ const seatMap: ShowtimeSeats = {
   adultPriceMyr: 28,
   childPriceMyr: 18,
   bookingLimit: 2,
-  checkoutOpen: true,
   seats: [
     { id: 1, rowLabel: 'A', seatNumber: 1, label: 'A1', available: true },
     { id: 2, rowLabel: 'A', seatNumber: 2, label: 'A2', available: true },
@@ -25,7 +28,7 @@ const seatMap: ShowtimeSeats = {
   ],
 }
 
-function clientStub(overrides: Partial<CatalogClient> = {}): CatalogClient {
+function clientStub(overrides: Partial<CustomerClient> = {}): CustomerClient {
   return {
     listMovies: vi.fn(),
     getShowtimeSeats: vi.fn().mockResolvedValue(seatMap),
@@ -33,7 +36,7 @@ function clientStub(overrides: Partial<CatalogClient> = {}): CatalogClient {
   }
 }
 
-async function renderSeats(client: CatalogClient = clientStub()) {
+async function renderSeats(client: CustomerClient = clientStub()) {
   return render(
     <MemoryRouter initialEntries={['/showtimes/11']}>
       <Routes>
@@ -70,7 +73,7 @@ describe('SeatSelectionPage', () => {
     await expect.element(page.getByRole('button', { name: 'Seat A3, available' })).toBeInTheDocument()
   })
 
-  it('is keyboard operable and keeps the summary on a narrow viewport', async () => {
+  it('keeps the Booking summary visible on a phone-sized viewport', async () => {
     await page.viewport(390, 844)
     await renderSeats()
     await expect.element(page.getByRole('heading', { name: 'Choose Seats' })).toBeInTheDocument()
@@ -79,18 +82,24 @@ describe('SeatSelectionPage', () => {
     firstSeat.element().focus()
     await userEvent.keyboard('{Enter}')
     await expect.element(page.getByRole('button', { name: 'Seat A1, selected' })).toBeInTheDocument()
-    await expect.element(page.getByRole('heading', { name: 'Booking summary' })).toBeInTheDocument()
-    await expect.element(page.getByText('Total RM 28.00')).toBeInTheDocument()
+
+    const summary = page.getByRole('heading', { name: 'Booking summary' })
+    await expect.element(summary).toBeVisible()
+    await expect.element(page.getByText('Total RM 28.00')).toBeVisible()
+    const summaryBox = summary.element().getBoundingClientRect()
+    expect(summaryBox.top).toBeGreaterThanOrEqual(0)
+    expect(summaryBox.bottom).toBeLessThanOrEqual(844)
+    await page.viewport(1280, 720)
   })
 
   it('rejects Seat selection after the Booking Cutoff', async () => {
     const client = clientStub({
-      getShowtimeSeats: vi.fn().mockRejectedValue(new CatalogRequestError(409, 'booking.cutoff')),
+      getShowtimeSeats: vi.fn().mockRejectedValue(new CustomerRequestError(409, 'booking.cutoff')),
     })
     await renderSeats(client)
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent('Online checkout closed 15 minutes before this Showtime.')
+      .toHaveTextContent('Online checkout is closed at the Booking Cutoff, 15 minutes before this Showtime.')
     await expect.element(page.getByRole('group', { name: 'Seat Map' })).not.toBeInTheDocument()
   })
 

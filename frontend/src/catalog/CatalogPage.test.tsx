@@ -3,7 +3,7 @@ import { render } from 'vitest-browser-react'
 import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import axe from 'axe-core'
-import type { CatalogClient, Movie } from '@/catalog/api/catalogClient.ts'
+import type { CustomerClient, Movie } from '@/booking/api/customerClient.ts'
 import { CatalogPage } from '@/catalog/CatalogPage.tsx'
 
 const nebulaExpress: Movie = {
@@ -56,7 +56,7 @@ const nebulaExpress: Movie = {
   ],
 }
 
-function catalogClient(movies: Movie[] | Promise<Movie[]> | Error): CatalogClient {
+function catalogClient(movies: Movie[] | Promise<Movie[]> | Error): CustomerClient {
   return {
     listMovies:
       movies instanceof Error
@@ -69,7 +69,7 @@ function catalogClient(movies: Movie[] | Promise<Movie[]> | Error): CatalogClien
 describe('CatalogPage', () => {
   it('renders Movies with Showtimes grouped by Cinema date', async () => {
     let resolveMovies!: (movies: Movie[]) => void
-    const client: CatalogClient = {
+    const client: CustomerClient = {
       listMovies: vi.fn(
         () =>
           new Promise<Movie[]>((resolve) => {
@@ -99,11 +99,11 @@ describe('CatalogPage', () => {
     await expect.element(page.getByRole('heading', { name: '2099-06-20' })).toBeInTheDocument()
     await expect.element(page.getByRole('heading', { name: '2099-06-21' })).toBeInTheDocument()
     await expect
-      .element(page.getByRole('link', { name: /2099-06-20T19:30:00 · Fixture Hall/ }))
+      .element(page.getByRole('link', { name: /2099-06-20T19:30:00 Asia\/Kuala_Lumpur · Fixture Hall/ }))
       .toHaveAttribute('href', '/showtimes/11')
     await expect.element(page.getByText(/Adult RM 28.00 · Child RM 18.00/)).toBeInTheDocument()
     await expect
-      .element(page.getByText(/Online checkout closed 15 minutes before this Showtime/))
+      .element(page.getByText(/Online checkout is closed at the Booking Cutoff/))
       .toBeInTheDocument()
     await expect.element(page.getByRole('link', { name: /2099-06-20T21:00:00/ })).not.toBeInTheDocument()
     await expect

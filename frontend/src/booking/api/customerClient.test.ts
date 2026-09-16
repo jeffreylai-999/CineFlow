@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createCatalogClient } from '@/catalog/api/catalogClient.ts'
+import { createCustomerClient } from '@/booking/api/customerClient.ts'
 
-describe('createCatalogClient', () => {
+describe('createCustomerClient', () => {
   it('loads the public catalog', async () => {
     const fetcher = vi.fn().mockResolvedValue(
       new Response(JSON.stringify([{ title: 'Nebula Express', dates: [] }]), {
@@ -9,7 +9,7 @@ describe('createCatalogClient', () => {
         headers: { 'Content-Type': 'application/json' },
       }),
     )
-    const client = createCatalogClient(fetcher)
+    const client = createCustomerClient(fetcher)
     await expect(client.listMovies()).resolves.toMatchObject([{ title: 'Nebula Express' }])
     expect(fetcher).toHaveBeenCalledWith('/api/movies', { headers: { Accept: 'application/json' } })
   })
@@ -21,7 +21,7 @@ describe('createCatalogClient', () => {
         headers: { 'Content-Type': 'application/json' },
       }),
     )
-    const client = createCatalogClient(fetcher)
+    const client = createCustomerClient(fetcher)
 
     await expect(client.getShowtimeSeats(11)).rejects.toMatchObject({
       status: 409,

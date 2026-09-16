@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import {
-  CatalogRequestError,
-  type CatalogClient,
+  CustomerRequestError,
+  type CustomerClient,
   type ShowtimeSeats,
   type TicketType,
-} from '@/catalog/api/catalogClient.ts'
+} from '@/booking/api/customerClient.ts'
+import { BOOKING_CUTOFF_MESSAGE } from '@/booking/bookingCutoffMessage.ts'
 import { formatMyr } from '@/booking/formatMyr.ts'
 import { Button } from '@/components/ui/button.tsx'
 import { Label } from '@/components/ui/label.tsx'
 import { SeatGrid, type SeatGridItem } from '@/scheduling/SeatGrid.tsx'
 
 type SeatSelectionPageProps = {
-  client: CatalogClient
+  client: CustomerClient
 }
 
 type LoadState =
@@ -48,7 +49,7 @@ export function SeatSelectionPage({ client }: SeatSelectionPageProps) {
         if (cancelled) {
           return
         }
-        if (error instanceof CatalogRequestError && error.code === 'booking.cutoff') {
+        if (error instanceof CustomerRequestError && error.code === 'booking.cutoff') {
           setState({ status: 'cutoff' })
           return
         }
@@ -125,7 +126,7 @@ export function SeatSelectionPage({ client }: SeatSelectionPageProps) {
       {validShowtimeId !== null && state.status === 'loading' ? <p role="status">Loading Seats…</p> : null}
       {state.status === 'error' ? <p role="alert">{state.message}</p> : null}
       {state.status === 'cutoff' ? (
-        <p role="alert">Online checkout closed 15 minutes before this Showtime.</p>
+        <p role="alert">{BOOKING_CUTOFF_MESSAGE}</p>
       ) : null}
 
       {state.status === 'ready' ? (
@@ -150,7 +151,7 @@ export function SeatSelectionPage({ client }: SeatSelectionPageProps) {
           </section>
 
           <aside
-            className="rounded-md border border-border/60 bg-card p-4 md:sticky md:top-4"
+            className="sticky bottom-0 z-10 rounded-md border border-border/60 bg-card p-4 md:bottom-auto md:top-4"
             aria-labelledby="booking-summary-heading"
           >
             <h2 id="booking-summary-heading" className="text-lg font-medium">

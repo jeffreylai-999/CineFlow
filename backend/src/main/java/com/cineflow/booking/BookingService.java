@@ -113,7 +113,6 @@ class BookingService implements Booking {
 				showtime.adultPriceMyr(),
 				showtime.childPriceMyr(),
 				bookingLimit,
-				true,
 				seats);
 	}
 

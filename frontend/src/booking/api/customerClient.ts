@@ -44,31 +44,30 @@ export type ShowtimeSeats = {
   adultPriceMyr: number
   childPriceMyr: number
   bookingLimit: number
-  checkoutOpen: boolean
   seats: CustomerSeat[]
 }
 
-export type CatalogClient = {
+export type CustomerClient = {
   listMovies: () => Promise<Movie[]>
   getShowtimeSeats: (showtimeId: number) => Promise<ShowtimeSeats>
 }
 
-export class CatalogRequestError extends Error {
+export class CustomerRequestError extends Error {
   readonly status: number
   readonly code: string | undefined
 
   constructor(status: number, code: string | undefined) {
-    super(`Catalog request failed with status ${status}`)
+    super(`Customer catalog request failed with status ${status}`)
     this.status = status
     this.code = code
   }
 }
 
-export function isCatalogRequestError(error: unknown): error is CatalogRequestError {
-  return error instanceof CatalogRequestError
+export function isCustomerRequestError(error: unknown): error is CustomerRequestError {
+  return error instanceof CustomerRequestError
 }
 
-export function createCatalogClient(fetcher: typeof fetch = fetch): CatalogClient {
+export function createCustomerClient(fetcher: typeof fetch = fetch): CustomerClient {
   return {
     async listMovies() {
       return readJson<Movie[]>(fetcher('/api/movies', { headers: { Accept: 'application/json' } }))
@@ -89,7 +88,7 @@ async function readJson<T>(responsePromise: Promise<Response>): Promise<T> {
   return (await response.json()) as T
 }
 
-async function toError(response: Response): Promise<CatalogRequestError> {
+async function toError(response: Response): Promise<CustomerRequestError> {
   let code: string | undefined
   try {
     const body = (await response.json()) as { code?: string }
@@ -97,5 +96,5 @@ async function toError(response: Response): Promise<CatalogRequestError> {
   } catch {
     code = undefined
   }
-  return new CatalogRequestError(response.status, code)
+  return new CustomerRequestError(response.status, code)
 }

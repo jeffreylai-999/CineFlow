@@ -38,6 +38,7 @@ class BookingService implements Booking {
 			join cineflow.movies m on m.id = s.movie_id
 			join cineflow.halls h on h.id = s.hall_id
 			where s.id = ?
+			  and m.archived_at is null
 			""";
 
 	private static final String SEATS_SELECT = """

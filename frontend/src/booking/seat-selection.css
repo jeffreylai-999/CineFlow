@@ -1,0 +1,10 @@
+@media (max-width: 767px) {
+  .booking-summary-dock {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 10;
+    max-height: 45vh;
+    overflow-y: auto;
+  }
+}

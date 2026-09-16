@@ -11,6 +11,7 @@ import { formatMyr } from '@/booking/formatMyr.ts'
 import { Button } from '@/components/ui/button.tsx'
 import { Label } from '@/components/ui/label.tsx'
 import { SeatGrid, type SeatGridItem } from '@/scheduling/SeatGrid.tsx'
+import './seat-selection.css'
 
 type SeatSelectionPageProps = {
   client: CustomerClient
@@ -20,11 +21,17 @@ type LoadState =
   | { status: 'loading' }
   | { status: 'ready'; map: ShowtimeSeats }
   | { status: 'cutoff' }
+  | { status: 'not-found' }
   | { status: 'error'; message: string }
 
 type Selection = Record<number, TicketType>
 
 export function SeatSelectionPage({ client }: SeatSelectionPageProps) {
+  const { showtimeId } = useParams()
+  return <SeatSelectionScreen key={showtimeId} client={client} />
+}
+
+function SeatSelectionScreen({ client }: SeatSelectionPageProps) {
   const { showtimeId } = useParams()
   const parsedId = Number(showtimeId)
   const validShowtimeId = Number.isInteger(parsedId) && parsedId > 0 ? parsedId : null
@@ -53,6 +60,13 @@ export function SeatSelectionPage({ client }: SeatSelectionPageProps) {
           setState({ status: 'cutoff' })
           return
         }
+        if (
+          error instanceof CustomerRequestError &&
+          (error.code === 'booking.showtime_not_found' || error.status === 404)
+        ) {
+          setState({ status: 'not-found' })
+          return
+        }
         setState({
           status: 'error',
           message: 'Unable to load Seats. Try again shortly.',
@@ -63,17 +77,18 @@ export function SeatSelectionPage({ client }: SeatSelectionPageProps) {
     }
   }, [client, validShowtimeId])
 
+  const readyMap = state.status === 'ready' && state.map.showtimeId === validShowtimeId ? state.map : null
   const selectedCount = Object.keys(selection).length
   const gridSeats = useMemo(
-    () => (state.status === 'ready' ? state.map.seats.map((seat) => toGridSeat(seat, selection)) : []),
-    [state, selection],
+    () => (readyMap ? readyMap.seats.map((seat) => toGridSeat(seat, selection)) : []),
+    [readyMap, selection],
   )
 
   function handleSeatActivate(seatId: number) {
-    if (state.status !== 'ready') {
+    if (!readyMap) {
       return
     }
-    const seat = state.map.seats.find((item) => item.id === seatId)
+    const seat = readyMap.seats.find((item) => item.id === seatId)
     if (!seat || !seat.available) {
       return
     }
@@ -84,10 +99,8 @@ export function SeatSelectionPage({ client }: SeatSelectionPageProps) {
       setLimitMessage(null)
       return
     }
-    if (selectedCount >= state.map.bookingLimit) {
-      setLimitMessage(
-        `This Booking can include at most ${state.map.bookingLimit} Seats.`,
-      )
+    if (selectedCount >= readyMap.bookingLimit) {
+      setLimitMessage(`This Booking can include at most ${readyMap.bookingLimit} Seats.`)
       return
     }
     setSelection({ ...selection, [seatId]: 'ADULT' })
@@ -98,13 +111,14 @@ export function SeatSelectionPage({ client }: SeatSelectionPageProps) {
     setSelection((current) => ({ ...current, [seatId]: ticketType }))
   }
 
-  const total =
-    state.status === 'ready'
-      ? state.map.seats.reduce((sum, seat) => {
-          const ticketType = selection[seat.id]
-          return ticketType ? sum + ticketPrice(ticketType, state.map) : sum
-        }, 0)
-      : 0
+  const total = readyMap
+    ? readyMap.seats.reduce((sum, seat) => {
+        const ticketType = selection[seat.id]
+        return ticketType ? sum + ticketPrice(ticketType, readyMap) : sum
+      }, 0)
+    : 0
+
+  const showNotFound = validShowtimeId === null || state.status === 'not-found'
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8">
@@ -122,26 +136,26 @@ export function SeatSelectionPage({ client }: SeatSelectionPageProps) {
         </ol>
       </nav>
 
-      {validShowtimeId === null ? <p role="alert">Showtime not found.</p> : null}
+      {showNotFound ? <p role="alert">Showtime not found.</p> : null}
       {validShowtimeId !== null && state.status === 'loading' ? <p role="status">Loading Seats…</p> : null}
       {state.status === 'error' ? <p role="alert">{state.message}</p> : null}
-      {state.status === 'cutoff' ? (
-        <p role="alert">{BOOKING_CUTOFF_MESSAGE}</p>
-      ) : null}
+      {state.status === 'cutoff' ? <p role="alert">{BOOKING_CUTOFF_MESSAGE}</p> : null}
 
-      {state.status === 'ready' ? (
+      {readyMap ? (
         <div className="flex flex-col gap-6 md:grid md:grid-cols-[minmax(0,1fr)_18rem] md:items-start">
-          <section className="space-y-4" aria-labelledby="seat-selection-heading">
+          <section
+            className="space-y-4 max-md:pb-56 md:col-start-1 md:row-start-1"
+            aria-labelledby="seat-selection-heading"
+          >
             <div>
               <h1 id="seat-selection-heading" className="text-2xl font-semibold">
                 Choose Seats
               </h1>
               <p className="text-sm text-muted-foreground">
-                {state.map.movieTitle} · {state.map.startsAtCinemaTime} {state.map.timeZone} ·{' '}
-                {state.map.hallName}
+                {readyMap.movieTitle} · {readyMap.startsAtCinemaTime} {readyMap.timeZone} · {readyMap.hallName}
               </p>
               <p className="mt-2 text-sm">
-                A Booking can include at most {state.map.bookingLimit} Seats. Available Seats use a
+                A Booking can include at most {readyMap.bookingLimit} Seats. Available Seats use a
                 solid border and ○. Selected Seats use a solid red border and ●. Unavailable Seats
                 use a dotted border and ■.
               </p>
@@ -151,24 +165,24 @@ export function SeatSelectionPage({ client }: SeatSelectionPageProps) {
           </section>
 
           <aside
-            className="sticky bottom-0 z-10 rounded-md border border-border/60 bg-card p-4 md:bottom-auto md:top-4"
+            className="booking-summary-dock border-t border-border/60 bg-card p-4 md:col-start-2 md:row-start-1 md:rounded-md md:border"
             aria-labelledby="booking-summary-heading"
           >
             <h2 id="booking-summary-heading" className="text-lg font-medium">
               Booking summary
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              {state.map.movieTitle}
+              {readyMap.movieTitle}
               <br />
-              {state.map.startsAtCinemaTime} {state.map.timeZone}
+              {readyMap.startsAtCinemaTime} {readyMap.timeZone}
               <br />
-              {state.map.hallName}
+              {readyMap.hallName}
             </p>
             {selectedCount === 0 ? (
               <p className="mt-3 text-sm">No Seats selected yet.</p>
             ) : (
               <ul className="mt-3 grid list-none gap-3 p-0">
-                {state.map.seats
+                {readyMap.seats
                   .filter((seat) => selection[seat.id])
                   .map((seat) => {
                     const ticketType = selection[seat.id]
@@ -177,17 +191,15 @@ export function SeatSelectionPage({ client }: SeatSelectionPageProps) {
                     }
                     return (
                       <li key={seat.id} className="grid gap-1">
-                        <Label htmlFor={`ticket-type-${seat.id}`}>
-                          Seat {seat.label} Ticket Type
-                        </Label>
+                        <Label htmlFor={`ticket-type-${seat.id}`}>Seat {seat.label} Ticket Type</Label>
                         <select
                           id={`ticket-type-${seat.id}`}
                           className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                           value={ticketType}
                           onChange={(event) => setTicketType(seat.id, parseTicketType(event.target.value))}
                         >
-                          <option value="ADULT">Adult {formatMyr(state.map.adultPriceMyr)}</option>
-                          <option value="CHILD">Child {formatMyr(state.map.childPriceMyr)}</option>
+                          <option value="ADULT">Adult {formatMyr(readyMap.adultPriceMyr)}</option>
+                          <option value="CHILD">Child {formatMyr(readyMap.childPriceMyr)}</option>
                         </select>
                       </li>
                     )

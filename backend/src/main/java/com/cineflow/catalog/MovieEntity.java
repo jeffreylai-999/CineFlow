@@ -124,6 +124,7 @@ class MovieEntity {
 				posterUrl,
 				sourceProvider,
 				externalId,
-				sourceRefreshedAt);
+				sourceRefreshedAt,
+				archivedAt);
 	}
 }

@@ -194,6 +194,28 @@ class BookingCustomerIT {
 			.andExpect(jsonPath("$.code").value("booking.showtime_not_found"));
 	}
 
+	@Test
+	void archivedMovieShowtimeSeatMapIsNotFound() throws Exception {
+		String token = adminToken();
+		int hallId = createHall(token, "Archived " + UUID.randomUUID(), 1, 2);
+		long movieId = insertMovie("Archived Gate", 90);
+		String created = createShowtime(token, movieId, hallId, "2099-06-12T19:30", "22.00", "12.00")
+			.andExpect(status().isCreated())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		int showtimeId = JsonPath.read(created, "$.id");
+		jdbcTemplate.update("update cineflow.movies set archived_at = now() where id = ?", movieId);
+
+		mockMvc.perform(get("/api/movies").accept(MediaType.APPLICATION_JSON))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[*].title", Matchers.not(Matchers.hasItem("Archived Gate"))));
+
+		mockMvc.perform(get("/api/showtimes/" + showtimeId + "/seats").accept(MediaType.APPLICATION_JSON))
+			.andExpect(status().isNotFound())
+			.andExpect(jsonPath("$.code").value("booking.showtime_not_found"));
+	}
+
 	private ResultActions createShowtime(
 			String token,
 			long movieId,

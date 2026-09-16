@@ -37,6 +37,7 @@ export function ShowtimesPage({ session, client, catalogAdminClient, onLogout }:
   const [message, setMessage] = useState<string | null>(null)
 
   const activeHalls = useMemo(() => halls.filter((hall) => !hall.archivedAt), [halls])
+  const activeMovies = useMemo(() => movies.filter((movie) => !movie.archivedAt), [movies])
 
   useEffect(() => {
     let cancelled = false
@@ -147,7 +148,7 @@ export function ShowtimesPage({ session, client, catalogAdminClient, onLogout }:
                 required
               >
                 <option value="">Select a Movie</option>
-                {movies.map((movie) => (
+                {activeMovies.map((movie) => (
                   <option key={movie.id} value={movie.id}>
                     {movie.title}
                   </option>

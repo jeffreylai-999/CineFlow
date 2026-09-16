@@ -33,6 +33,14 @@ const nebula: ManagedMovie = {
   sourceRefreshedAt: '2026-09-15T00:00:00Z',
 }
 
+const archivedMovie: ManagedMovie = {
+  ...nebula,
+  id: 9,
+  title: 'Archived Express',
+  externalId: '124',
+  archivedAt: '2026-09-01T00:00:00Z',
+}
+
 const hall: HallSummary = {
   id: 4,
   name: 'Hall 1',
@@ -56,9 +64,9 @@ const scheduled: Showtime = {
   childPriceMyr: 18,
 }
 
-function catalogAdminStub(): CatalogAdminClient {
+function catalogAdminStub(movies: ManagedMovie[] = [nebula]): CatalogAdminClient {
   return {
-    listMovies: vi.fn().mockResolvedValue([nebula]),
+    listMovies: vi.fn().mockResolvedValue(movies),
     listProviders: vi.fn(),
     selectProvider: vi.fn(),
     search: vi.fn(),
@@ -88,6 +96,21 @@ function renderShowtimes(ui: ReactElement) {
 }
 
 describe('ShowtimesPage', () => {
+  it('omits archived Movies from the Showtime selector', async () => {
+    await renderShowtimes(
+      <ShowtimesPage
+        session={administrator}
+        client={clientStub()}
+        catalogAdminClient={catalogAdminStub([nebula, archivedMovie])}
+        onLogout={() => undefined}
+      />,
+    )
+
+    await expect.element(page.getByRole('heading', { name: 'Showtimes' })).toBeInTheDocument()
+    await expect.element(page.getByRole('option', { name: 'Nebula Express' })).toBeInTheDocument()
+    await expect.element(page.getByRole('option', { name: 'Archived Express' })).not.toBeInTheDocument()
+  })
+
   it('sends a zoneless Cinema Time payload without converting in the browser', async () => {
     const client = clientStub()
 

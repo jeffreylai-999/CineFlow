@@ -110,6 +110,16 @@ describe('CatalogPage', () => {
       .element(page.getByRole('img', { name: /Poster for Nebula Express/i }))
       .toHaveAttribute('src', nebulaExpress.posterUrl!)
     await expect.element(page.getByRole('heading', { name: 'Credits' })).toBeInTheDocument()
+    await expect
+      .element(page.getByRole('img', { name: 'The Movie Database' }))
+      .toHaveAttribute('src', '/tmdb-logo.svg')
+    await expect
+      .element(
+        page.getByText(
+          'This product uses the TMDB API but is not endorsed or certified by TMDB.',
+        ),
+      )
+      .toBeInTheDocument()
   })
 
   it('shows a safe error when the catalog client fails', async () => {

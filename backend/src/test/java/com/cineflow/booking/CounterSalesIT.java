@@ -60,7 +60,6 @@ class CounterSalesIT {
 		mockMvc.perform(get("/api/staff/showtimes").header("Authorization", "Bearer " + token))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$[?(@.movieTitle=='Cash Sale')].id").value(hasItem((int) showtimeId)))
-			.andExpect(jsonPath("$[?(@.movieTitle=='Cash Sale')].counterSalesOpen").value(hasItem(true)))
 			.andExpect(jsonPath("$[?(@.movieTitle=='Cash Sale')].adultPriceMyr").value(hasItem(28.00)))
 			.andExpect(jsonPath("$[?(@.movieTitle=='Cash Sale')].childPriceMyr").value(hasItem(18.00)));
 

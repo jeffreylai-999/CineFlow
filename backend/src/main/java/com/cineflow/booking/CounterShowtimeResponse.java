@@ -9,6 +9,5 @@ public record CounterShowtimeResponse(
 		String startsAtCinemaTime,
 		String timeZone,
 		BigDecimal adultPriceMyr,
-		BigDecimal childPriceMyr,
-		boolean counterSalesOpen) {
+		BigDecimal childPriceMyr) {
 }

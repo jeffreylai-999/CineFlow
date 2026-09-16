@@ -26,7 +26,6 @@ const showtimes: CounterShowtime[] = [
     timeZone: 'Asia/Kuala_Lumpur',
     adultPriceMyr: 28,
     childPriceMyr: 18,
-    counterSalesOpen: true,
   },
   {
     id: 12,
@@ -36,7 +35,6 @@ const showtimes: CounterShowtime[] = [
     timeZone: 'Asia/Kuala_Lumpur',
     adultPriceMyr: 24,
     childPriceMyr: 14,
-    counterSalesOpen: true,
   },
 ]
 

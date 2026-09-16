@@ -20,7 +20,6 @@ const bookingStaffSession: StaffSession = {
 
 const seatMap: StaffSeatMap = {
   showtimeId: 11,
-  movieId: 1,
   movieTitle: 'Nebula Express',
   hallName: 'Fixture Hall',
   startsAtCinemaTime: '2099-06-20T19:30:00',

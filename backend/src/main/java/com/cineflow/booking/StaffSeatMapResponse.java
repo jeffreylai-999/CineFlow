@@ -5,7 +5,6 @@ import java.util.List;
 
 public record StaffSeatMapResponse(
 		long showtimeId,
-		long movieId,
 		String movieTitle,
 		String hallName,
 		String startsAtCinemaTime,

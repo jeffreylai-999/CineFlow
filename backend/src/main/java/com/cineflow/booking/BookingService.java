@@ -364,18 +364,14 @@ class BookingService implements Booking {
 		Instant now = clock.instant();
 		return jdbcTemplate.query(
 				COUNTER_SHOWTIMES_SELECT,
-				(resultSet, rowNum) -> {
-					Instant startsAt = resultSet.getTimestamp("starts_at").toInstant();
-					return new CounterShowtimeResponse(
-							resultSet.getLong("id"),
-							resultSet.getString("title"),
-							resultSet.getString("hall_name"),
-							CinemaTime.formatLocal(startsAt),
-							CinemaTime.ZONE.getId(),
-							resultSet.getBigDecimal("adult_price_myr"),
-							resultSet.getBigDecimal("child_price_myr"),
-							CinemaTime.counterSalesOpen(startsAt, now));
-				},
+				(resultSet, rowNum) -> new CounterShowtimeResponse(
+						resultSet.getLong("id"),
+						resultSet.getString("title"),
+						resultSet.getString("hall_name"),
+						CinemaTime.formatLocal(resultSet.getTimestamp("starts_at").toInstant()),
+						CinemaTime.ZONE.getId(),
+						resultSet.getBigDecimal("adult_price_myr"),
+						resultSet.getBigDecimal("child_price_myr")),
 				Timestamp.from(now),
 				CinemaTime.COUNTER_SALES_CUTOFF_MINUTES);
 	}
@@ -397,7 +393,6 @@ class BookingService implements Booking {
 				showtime.hallId());
 		return new StaffSeatMapResponse(
 				showtime.id(),
-				showtime.movieId(),
 				showtime.movieTitle(),
 				showtime.hallName(),
 				CinemaTime.formatLocal(showtime.startsAt()),

@@ -22,14 +22,13 @@ describe('createStaffBookingClient', () => {
           timeZone: 'Asia/Kuala_Lumpur',
           adultPriceMyr: 28,
           childPriceMyr: 18,
-          counterSalesOpen: true,
         },
       ]),
     )
     const client = createStaffBookingClient(token, fetcher)
 
     await expect(client.listCounterShowtimes()).resolves.toMatchObject([
-      { id: 11, movieTitle: 'Nebula Express', counterSalesOpen: true },
+      { id: 11, movieTitle: 'Nebula Express' },
     ])
     expect(fetcher).toHaveBeenCalledWith('/api/staff/showtimes', {
       headers: { Accept: 'application/json', Authorization: `Bearer ${token}` },
@@ -40,7 +39,6 @@ describe('createStaffBookingClient', () => {
     const fetcher = vi.fn().mockResolvedValue(
       jsonResponse(200, {
         showtimeId: 11,
-        movieId: 1,
         movieTitle: 'Nebula Express',
         hallName: 'Fixture Hall',
         startsAtCinemaTime: '2099-06-20T19:30:00',

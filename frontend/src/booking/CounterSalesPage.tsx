@@ -90,16 +90,12 @@ export function CounterSalesPage({ session, client, onLogout }: CounterSalesPage
                   <td className="py-2 pr-4">{formatMyr(showtime.adultPriceMyr)}</td>
                   <td className="py-2 pr-4">{formatMyr(showtime.childPriceMyr)}</td>
                   <td className="py-2">
-                    {showtime.counterSalesOpen ? (
-                      <Link
-                        className="underline-offset-4 hover:underline"
-                        to={`/staff/counter-sales/${showtime.id}`}
-                      >
-                        Sell Seats
-                      </Link>
-                    ) : (
-                      <span className="text-muted-foreground">Sales closed</span>
-                    )}
+                    <Link
+                      className="underline-offset-4 hover:underline"
+                      to={`/staff/counter-sales/${showtime.id}`}
+                    >
+                      Sell Seats
+                    </Link>
                   </td>
                 </tr>
               ))}

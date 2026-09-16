@@ -131,7 +131,7 @@ function CounterSaleScreen({ session, client, onLogout }: CounterSalePageProps) 
   )
 
   function handleSeatActivate(seatId: number) {
-    if (!readyMap || busy || hold || confirmation) {
+    if (!readyMap || !readyMap.counterSalesOpen || busy || hold || confirmation) {
       return
     }
     const seat = readyMap.seats.find((item) => item.id === seatId)
@@ -413,10 +413,7 @@ function toGridSeat(
     rowLabel: seat.rowLabel,
     seatNumber: seat.seatNumber,
   }
-  if (heldSeatIds.has(seat.id)) {
-    return { ...base, visualState: 'selected', pressed: true }
-  }
-  if (selection[seat.id]) {
+  if (heldSeatIds.has(seat.id) || selection[seat.id]) {
     return { ...base, visualState: 'selected', pressed: true }
   }
   switch (seat.state) {

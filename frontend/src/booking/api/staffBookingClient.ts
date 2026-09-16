@@ -15,7 +15,6 @@ export type CounterShowtime = {
   timeZone: string
   adultPriceMyr: number
   childPriceMyr: number
-  counterSalesOpen: boolean
 }
 
 export type StaffSeatState = 'AVAILABLE' | 'HELD' | 'BOOKED' | 'DISABLED'
@@ -30,7 +29,6 @@ export type StaffSeat = {
 
 export type StaffSeatMap = {
   showtimeId: number
-  movieId: number
   movieTitle: string
   hallName: string
   startsAtCinemaTime: string

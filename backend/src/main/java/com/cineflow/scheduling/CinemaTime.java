@@ -7,10 +7,11 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
-final class CinemaTime {
+public final class CinemaTime {
 
-	static final ZoneId ZONE = ZoneId.of("Asia/Kuala_Lumpur");
+	public static final ZoneId ZONE = ZoneId.of("Asia/Kuala_Lumpur");
 	static final int CLEANING_BUFFER_MINUTES = 15;
+	public static final int BOOKING_CUTOFF_MINUTES = 15;
 	static final Duration CLEANING_BUFFER = Duration.ofMinutes(CLEANING_BUFFER_MINUTES);
 
 	private CinemaTime() {
@@ -35,7 +36,23 @@ final class CinemaTime {
 		return startsAt.plus(Duration.ofMinutes(runtimeMinutes)).plus(CLEANING_BUFFER);
 	}
 
-	static String formatLocal(Instant instant) {
+	public static Instant bookingCutoff(Instant startsAt) {
+		return startsAt.minus(Duration.ofMinutes(BOOKING_CUTOFF_MINUTES));
+	}
+
+	public static boolean onlineCheckoutOpen(Instant startsAt, Instant now) {
+		return now.isBefore(bookingCutoff(startsAt));
+	}
+
+	public static boolean stillScreening(Instant startsAt, int runtimeMinutes, Instant now) {
+		return startsAt.plus(Duration.ofMinutes(runtimeMinutes)).isAfter(now);
+	}
+
+	public static String formatLocal(Instant instant) {
 		return DateTimeFormatter.ISO_LOCAL_DATE_TIME.format(instant.atZone(ZONE));
+	}
+
+	public static String cinemaDate(Instant instant) {
+		return DateTimeFormatter.ISO_LOCAL_DATE.format(instant.atZone(ZONE));
 	}
 }

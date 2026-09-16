@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils.ts'
+import './seat-grid.css'
 
-export type SeatVisualState = 'enabled' | 'disabled'
+export type SeatVisualState = 'enabled' | 'disabled' | 'available' | 'unavailable' | 'selected'
 
 export type SeatGridItem = {
   id: number
@@ -9,7 +10,6 @@ export type SeatGridItem = {
   seatNumber: number
   visualState: SeatVisualState
   pressed: boolean
-  accessibleName: string
 }
 
 type SeatGridProps = {
@@ -19,6 +19,9 @@ type SeatGridProps = {
 
 const STATE_MARK: Record<SeatVisualState, string> = {
   enabled: '○',
+  available: '○',
+  selected: '●',
+  unavailable: '■',
   disabled: '✕',
 }
 
@@ -37,7 +40,8 @@ export function SeatGrid({ seats, onSeatActivate }: SeatGridProps) {
                 key={seat.id}
                 type="button"
                 aria-pressed={seat.pressed}
-                aria-label={seat.accessibleName}
+                aria-disabled={seat.visualState === 'unavailable' ? true : undefined}
+                aria-label={seatAccessibleName(seat.label, seat.visualState)}
                 data-state={seat.visualState}
                 className={cn(
                   'flex size-12 flex-col items-center justify-center rounded-md border-2 text-xs font-medium',
@@ -57,10 +61,19 @@ export function SeatGrid({ seats, onSeatActivate }: SeatGridProps) {
   )
 }
 
+function seatAccessibleName(label: string, visualState: SeatVisualState): string {
+  return `Seat ${label}, ${visualState}`
+}
+
 function seatClasses(state: SeatVisualState): string {
   switch (state) {
     case 'enabled':
-      return 'border-solid border-border bg-secondary text-secondary-foreground'
+    case 'available':
+      return 'border-solid border-seat-available-border bg-secondary text-secondary-foreground'
+    case 'selected':
+      return 'border-solid border-seat-selected-border bg-seat-selected text-seat-selected-foreground'
+    case 'unavailable':
+      return 'border-dotted border-seat-unavailable-border bg-seat-unavailable text-seat-unavailable-foreground'
     case 'disabled':
       return 'border-dashed border-seat-disabled-border bg-seat-disabled text-seat-disabled-foreground'
     default: {

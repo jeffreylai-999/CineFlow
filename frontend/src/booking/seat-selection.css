@@ -1,0 +1,49 @@
+:root {
+  --booking-summary-dock-max-height: 45vh;
+  --booking-summary-dock-top: 1rem;
+}
+
+.booking-seat-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+@media (max-width: 767px) {
+  .booking-summary-dock {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 10;
+    max-height: var(--booking-summary-dock-max-height);
+    overflow-y: auto;
+  }
+
+  .booking-seat-map {
+    padding-bottom: var(--booking-summary-dock-max-height);
+  }
+}
+
+@media (min-width: 768px) {
+  .booking-seat-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 18rem;
+    align-items: start;
+  }
+
+  .booking-seat-map {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .booking-summary-dock {
+    position: sticky;
+    top: var(--booking-summary-dock-top);
+    grid-column: 2;
+    grid-row: 1;
+    max-height: calc(100vh - var(--booking-summary-dock-top) - 1rem);
+    overflow-y: auto;
+    border-radius: var(--radius-md, 0.375rem);
+    border-width: 1px;
+  }
+}

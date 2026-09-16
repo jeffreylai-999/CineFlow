@@ -17,6 +17,7 @@ export type ManagedMovie = {
   sourceProvider: string
   externalId: string
   sourceRefreshedAt: string
+  archivedAt?: string | null
 }
 
 export type ImportMovieInput = {

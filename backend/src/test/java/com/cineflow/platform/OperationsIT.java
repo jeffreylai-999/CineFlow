@@ -42,6 +42,7 @@ class OperationsIT {
 		mockMvc.perform(get("/v3/api-docs").accept(MediaType.APPLICATION_JSON))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.paths./api/movies.get").exists())
+			.andExpect(jsonPath("$.paths./api/showtimes/{id}/seats.get").exists())
 			.andExpect(jsonPath("$.info.title", containsString("CineFlow")));
 	}
 }

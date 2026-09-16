@@ -4,7 +4,7 @@ import { render } from 'vitest-browser-react'
 import { describe, expect, it, vi } from 'vitest'
 import { page } from 'vitest/browser'
 import axe from 'axe-core'
-import type { CatalogClient, Movie } from '@/catalog/api/catalogClient.ts'
+import type { CatalogAdminClient, ManagedMovie } from '@/catalog/api/catalogAdminClient.ts'
 import type { StaffSession } from '@/identity/api/identityClient.ts'
 import { ShowtimesPage } from '@/scheduling/ShowtimesPage.tsx'
 import {
@@ -20,7 +20,7 @@ const administrator: StaffSession = {
   staff: { id: 2, username: 'administrator', role: 'ADMINISTRATOR' },
 }
 
-const nebula: Movie = {
+const nebula: ManagedMovie = {
   id: 8,
   title: 'Nebula Express',
   synopsis: 'A courier crew races a sealed cargo.',
@@ -28,6 +28,17 @@ const nebula: Movie = {
   runtimeMinutes: 90,
   ageRating: 'PG-13',
   posterUrl: null,
+  sourceProvider: 'tmdb',
+  externalId: '123',
+  sourceRefreshedAt: '2026-09-15T00:00:00Z',
+}
+
+const archivedMovie: ManagedMovie = {
+  ...nebula,
+  id: 9,
+  title: 'Archived Express',
+  externalId: '124',
+  archivedAt: '2026-09-01T00:00:00Z',
 }
 
 const hall: HallSummary = {
@@ -53,9 +64,15 @@ const scheduled: Showtime = {
   childPriceMyr: 18,
 }
 
-function catalogStub(): CatalogClient {
+function catalogAdminStub(movies: ManagedMovie[] = [nebula]): CatalogAdminClient {
   return {
-    listMovies: vi.fn().mockResolvedValue([nebula]),
+    listMovies: vi.fn().mockResolvedValue(movies),
+    listProviders: vi.fn(),
+    selectProvider: vi.fn(),
+    search: vi.fn(),
+    importMovie: vi.fn(),
+    refresh: vi.fn(),
+    updateSchedulingFields: vi.fn(),
   }
 }
 
@@ -79,6 +96,21 @@ function renderShowtimes(ui: ReactElement) {
 }
 
 describe('ShowtimesPage', () => {
+  it('omits archived Movies from the Showtime selector', async () => {
+    await renderShowtimes(
+      <ShowtimesPage
+        session={administrator}
+        client={clientStub()}
+        catalogAdminClient={catalogAdminStub([nebula, archivedMovie])}
+        onLogout={() => undefined}
+      />,
+    )
+
+    await expect.element(page.getByRole('heading', { name: 'Showtimes' })).toBeInTheDocument()
+    await expect.element(page.getByRole('option', { name: 'Nebula Express' })).toBeInTheDocument()
+    await expect.element(page.getByRole('option', { name: 'Archived Express' })).not.toBeInTheDocument()
+  })
+
   it('sends a zoneless Cinema Time payload without converting in the browser', async () => {
     const client = clientStub()
 
@@ -86,7 +118,7 @@ describe('ShowtimesPage', () => {
       <ShowtimesPage
         session={administrator}
         client={client}
-        catalogClient={catalogStub()}
+        catalogAdminClient={catalogAdminStub()}
         onLogout={() => undefined}
       />,
     )
@@ -129,7 +161,7 @@ describe('ShowtimesPage', () => {
       <ShowtimesPage
         session={administrator}
         client={client}
-        catalogClient={catalogStub()}
+        catalogAdminClient={catalogAdminStub()}
         onLogout={() => undefined}
       />,
     )
@@ -158,7 +190,7 @@ describe('ShowtimesPage', () => {
       <ShowtimesPage
         session={administrator}
         client={client}
-        catalogClient={catalogStub()}
+        catalogAdminClient={catalogAdminStub()}
         onLogout={() => undefined}
       />,
     )
@@ -185,7 +217,7 @@ describe('ShowtimesPage', () => {
       <ShowtimesPage
         session={administrator}
         client={client}
-        catalogClient={catalogStub()}
+        catalogAdminClient={catalogAdminStub()}
         onLogout={() => undefined}
       />,
     )
@@ -211,7 +243,7 @@ describe('ShowtimesPage', () => {
       <ShowtimesPage
         session={administrator}
         client={client}
-        catalogClient={catalogStub()}
+        catalogAdminClient={catalogAdminStub()}
         onLogout={() => undefined}
       />,
     )
@@ -245,7 +277,7 @@ describe('ShowtimesPage', () => {
       <ShowtimesPage
         session={administrator}
         client={client}
-        catalogClient={catalogStub()}
+        catalogAdminClient={catalogAdminStub()}
         onLogout={() => undefined}
       />,
     )
@@ -272,7 +304,7 @@ describe('ShowtimesPage', () => {
       <ShowtimesPage
         session={administrator}
         client={clientStub({ listShowtimes: vi.fn().mockResolvedValue([scheduled]) })}
-        catalogClient={catalogStub()}
+        catalogAdminClient={catalogAdminStub()}
         onLogout={() => undefined}
       />,
     )

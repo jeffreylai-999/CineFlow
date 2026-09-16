@@ -7,8 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 interface MovieRepository extends JpaRepository<MovieEntity, Long> {
 
-	List<MovieEntity> findByArchivedAtIsNullOrderByTitleAsc();
-
 	List<MovieEntity> findAllByOrderByTitleAsc();
 
 	Optional<MovieEntity> findBySourceProviderAndExternalId(String sourceProvider, String externalId);

@@ -12,7 +12,6 @@ const seats: SeatGridItem[] = [
     seatNumber: 1,
     visualState: 'enabled',
     pressed: false,
-    accessibleName: 'Seat A1, enabled',
   },
   {
     id: 2,
@@ -21,7 +20,6 @@ const seats: SeatGridItem[] = [
     seatNumber: 2,
     visualState: 'disabled',
     pressed: true,
-    accessibleName: 'Seat A2, disabled',
   },
 ]
 
@@ -47,6 +45,56 @@ describe('SeatGrid', () => {
     enabled.element().focus()
     await userEvent.keyboard('{Enter}')
     expect(onSeatActivate).toHaveBeenCalledWith(1)
+  })
+
+  it('renders customer available, selected, and unavailable states with marks and labels', async () => {
+    const onSeatActivate = vi.fn()
+    await render(
+      <SeatGrid
+        seats={[
+          {
+            id: 1,
+            label: 'A1',
+            rowLabel: 'A',
+            seatNumber: 1,
+            visualState: 'available',
+            pressed: false,
+          },
+          {
+            id: 2,
+            label: 'A2',
+            rowLabel: 'A',
+            seatNumber: 2,
+            visualState: 'selected',
+            pressed: true,
+          },
+          {
+            id: 3,
+            label: 'A3',
+            rowLabel: 'A',
+            seatNumber: 3,
+            visualState: 'unavailable',
+            pressed: false,
+          },
+        ]}
+        onSeatActivate={onSeatActivate}
+      />,
+    )
+
+    const available = page.getByRole('button', { name: 'Seat A1, available' })
+    await expect.element(available).toHaveAttribute('data-state', 'available')
+    expect(getComputedStyle(available.element()).borderTopColor).toBe('rgb(125, 135, 153)')
+    await expect.element(page.getByRole('button', { name: 'Seat A2, selected' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+    await expect.element(page.getByRole('button', { name: 'Seat A3, unavailable' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+    await expect.element(page.getByText('●')).toBeInTheDocument()
+    await expect.element(page.getByText('■')).toBeInTheDocument()
+    await expect.element(page.getByText('A3')).toBeInTheDocument()
   })
 
   it('has no serious axe violations', async () => {

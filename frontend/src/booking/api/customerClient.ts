@@ -1,0 +1,100 @@
+export type TicketType = 'ADULT' | 'CHILD'
+
+export type CatalogShowtime = {
+  id: number
+  hallName: string
+  startsAtCinemaTime: string
+  timeZone: string
+  adultPriceMyr: number
+  childPriceMyr: number
+  checkoutOpen: boolean
+}
+
+export type CatalogShowtimeDate = {
+  cinemaDate: string
+  showtimes: CatalogShowtime[]
+}
+
+export type Movie = {
+  id: number
+  title: string
+  synopsis: string
+  genre: string
+  runtimeMinutes: number
+  ageRating: string
+  posterUrl: string | null
+  dates: CatalogShowtimeDate[]
+}
+
+export type CustomerSeat = {
+  id: number
+  rowLabel: string
+  seatNumber: number
+  label: string
+  available: boolean
+}
+
+export type ShowtimeSeats = {
+  showtimeId: number
+  movieId: number
+  movieTitle: string
+  hallName: string
+  startsAtCinemaTime: string
+  timeZone: string
+  adultPriceMyr: number
+  childPriceMyr: number
+  bookingLimit: number
+  seats: CustomerSeat[]
+}
+
+export type CustomerClient = {
+  listMovies: () => Promise<Movie[]>
+  getShowtimeSeats: (showtimeId: number) => Promise<ShowtimeSeats>
+}
+
+export class CustomerRequestError extends Error {
+  readonly status: number
+  readonly code: string | undefined
+
+  constructor(status: number, code: string | undefined) {
+    super(`Customer catalog request failed with status ${status}`)
+    this.status = status
+    this.code = code
+  }
+}
+
+export function isCustomerRequestError(error: unknown): error is CustomerRequestError {
+  return error instanceof CustomerRequestError
+}
+
+export function createCustomerClient(fetcher: typeof fetch = fetch): CustomerClient {
+  return {
+    async listMovies() {
+      return readJson<Movie[]>(fetcher('/api/movies', { headers: { Accept: 'application/json' } }))
+    },
+    async getShowtimeSeats(showtimeId) {
+      return readJson<ShowtimeSeats>(
+        fetcher(`/api/showtimes/${showtimeId}/seats`, { headers: { Accept: 'application/json' } }),
+      )
+    },
+  }
+}
+
+async function readJson<T>(responsePromise: Promise<Response>): Promise<T> {
+  const response = await responsePromise
+  if (!response.ok) {
+    throw await toError(response)
+  }
+  return (await response.json()) as T
+}
+
+async function toError(response: Response): Promise<CustomerRequestError> {
+  let code: string | undefined
+  try {
+    const body = (await response.json()) as { code?: string }
+    code = body.code
+  } catch {
+    code = undefined
+  }
+  return new CustomerRequestError(response.status, code)
+}

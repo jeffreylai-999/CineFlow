@@ -112,6 +112,10 @@ class BookingService implements Booking {
 			values (?, ?, 'CARD_SIMULATED', ?, ?, ?)
 			""";
 
+	private static final String IDEMPOTENCY_KEY_LOCK = """
+			select pg_advisory_xact_lock(hashtextextended(?, 0))
+			""";
+
 	private static final String SEATS_SELECT = """
 			select seat.id, seat.row_label, seat.seat_number,
 			       not (
@@ -263,6 +267,7 @@ class BookingService implements Booking {
 	@Transactional
 	public CheckoutResult checkout(long showtimeId, CheckoutRequest request) {
 		Instant now = clock.instant();
+		lockIdempotencyKey(request.idempotencyKey());
 		ShowtimeRow showtime = requireShowtimeForHold(showtimeId);
 		if (!CinemaTime.stillScreening(showtime.startsAt(), showtime.runtimeMinutes(), now)) {
 			throw BookingException.showtimeNotFound();
@@ -349,6 +354,10 @@ class BookingService implements Booking {
 						total,
 						admissionToken),
 				false);
+	}
+
+	private void lockIdempotencyKey(String idempotencyKey) {
+		jdbcTemplate.queryForObject(IDEMPOTENCY_KEY_LOCK, Object.class, idempotencyKey);
 	}
 
 	private static String requestFingerprint(long showtimeId, CheckoutRequest request) {

@@ -447,6 +447,70 @@ class CheckoutIT {
 	}
 
 	@Test
+	void concurrentCheckoutWithTheSameKeyAcrossShowtimesConflictsCleanly() throws Exception {
+		clock.set(START);
+		int hallId = createHall("Race A " + UUID.randomUUID(), 1, 2);
+		int otherHallId = createHall("Race B " + UUID.randomUUID(), 1, 2);
+		long movieId = insertMovie("Cross Showtime Race", 90);
+		long showtimeId = insertShowtime(hallId, movieId);
+		long otherShowtimeId = insertShowtime(otherHallId, movieId);
+		int seatId = seatIds(hallId)[0];
+		int otherSeatId = seatIds(otherHallId)[0];
+		jdbcTemplate.update("update cineflow.halls set seat_map_locked = true where id in (?, ?)", hallId, otherHallId);
+		String idempotencyKey = UUID.randomUUID().toString();
+		CheckoutRequest first = new CheckoutRequest(
+				UUID.fromString(createHold(showtimeId, seatId)),
+				"aisyah@example.com",
+				List.of(new CheckoutTicketRequest((long) seatId, TicketType.ADULT)),
+				SUCCESS_CARD,
+				idempotencyKey);
+		CheckoutRequest second = new CheckoutRequest(
+				UUID.fromString(createHold(otherShowtimeId, otherSeatId)),
+				"aisyah@example.com",
+				List.of(new CheckoutTicketRequest((long) otherSeatId, TicketType.ADULT)),
+				SUCCESS_CARD,
+				idempotencyKey);
+
+		CountDownLatch start = new CountDownLatch(1);
+		ExecutorService executor = Executors.newFixedThreadPool(2);
+		try {
+			List<Future<Object>> attempts = List.of(
+					executor.submit(() -> checkoutRace(start, showtimeId, first)),
+					executor.submit(() -> checkoutRace(start, otherShowtimeId, second)));
+			start.countDown();
+			List<Object> results = new ArrayList<>();
+			for (Future<Object> attempt : attempts) {
+				results.add(attempt.get());
+			}
+
+			assertThat(results).filteredOn(CheckoutResult.class::isInstance).hasSize(1);
+			assertThat(results)
+				.filteredOn(BookingException.class::isInstance)
+				.singleElement()
+				.extracting(result -> ((BookingException) result).code())
+				.isEqualTo("booking.idempotency_conflict");
+		}
+		finally {
+			executor.shutdownNow();
+		}
+		assertThat(paymentCount(showtimeId) + paymentCount(otherShowtimeId)).isOne();
+	}
+
+	private Object checkoutRace(CountDownLatch start, long showtimeId, CheckoutRequest request) {
+		try {
+			start.await();
+			return booking.checkout(showtimeId, request);
+		}
+		catch (InterruptedException exception) {
+			Thread.currentThread().interrupt();
+			return exception;
+		}
+		catch (RuntimeException exception) {
+			return exception;
+		}
+	}
+
+	@Test
 	void aReusedIdempotencyKeyWithADifferentRequestIsAConflict() throws Exception {
 		clock.set(START);
 		int hallId = createHall("Fingerprint " + UUID.randomUUID(), 1, 2);

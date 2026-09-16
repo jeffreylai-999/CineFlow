@@ -8,7 +8,7 @@ import {
   type StaffSeatMap,
 } from '@/booking/api/staffBookingClient.ts'
 import { BookingTicket } from '@/booking/BookingTicket.tsx'
-import { counterSaleErrorMessage } from '@/booking/counterSaleErrorMessage.ts'
+import { counterHoldErrorMessage, counterSaleErrorMessage } from '@/booking/counterSaleErrorMessage.ts'
 import { formatHoldTime } from '@/booking/formatHoldTime.ts'
 import { formatMyr } from '@/booking/formatMyr.ts'
 import { parseTicketType, ticketPrice } from '@/booking/ticketType.ts'
@@ -149,7 +149,11 @@ function CounterSaleScreen({ session, client, onLogout }: CounterSalePageProps) 
       return
     }
     if (selectedCount >= readyMap.bookingLimit) {
-      setNotice(`This Booking can include at most ${readyMap.bookingLimit} Seats.`)
+      setNotice(
+        readyMap.bookingLimit === 1
+          ? 'This Booking can include at most 1 Seat.'
+          : `This Booking can include at most ${readyMap.bookingLimit} Seats.`,
+      )
       return
     }
     setSelection({ ...selection, [seatId]: 'ADULT' })
@@ -172,7 +176,7 @@ function CounterSaleScreen({ session, client, onLogout }: CounterSalePageProps) 
       setHold({ details: created, receivedAt: performance.now() })
       refreshAvailability()
     } catch (error: unknown) {
-      setNotice(counterSaleErrorMessage(error))
+      setNotice(counterHoldErrorMessage(error))
       refreshAvailability()
     } finally {
       setBusy(false)
@@ -325,7 +329,7 @@ function CounterSaleScreen({ session, client, onLogout }: CounterSalePageProps) 
                             id={`counter-ticket-type-${seat.id}`}
                             className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                             value={ticketType}
-                            disabled={salesClosed}
+                            disabled={busy || salesClosed}
                             onChange={(event) => setTicketType(seat.id, parseTicketType(event.target.value))}
                           >
                             <option value="ADULT">Adult {formatMyr(readyMap.adultPriceMyr)}</option>
@@ -414,17 +418,17 @@ function toGridSeat(
     seatNumber: seat.seatNumber,
   }
   if (heldSeatIds.has(seat.id) || selection[seat.id]) {
-    return { ...base, visualState: 'selected', pressed: true }
+    return { ...base, visualState: 'selected', pressed: true, ariaDisabled: false }
   }
   switch (seat.state) {
     case 'AVAILABLE':
-      return { ...base, visualState: 'available', pressed: false }
+      return { ...base, visualState: 'available', pressed: false, ariaDisabled: false }
     case 'HELD':
-      return { ...base, visualState: 'held', pressed: false }
+      return { ...base, visualState: 'held', pressed: false, ariaDisabled: true }
     case 'BOOKED':
-      return { ...base, visualState: 'booked', pressed: false }
+      return { ...base, visualState: 'booked', pressed: false, ariaDisabled: true }
     case 'DISABLED':
-      return { ...base, visualState: 'disabled', pressed: false }
+      return { ...base, visualState: 'disabled', pressed: false, ariaDisabled: true }
     default: {
       const exhaustive: never = seat.state
       return exhaustive

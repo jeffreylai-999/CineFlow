@@ -410,14 +410,17 @@ class BookingService implements Booking {
 		Instant now = clock.instant();
 		lockIdempotencyKey(request.idempotencyKey());
 		ShowtimeRow showtime = requireShowtimeForHold(showtimeId);
-		if (!CinemaTime.counterSalesOpen(showtime.startsAt(), now)) {
-			throw BookingException.counterSalesCutoff();
-		}
 
+		// An exact-key replay of a completed sale wins over the Counter Sales Cutoff:
+		// the Booking already exists, so the retry must return it rather than fail.
 		String requestFingerprint = counterSaleFingerprint(showtimeId, request);
 		Optional<CheckoutResult> replay = findReplay(request.idempotencyKey(), requestFingerprint);
 		if (replay.isPresent()) {
 			return replay.get();
+		}
+
+		if (!CinemaTime.counterSalesOpen(showtime.startsAt(), now)) {
+			throw BookingException.counterSalesCutoff();
 		}
 
 		HeldHold hold = requireHeldSeats(request.holdId(), showtimeId, now);

@@ -17,6 +17,8 @@ export type SeatGridItem = {
   seatNumber: number
   visualState: SeatVisualState
   pressed: boolean
+  /** True when activating the Seat does nothing in this container (e.g. held, booked, or staff-view disabled). */
+  ariaDisabled: boolean
 }
 
 type SeatGridProps = {
@@ -49,7 +51,7 @@ export function SeatGrid({ seats, onSeatActivate }: SeatGridProps) {
                 key={seat.id}
                 type="button"
                 aria-pressed={seat.pressed}
-                aria-disabled={NOT_ACTIVATABLE.has(seat.visualState) ? true : undefined}
+                aria-disabled={seat.ariaDisabled ? true : undefined}
                 aria-label={seatAccessibleName(seat.label, seat.visualState)}
                 data-state={seat.visualState}
                 className={cn(
@@ -69,8 +71,6 @@ export function SeatGrid({ seats, onSeatActivate }: SeatGridProps) {
     </div>
   )
 }
-
-const NOT_ACTIVATABLE: ReadonlySet<SeatVisualState> = new Set(['unavailable', 'held', 'booked'])
 
 function seatAccessibleName(label: string, visualState: SeatVisualState): string {
   return `Seat ${label}, ${visualState}`

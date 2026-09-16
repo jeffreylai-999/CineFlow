@@ -317,6 +317,61 @@ class CounterSalesIT {
 	}
 
 	@Test
+	void aCompletedCounterSaleReplaysAfterTheCounterSalesCutoff() throws Exception {
+		clock.set(START);
+		String token = staffToken();
+		int hallId = createHall("Replay cutoff " + UUID.randomUUID(), 1, 2);
+		long showtimeId = insertShowtime(hallId, insertMovie("Replay Across Cutoff", 90), START.plus(Duration.ofMinutes(10)));
+		int seatId = seatIds(hallId)[0];
+		String holdId = createCounterHold(showtimeId, token, seatId);
+		String idempotencyKey = UUID.randomUUID().toString();
+
+		MvcResult first = confirm(showtimeId, token, holdId, "CASH", idempotencyKey, ticket(seatId, "ADULT"))
+			.andExpect(status().isCreated())
+			.andReturn();
+		String bookingReference = JsonPath.read(first.getResponse().getContentAsString(), "$.bookingReference");
+
+		clock.set(START.plus(Duration.ofMinutes(26)));
+		String lateToken = staffToken();
+
+		confirm(showtimeId, lateToken, holdId, "CASH", idempotencyKey, ticket(seatId, "ADULT"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.bookingReference").value(bookingReference))
+			.andExpect(jsonPath("$.admissionToken").doesNotExist());
+
+		assertThat(bookingCount(showtimeId)).isOne();
+		assertThat(paymentCount(showtimeId)).isOne();
+	}
+
+	@Test
+	void anUnknownPaymentMethodIsAStableBadRequest() throws Exception {
+		clock.set(START);
+		String token = staffToken();
+		int hallId = createHall("Method " + UUID.randomUUID(), 1, 2);
+		long showtimeId = insertShowtime(hallId, insertMovie("Unknown Method", 90), FUTURE_START);
+		int seatId = seatIds(hallId)[0];
+		String holdId = createCounterHold(showtimeId, token, seatId);
+
+		mockMvc.perform(post("/api/staff/showtimes/" + showtimeId + "/confirm")
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{
+						  "holdId": "%s",
+						  "tickets": [%s],
+						  "method": "BITS",
+						  "idempotencyKey": "%s"
+						}
+						""".formatted(holdId, ticket(seatId, "ADULT"), UUID.randomUUID())))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("request.invalid"))
+			.andExpect(jsonPath("$.detail").doesNotExist());
+
+		assertThat(bookingCount(showtimeId)).isZero();
+		assertThat(paymentCount(showtimeId)).isZero();
+	}
+
+	@Test
 	void counterSalesObeyTheBookingLimit() throws Exception {
 		clock.set(START);
 		String token = staffToken();

@@ -284,5 +284,7 @@ function toGridSeat(seat: Hall['seats'][number]): SeatGridItem {
     seatNumber: seat.seatNumber,
     visualState: seat.disabled ? 'disabled' : 'enabled',
     pressed: seat.disabled,
+    // Hall editor Seats stay actionable: activating a Disabled Seat re-enables it.
+    ariaDisabled: false,
   }
 }

@@ -349,6 +349,7 @@ function toGridSeat(
       seatNumber: seat.seatNumber,
       visualState: 'selected',
       pressed: true,
+      ariaDisabled: false,
     }
   }
   if (!seat.available) {
@@ -359,6 +360,7 @@ function toGridSeat(
       seatNumber: seat.seatNumber,
       visualState: 'unavailable',
       pressed: false,
+      ariaDisabled: true,
     }
   }
   if (selection[seat.id]) {
@@ -369,6 +371,7 @@ function toGridSeat(
       seatNumber: seat.seatNumber,
       visualState: 'selected',
       pressed: true,
+      ariaDisabled: false,
     }
   }
   return {
@@ -378,5 +381,6 @@ function toGridSeat(
     seatNumber: seat.seatNumber,
     visualState: 'available',
     pressed: false,
+    ariaDisabled: false,
   }
 }

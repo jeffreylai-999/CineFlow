@@ -1,5 +1,17 @@
 import { isStaffBookingRequestError } from '@/booking/api/staffBookingClient.ts'
 
+/**
+ * Seat Hold creation carries no idempotency key, so an ambiguous failure may
+ * still have created the Hold; retrying the same Seats then conflicts with it.
+ * The fallback says so instead of promising a safe retry.
+ */
+export function counterHoldErrorMessage(error: unknown): string {
+  if (isStaffBookingRequestError(error)) {
+    return counterSaleErrorMessage(error)
+  }
+  return 'Unable to hold Seats. If the sale was interrupted, the Seats may show as held until the interrupted Seat Hold expires.'
+}
+
 export function counterSaleErrorMessage(error: unknown): string {
   if (isStaffBookingRequestError(error)) {
     switch (error.code) {

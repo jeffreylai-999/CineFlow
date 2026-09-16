@@ -240,8 +240,31 @@ describe('CounterSalePage', () => {
 
     await expect
       .element(page.getByRole('alert'))
-      .toHaveTextContent('This Booking can include at most 1 Seats.')
+      .toHaveTextContent('This Booking can include at most 1 Seat.')
     await expect.element(page.getByLabelText('Seat A2 Ticket Type')).not.toBeInTheDocument()
+  })
+
+  it('locks Ticket Type editing while the sale is confirming', async () => {
+    let finishConfirm: (value: BookingConfirmation) => void = () => {}
+    const client = clientStub({
+      createCounterHold: vi.fn().mockResolvedValue(activeHold([1])),
+      confirmCounterSale: vi.fn(
+        () =>
+          new Promise<BookingConfirmation>((resolve) => {
+            finishConfirm = resolve
+          }),
+      ),
+    })
+    await renderCounterSale(client)
+
+    await page.getByRole('button', { name: 'Seat A1, available' }).click()
+    await page.getByRole('button', { name: 'Hold selected Seats' }).click()
+    await expect.element(page.getByText(/Seats held for 10:00/)).toBeInTheDocument()
+    await page.getByRole('button', { name: 'Confirm RM 28.00 Cash sale' }).click()
+
+    await expect.element(page.getByLabelText('Seat A1 Ticket Type')).toBeDisabled()
+    finishConfirm(confirmation)
+    await expect.element(page.getByRole('heading', { name: 'Booking confirmed' })).toBeInTheDocument()
   })
 
   it('reports an unknown Showtime', async () => {

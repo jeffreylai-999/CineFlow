@@ -51,6 +51,7 @@ export type SeatHold = {
   holdId: string
   showtimeId: number
   seatIds: number[]
+  serverTime: string
   expiresAt: string
 }
 

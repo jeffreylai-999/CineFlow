@@ -185,6 +185,7 @@ class BookingService implements Booking {
 				holdId,
 				showtimeId,
 				seats.stream().map(SeatForHold::id).toList(),
+				now,
 				expiresAt);
 	}
 

@@ -258,13 +258,14 @@ describe('SeatSelectionPage', () => {
         holdId: 'aabccabe-79c4-44d8-b38f-a1b64d4526d8',
         showtimeId: 11,
         seatIds: [1],
+        serverTime: new Date().toISOString(),
         expiresAt: new Date(Date.now() + 600_000).toISOString(),
       }),
     })
     await renderSeats(client)
     await page.getByRole('button', { name: 'Seat A1, available' }).click()
 
-    await page.getByRole('button', { name: 'Hold Seats and continue to Payment' }).click()
+    await page.getByRole('button', { name: 'Hold selected Seats' }).click()
 
     expect(client.createSeatHold).toHaveBeenCalledWith(11, [1])
     await expect
@@ -295,12 +296,14 @@ describe('SeatSelectionPage', () => {
 
     await renderSeats(client, '/showtimes/11', socket)
     await expect.element(page.getByRole('button', { name: 'Seat A1, available' })).toBeInTheDocument()
+    await page.getByRole('button', { name: 'Seat A1, available' }).click()
 
     onAvailabilityChanged()
 
     await expect
       .element(page.getByRole('button', { name: 'Seat A1, unavailable' }))
       .toBeInTheDocument()
+    await expect.element(page.getByText('No Seats selected yet.')).toBeInTheDocument()
     expect(socket.connect).toHaveBeenCalledWith(11, expect.any(Function))
     expect(client.getShowtimeSeats).toHaveBeenCalledTimes(2)
   })
@@ -311,12 +314,13 @@ describe('SeatSelectionPage', () => {
         holdId: 'aabccabe-79c4-44d8-b38f-a1b64d4526d8',
         showtimeId: 11,
         seatIds: [1],
+        serverTime: new Date().toISOString(),
         expiresAt: new Date(Date.now() - 1_000).toISOString(),
       }),
     })
     await renderSeats(client)
     await page.getByRole('button', { name: 'Seat A1, available' }).click()
-    await page.getByRole('button', { name: 'Hold Seats and continue to Payment' }).click()
+    await page.getByRole('button', { name: 'Hold selected Seats' }).click()
 
     await expect
       .element(page.getByRole('alert'))

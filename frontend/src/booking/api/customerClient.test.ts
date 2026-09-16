@@ -36,6 +36,7 @@ describe('createCustomerClient', () => {
           holdId: 'aabccabe-79c4-44d8-b38f-a1b64d4526d8',
           showtimeId: 11,
           seatIds: [1, 2],
+          serverTime: '2026-09-16T00:00:00Z',
           expiresAt: '2026-09-16T00:10:00Z',
         }),
         { status: 201, headers: { 'Content-Type': 'application/json' } },

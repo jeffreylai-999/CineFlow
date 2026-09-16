@@ -28,6 +28,10 @@ type LoadState =
   | { status: 'error'; message: string }
 
 type Selection = Record<number, TicketType>
+type ActiveSeatHold = {
+  details: SeatHold
+  receivedAt: number
+}
 
 export function SeatSelectionPage({ client, socket }: SeatSelectionPageProps) {
   const { showtimeId } = useParams()
@@ -41,7 +45,7 @@ function SeatSelectionScreen({ client, socket }: SeatSelectionPageProps) {
   const [state, setState] = useState<LoadState>({ status: 'loading' })
   const [selection, setSelection] = useState<Selection>({})
   const [limitMessage, setLimitMessage] = useState<string | null>(null)
-  const [hold, setHold] = useState<SeatHold | null>(null)
+  const [hold, setHold] = useState<ActiveSeatHold | null>(null)
   const [holdError, setHoldError] = useState<string | null>(null)
   const [creatingHold, setCreatingHold] = useState(false)
   const [refresh, setRefresh] = useState(0)
@@ -61,6 +65,15 @@ function SeatSelectionScreen({ client, socket }: SeatSelectionPageProps) {
       .then((map) => {
         if (!cancelled) {
           setState({ status: 'ready', map })
+          if (!hold) {
+            setSelection((current) =>
+              Object.fromEntries(
+                Object.entries(current).filter(([seatId]) =>
+                  map.seats.some((seat) => seat.id === Number(seatId) && seat.available),
+                ),
+              ),
+            )
+          }
         }
       })
       .catch((error: unknown) => {
@@ -86,7 +99,7 @@ function SeatSelectionScreen({ client, socket }: SeatSelectionPageProps) {
     return () => {
       cancelled = true
     }
-  }, [client, refresh, validShowtimeId])
+  }, [client, hold, refresh, validShowtimeId])
 
   useEffect(() => {
     if (validShowtimeId === null || !socket) {
@@ -103,7 +116,9 @@ function SeatSelectionScreen({ client, socket }: SeatSelectionPageProps) {
       return
     }
     const updateRemainingTime = () => {
-      const remaining = Math.max(0, Math.ceil((Date.parse(hold.expiresAt) - Date.now()) / 1_000))
+      const duration = Date.parse(hold.details.expiresAt) - Date.parse(hold.details.serverTime)
+      const elapsed = performance.now() - hold.receivedAt
+      const remaining = Math.max(0, Math.ceil((duration - elapsed) / 1_000))
       setRemainingHoldSeconds(remaining)
       if (remaining === 0) {
         setHold(null)
@@ -164,7 +179,7 @@ function SeatSelectionScreen({ client, socket }: SeatSelectionPageProps) {
     setHoldError(null)
     try {
       const created = await client.createSeatHold(readyMap.showtimeId, Object.keys(selection).map(Number))
-      setHold(created)
+      setHold({ details: created, receivedAt: performance.now() })
       refreshAvailability()
     } catch (error: unknown) {
       if (error instanceof CustomerRequestError && error.code === 'booking.seats_unavailable') {
@@ -291,7 +306,7 @@ function SeatSelectionScreen({ client, socket }: SeatSelectionPageProps) {
               disabled={selectedCount === 0 || creatingHold || hold !== null}
               onClick={createSeatHold}
             >
-              {creatingHold ? 'Holding Seats…' : 'Hold Seats and continue to Payment'}
+              {creatingHold ? 'Holding Seats…' : 'Hold selected Seats'}
             </Button>
           </aside>
         </div>

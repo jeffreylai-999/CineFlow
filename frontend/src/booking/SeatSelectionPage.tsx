@@ -100,7 +100,6 @@ function SeatSelectionScreen({ client, socket }: SeatSelectionPageProps) {
 
   useEffect(() => {
     if (!hold) {
-      setRemainingHoldSeconds(null)
       return
     }
     const updateRemainingTime = () => {

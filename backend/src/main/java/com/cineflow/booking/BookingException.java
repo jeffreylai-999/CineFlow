@@ -93,6 +93,13 @@ public class BookingException extends RuntimeException {
 				"Payment was declined");
 	}
 
+	public static BookingException idempotencyConflict() {
+		return new BookingException(
+				HttpStatus.CONFLICT,
+				"booking.idempotency_conflict",
+				"The Idempotency Key was already used for a different request");
+	}
+
 	public static BookingException rateLimited(Duration retryAfter) {
 		return new BookingException(
 				HttpStatus.TOO_MANY_REQUESTS,

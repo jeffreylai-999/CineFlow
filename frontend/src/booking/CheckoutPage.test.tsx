@@ -68,7 +68,7 @@ const confirmation: BookingConfirmation = {
 function clientStub(overrides: Partial<CustomerClient> = {}): CustomerClient {
   return {
     listMovies: vi.fn(),
-    getShowtimeSeats: vi.fn(),
+    getShowtimeSeats: vi.fn().mockResolvedValue(seatMap),
     createSeatHold: vi.fn(),
     checkout: vi.fn(),
     ...overrides,
@@ -170,6 +170,18 @@ describe('CheckoutPage', () => {
 
     await page.getByRole('link', { name: 'Choose Seats again' }).click()
     await expect.element(page.getByText('Seat selection page')).toBeInTheDocument()
+  })
+
+  it('refreshes the stored Ticket Prices when entering checkout', async () => {
+    const client = clientStub({
+      getShowtimeSeats: vi.fn().mockResolvedValue({ ...seatMap, adultPriceMyr: 33.5 }),
+    })
+    await renderCheckout(client)
+
+    await expect.element(page.getByRole('heading', { name: 'Checkout' })).toBeInTheDocument()
+    await expect.element(page.getByText('Total RM 51.50')).toHaveAttribute('role', 'status')
+    await expect.element(page.getByRole('button', { name: 'Pay RM 51.50' })).toBeInTheDocument()
+    expect(client.getShowtimeSeats).toHaveBeenCalledWith(11)
   })
 
   it('redirects to Seat selection when the checkout state is missing', async () => {

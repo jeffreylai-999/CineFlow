@@ -8,6 +8,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -17,6 +18,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -74,7 +76,8 @@ class BookingService implements Booking {
 
 	private static final String REPLAY_SELECT = """
 			select b.id, b.showtime_id, b.email, b.booking_reference,
-			       s.starts_at, m.title as movie_title, h.name as hall_name, p.amount_myr
+			       s.starts_at, m.title as movie_title, h.name as hall_name, p.amount_myr,
+			       p.request_fingerprint
 			from cineflow.payments p
 			join cineflow.bookings b on b.id = p.booking_id
 			join cineflow.showtimes s on s.id = b.showtime_id
@@ -105,8 +108,8 @@ class BookingService implements Booking {
 			""";
 
 	private static final String INSERT_PAYMENT = """
-			insert into cineflow.payments (booking_id, amount_myr, method, idempotency_key, created_at)
-			values (?, ?, 'CARD_SIMULATED', ?, ?)
+			insert into cineflow.payments (booking_id, amount_myr, method, idempotency_key, request_fingerprint, created_at)
+			values (?, ?, 'CARD_SIMULATED', ?, ?, ?)
 			""";
 
 	private static final String SEATS_SELECT = """
@@ -265,7 +268,8 @@ class BookingService implements Booking {
 			throw BookingException.showtimeNotFound();
 		}
 
-		Optional<CheckoutResult> replay = findReplay(request.idempotencyKey());
+		String requestFingerprint = requestFingerprint(request);
+		Optional<CheckoutResult> replay = findReplay(request.idempotencyKey(), requestFingerprint);
 		if (replay.isPresent()) {
 			return replay.get();
 		}
@@ -315,7 +319,13 @@ class BookingService implements Booking {
 					seat.seatId(),
 					hold.id());
 		}
-		jdbcTemplate.update(INSERT_PAYMENT, bookingId, total, request.idempotencyKey(), Timestamp.from(now));
+		jdbcTemplate.update(
+				INSERT_PAYMENT,
+				bookingId,
+				total,
+				request.idempotencyKey(),
+				requestFingerprint,
+				Timestamp.from(now));
 
 		availabilityPublisher.publishAfterCommit(showtimeId);
 
@@ -341,12 +351,26 @@ class BookingService implements Booking {
 				false);
 	}
 
-	private Optional<CheckoutResult> findReplay(String idempotencyKey) {
+	private static String requestFingerprint(CheckoutRequest request) {
+		String tickets = request.tickets().stream()
+			.sorted(Comparator.comparing(CheckoutTicketRequest::seatId))
+			.map(ticket -> ticket.seatId() + ":" + ticket.ticketType())
+			.collect(Collectors.joining(","));
+		return Sha256.hash(
+				request.holdId()
+						+ "\n" + request.email().trim().toLowerCase(Locale.ROOT)
+						+ "\n" + tickets);
+	}
+
+	private Optional<CheckoutResult> findReplay(String idempotencyKey, String requestFingerprint) {
 		List<ReplayRow> rows = jdbcTemplate.query(REPLAY_SELECT, this::mapReplayRow, idempotencyKey);
 		if (rows.isEmpty()) {
 			return Optional.empty();
 		}
 		ReplayRow row = rows.getFirst();
+		if (!row.requestFingerprint().equals(requestFingerprint)) {
+			throw BookingException.idempotencyConflict();
+		}
 		List<BookedSeatResponse> seats = jdbcTemplate.query(BOOKED_SEATS_SELECT, this::mapBookedSeat, row.bookingId());
 		return Optional.of(new CheckoutResult(
 				new BookingConfirmationResponse(
@@ -439,7 +463,8 @@ class BookingService implements Booking {
 				resultSet.getTimestamp("starts_at").toInstant(),
 				resultSet.getString("movie_title"),
 				resultSet.getString("hall_name"),
-				resultSet.getBigDecimal("amount_myr"));
+				resultSet.getBigDecimal("amount_myr"),
+				resultSet.getString("request_fingerprint"));
 	}
 
 	private int bookingLimit() {
@@ -612,7 +637,8 @@ class BookingService implements Booking {
 			Instant startsAt,
 			String movieTitle,
 			String hallName,
-			BigDecimal amountMyr) {
+			BigDecimal amountMyr,
+			String requestFingerprint) {
 	}
 
 	private static final class MovieAccumulator {

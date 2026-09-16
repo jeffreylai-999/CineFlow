@@ -68,6 +68,10 @@ function CheckoutScreen({ client, hold, holdReceivedAt, initialSelection, map }:
   const [holdLost, setHoldLost] = useState<string | null>(null)
   const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(null)
   const [idempotencyKey] = useState(() => crypto.randomUUID())
+  const [prices, setPrices] = useState(() => ({
+    adultPriceMyr: map.adultPriceMyr,
+    childPriceMyr: map.childPriceMyr,
+  }))
 
   const handleHoldExpired = useCallback(() => {
     setHoldLost('Your Seat Hold expired before the Payment completed.')
@@ -75,8 +79,25 @@ function CheckoutScreen({ client, hold, holdReceivedAt, initialSelection, map }:
 
   const remainingSeconds = useSeatHoldCountdown(confirmation ? null : hold, holdReceivedAt, handleHoldExpired)
 
+  useEffect(() => {
+    let cancelled = false
+    client
+      .getShowtimeSeats(map.showtimeId)
+      .then((fresh) => {
+        if (!cancelled) {
+          setPrices({ adultPriceMyr: fresh.adultPriceMyr, childPriceMyr: fresh.childPriceMyr })
+        }
+      })
+      .catch(() => {
+        // Keep the Seat Selection snapshot prices; the stored prices at Payment are authoritative.
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [client, map.showtimeId])
+
   const ticketTypeFor = (seatId: number): TicketType => tickets[seatId] ?? 'ADULT'
-  const total = heldSeats.reduce((sum, seat) => sum + ticketPrice(ticketTypeFor(seat.id), map), 0)
+  const total = heldSeats.reduce((sum, seat) => sum + ticketPrice(ticketTypeFor(seat.id), prices), 0)
 
   function setTicketType(seatId: number, ticketType: TicketType) {
     setTickets((current) => ({ ...current, [seatId]: ticketType }))
@@ -191,8 +212,8 @@ function CheckoutScreen({ client, hold, holdReceivedAt, initialSelection, map }:
                   disabled={checkoutClosed}
                   onChange={(event) => setTicketType(seat.id, parseTicketType(event.target.value))}
                 >
-                  <option value="ADULT">Adult {formatMyr(map.adultPriceMyr)}</option>
-                  <option value="CHILD">Child {formatMyr(map.childPriceMyr)}</option>
+                  <option value="ADULT">Adult {formatMyr(prices.adultPriceMyr)}</option>
+                  <option value="CHILD">Child {formatMyr(prices.childPriceMyr)}</option>
                 </select>
               </li>
             ))}

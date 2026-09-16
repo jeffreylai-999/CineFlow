@@ -446,6 +446,35 @@ class CheckoutIT {
 		return booking.checkout(showtimeId, request);
 	}
 
+	@Test
+	void aReusedIdempotencyKeyWithADifferentRequestIsAConflict() throws Exception {
+		clock.set(START);
+		int hallId = createHall("Fingerprint " + UUID.randomUUID(), 1, 2);
+		long showtimeId = insertShowtime(hallId, insertMovie("Idempotency Fingerprint", 90));
+		int[] seats = seatIds(hallId);
+		jdbcTemplate.update("update cineflow.halls set seat_map_locked = true where id = ?", hallId);
+		String holdId = createHold(showtimeId, seats[0]);
+		String idempotencyKey = UUID.randomUUID().toString();
+
+		checkout(showtimeId, holdId, "aisyah@example.com", SUCCESS_CARD, idempotencyKey,
+				ticket(seats[0], "ADULT"))
+			.andExpect(status().isCreated());
+
+		checkout(showtimeId, holdId, "aisyah@example.com", SUCCESS_CARD, idempotencyKey,
+				ticket(seats[0], "CHILD"))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("booking.idempotency_conflict"));
+
+		String otherHoldId = createHold(showtimeId, seats[1]);
+		checkout(showtimeId, otherHoldId, "aisyah@example.com", SUCCESS_CARD, idempotencyKey,
+				ticket(seats[1], "ADULT"))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("booking.idempotency_conflict"));
+
+		assertThat(bookingCount(showtimeId)).isOne();
+		assertThat(paymentCount(showtimeId)).isOne();
+	}
+
 	private int bookingCount(long showtimeId) {
 		Integer count = jdbcTemplate.queryForObject(
 				"select count(*) from cineflow.bookings where showtime_id = ?",
@@ -477,6 +506,7 @@ class CheckoutIT {
 		}
 		MvcResult result = mockMvc.perform(post("/api/showtimes/" + showtimeId + "/holds")
 					.contentType(MediaType.APPLICATION_JSON)
+					.header("X-Forwarded-For", "hold-" + UUID.randomUUID())
 					.content("{\"seatIds\":[" + selection + "]}"))
 			.andExpect(status().isCreated())
 			.andReturn();

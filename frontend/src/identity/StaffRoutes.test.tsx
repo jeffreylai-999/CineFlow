@@ -46,6 +46,7 @@ function silentCatalogAdminClient(): CatalogAdminClient {
     search: vi.fn().mockResolvedValue([]),
     importMovie: vi.fn(),
     refresh: vi.fn(),
+    archive: vi.fn(),
     updateSchedulingFields: vi.fn(),
   }
 }

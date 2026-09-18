@@ -15,6 +15,8 @@ public interface CatalogAdministration {
 
 	MovieAdminResponse refresh(long actorStaffId, long movieId);
 
+	MovieAdminResponse archive(long actorStaffId, long movieId);
+
 	MovieAdminResponse updateSchedulingFields(long movieId, int runtimeMinutes, String ageRating);
 
 	List<MovieAdminResponse> listMovies();

@@ -72,6 +72,7 @@ function catalogAdminStub(movies: ManagedMovie[] = [nebula]): CatalogAdminClient
     search: vi.fn(),
     importMovie: vi.fn(),
     refresh: vi.fn(),
+    archive: vi.fn(),
     updateSchedulingFields: vi.fn(),
   }
 }

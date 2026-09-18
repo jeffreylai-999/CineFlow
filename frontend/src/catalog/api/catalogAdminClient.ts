@@ -18,6 +18,8 @@ export type ManagedMovie = {
   externalId: string
   sourceRefreshedAt: string
   archivedAt?: string | null
+  providerRetentionWarning?: boolean
+  providerRetentionExpiresAt?: string | null
 }
 
 export type ImportMovieInput = {
@@ -44,6 +46,7 @@ export type CatalogAdminClient = {
   search: (query: string, accessToken: string) => Promise<MovieSearchHit[]>
   importMovie: (input: ImportMovieInput, accessToken: string) => Promise<ManagedMovie>
   refresh: (movieId: number, accessToken: string) => Promise<ManagedMovie>
+  archive: (movieId: number, accessToken: string) => Promise<ManagedMovie>
   updateSchedulingFields: (
     movieId: number,
     input: { runtimeMinutes: number; ageRating: string },
@@ -100,6 +103,14 @@ export function createCatalogAdminClient(fetcher: typeof fetch = fetch): Catalog
     refresh(movieId, accessToken) {
       return readJson(
         fetcher(`/api/admin/movies/${movieId}/refresh`, {
+          method: 'POST',
+          headers: headers(accessToken),
+        }),
+      )
+    },
+    archive(movieId, accessToken) {
+      return readJson(
+        fetcher(`/api/admin/movies/${movieId}/archive`, {
           method: 'POST',
           headers: headers(accessToken),
         }),

@@ -24,11 +24,17 @@ public class AuthController {
 	private final Identity identity;
 	private final AuthProperties authProperties;
 	private final AuthRateLimiter rateLimiter;
+	private final ClientAddresses clientAddresses;
 
-	AuthController(Identity identity, AuthProperties authProperties, AuthRateLimiter rateLimiter) {
+	AuthController(
+			Identity identity,
+			AuthProperties authProperties,
+			AuthRateLimiter rateLimiter,
+			ClientAddresses clientAddresses) {
 		this.identity = identity;
 		this.authProperties = authProperties;
 		this.rateLimiter = rateLimiter;
+		this.clientAddresses = clientAddresses;
 	}
 
 	@PostMapping("/login")
@@ -44,7 +50,7 @@ public class AuthController {
 	@PostMapping("/refresh")
 	@Operation(summary = "Rotate the refresh-token family and issue a new access token")
 	public ResponseEntity<StaffSessionResponse> refresh(HttpServletRequest httpRequest) {
-		rateLimiter.checkRefresh(ClientAddresses.of(httpRequest));
+		rateLimiter.checkRefresh(clientAddresses.of(httpRequest));
 		StaffSession session = identity.refresh(readRefreshCookie(httpRequest));
 		return withRefreshCookie(session);
 	}
@@ -100,8 +106,8 @@ public class AuthController {
 		return null;
 	}
 
-	private static String clientKey(HttpServletRequest request, String username) {
+	private String clientKey(HttpServletRequest request, String username) {
 		String value = username == null ? "" : username.toLowerCase();
-		return ClientAddresses.of(request) + ":" + value;
+		return clientAddresses.of(request) + ":" + value;
 	}
 }

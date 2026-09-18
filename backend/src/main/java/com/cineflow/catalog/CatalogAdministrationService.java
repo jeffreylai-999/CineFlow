@@ -1,6 +1,7 @@
 package com.cineflow.catalog;
 
 import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 
@@ -70,6 +71,17 @@ class CatalogAdministrationService implements CatalogAdministration {
 
 	@Override
 	@Transactional
+	public MovieAdminResponse archive(long actorStaffId, long movieId) {
+		MovieEntity movie = movieRepository.findById(movieId).orElseThrow(CatalogException::movieNotFound);
+		if (movie.getArchivedAt() == null) {
+			movie.archive(clock.instant());
+			audit.record(actorStaffId, AuditAction.MOVIE_ARCHIVED, "movie", Long.toString(movie.getId()));
+		}
+		return movie.toAdminResponse(clock.instant());
+	}
+
+	@Override
+	@Transactional
 	public MovieAdminResponse updateSchedulingFields(long movieId, int runtimeMinutes, String ageRating) {
 		if (runtimeMinutes <= 0 || ageRating == null || ageRating.isBlank()) {
 			throw CatalogException.schedulingFieldsRequired();
@@ -85,13 +97,16 @@ class CatalogAdministrationService implements CatalogAdministration {
 			}
 			throw exception;
 		}
-		return movie.toAdminResponse();
+		return movie.toAdminResponse(clock.instant());
 	}
 
 	@Override
 	@Transactional(readOnly = true)
 	public List<MovieAdminResponse> listMovies() {
-		return movieRepository.findAllByOrderByTitleAsc().stream().map(MovieEntity::toAdminResponse).toList();
+		Instant now = clock.instant();
+		return movieRepository.findAllByOrderByTitleAsc().stream()
+				.map(movie -> movie.toAdminResponse(now))
+				.toList();
 	}
 
 	@Override
@@ -140,7 +155,7 @@ class CatalogAdministrationService implements CatalogAdministration {
 			throw CatalogException.saveFailed();
 		}
 		audit.record(actorStaffId, AuditAction.MOVIE_IMPORTED, "movie", Long.toString(movie.getId()));
-		return movie.toAdminResponse();
+		return movie.toAdminResponse(clock.instant());
 	}
 
 	private MovieAdminResponse applyRefresh(long actorStaffId, long movieId, MovieProviderRecord record) {
@@ -152,7 +167,7 @@ class CatalogAdministrationService implements CatalogAdministration {
 				record.posterUrl(),
 				clock.instant());
 		audit.record(actorStaffId, AuditAction.MOVIE_REFRESHED, "movie", Long.toString(movie.getId()));
-		return movie.toAdminResponse();
+		return movie.toAdminResponse(clock.instant());
 	}
 
 	private boolean alreadyImported(String providerId, String externalId) {

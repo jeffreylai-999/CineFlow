@@ -25,7 +25,7 @@ Do not commit database passwords, JDBC URLs with credentials, or `.env` files. R
 
 The `prod` profile refuses to start if the JDBC URL uses the transaction pooler (`:6543`), omits TLS, or points at the IPv6-only direct host `db.<ref>.supabase.co`. Render's Free web services are IPv4-only, so the persistent-backend endpoint is Supavisor's **session** pooler.
 
-Staff login and refresh rate limits use the first `X-Forwarded-For` address so callers behind Render's proxy do not share one bucket. Administrator Movie search is rate-limited per signed-in staff account.
+Staff login, refresh, Seat Hold, Payment simulation, and Booking retrieval rate limits key on the client address derived from `X-Forwarded-For` at the configured trusted-proxy depth (`cineflow.http.trusted-proxy-depth`, default `1` for Render). Render appends the connecting client, so depth `1` selects the rightmost hop and ignores caller-controlled values to its left. Administrator Movie search is rate-limited per signed-in staff account.
 
 Example URL shape (password is a separate env var, not embedded):
 
@@ -103,6 +103,12 @@ Database-only automation runs as idempotent PostgreSQL functions scheduled by [S
 | Job | Schedule | Function | Purpose |
 | --- | --- | --- | --- |
 | `anonymize-expired-booking-emails` | `17 * * * *` (hourly) | `cineflow.anonymize_expired_booking_emails()` | Replace the Online Customer email with `anonymized@cineflow.invalid` seven days after the Showtime. Booking, Payment, booked Seats, Ticket, and Admission history are preserved |
+| `archive-eligible-movies` | `23 * * * *` (hourly) | `cineflow.archive_eligible_movies()` | Archive Movies that have at least one ended Showtime and no current or future Showtime. Writes a SYSTEM `MOVIE_ARCHIVED` Audit Event |
+| `cleanup-expired-seat-holds` | `29 * * * *` (hourly) | `cineflow.cleanup_expired_seat_holds()` | Delete expired Seat Holds and HOLD claims. Availability already treats expired holds as free; cleanup only reduces storage |
+| `cleanup-expired-refresh-tokens` | `37 * * * *` (hourly) | `cineflow.cleanup_expired_refresh_tokens()` | Delete refresh tokens past `expires_at` |
+| `cleanup-cron-job-history` | `47 3 * * *` (daily) | `cineflow.cleanup_cron_job_history()` | Remove `cron.job_run_details` rows older than seven days |
+
+These jobs are database-only. Edge Functions stay reserved for automation that needs outbound HTTP, with call secrets stored in Supabase Vault. No job resets public demonstration data.
 
 Inspect job definitions and run history in the `cron` schema:
 
@@ -118,9 +124,15 @@ Run a function manually (for example after restoring a paused project) with:
 
 ```sql
 select cineflow.anonymize_expired_booking_emails();
+select cineflow.archive_eligible_movies();
+select cineflow.cleanup_expired_seat_holds();
+select cineflow.cleanup_expired_refresh_tokens();
+select cineflow.cleanup_cron_job_history();
 ```
 
-The function takes an optional `as_of TIMESTAMPTZ` argument (defaulting to `now()`) so retention boundaries can be exercised in tests. It returns the number of Bookings anonymized and is idempotent: repeated runs anonymize nothing further.
+Each function takes an optional `as_of TIMESTAMPTZ` argument (defaulting to `now()`) so retention boundaries can be exercised in tests. They return the number of rows affected and are idempotent: repeated runs change nothing further.
+
+TMDB descriptive metadata must be refreshed within six months. The Administrator Movies page warns during the final thirty days so Staff can refresh from the original source or archive the Movie.
 
 ## Local stand-in
 

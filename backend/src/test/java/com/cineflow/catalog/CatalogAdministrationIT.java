@@ -172,6 +172,48 @@ class CatalogAdministrationIT {
 	}
 
 	@Test
+	void administratorCanArchiveAMovieAndSeeTmdbRetentionWarnings() throws Exception {
+		when(movieMetadataProvider.providerId()).thenReturn("tmdb");
+		when(movieMetadataProvider.fetch("9010"))
+			.thenReturn(providerRecord("9010", "Retention Gate", "Adventure", 100, "PG"));
+
+		String created = mockMvc.perform(post("/api/admin/movies/import")
+				.header("Authorization", "Bearer " + adminToken())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"providerId":"tmdb","externalId":"9010"}
+						"""))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.providerRetentionWarning").value(false))
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		int movieId = JsonPath.read(created, "$.id");
+
+		jdbcTemplate.update(
+				"update cineflow.movies set source_refreshed_at = now() - interval '160 days' where id = ?",
+				movieId);
+
+		mockMvc.perform(get("/api/admin/movies").header("Authorization", "Bearer " + adminToken()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[?(@.id==" + movieId + ")].providerRetentionWarning").value(true))
+			.andExpect(jsonPath("$[?(@.id==" + movieId + ")].providerRetentionExpiresAt").exists());
+
+		mockMvc.perform(post("/api/admin/movies/" + movieId + "/archive")
+				.header("Authorization", "Bearer " + adminToken()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.archivedAt").isNotEmpty())
+			.andExpect(jsonPath("$.providerRetentionWarning").value(false));
+
+		mockMvc.perform(post("/api/admin/movies/" + movieId + "/archive")
+				.header("Authorization", "Bearer " + adminToken()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.archivedAt").isNotEmpty());
+
+		assertThat(auditActions()).contains("MOVIE_ARCHIVED");
+	}
+
+	@Test
 	void refreshDoesNotOverwriteAConcurrentSchedulingPatch() throws Exception {
 		CountDownLatch fetchStarted = new CountDownLatch(1);
 		CountDownLatch allowFetch = new CountDownLatch(1);

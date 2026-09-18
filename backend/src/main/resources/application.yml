@@ -64,6 +64,9 @@ logging:
     level: "%5p [${spring.application.name:},%X{correlationId:-}]"
 
 cineflow:
+  http:
+    # Render appends the connecting client; depth 1 selects that hop and ignores spoofed left values.
+    trusted-proxy-depth: 1
   auth:
     access-token-ttl: PT15M
     refresh-token-ttl: PT8H

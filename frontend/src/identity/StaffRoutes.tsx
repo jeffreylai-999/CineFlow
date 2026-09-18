@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
 import { Navigate, Route, Routes, useNavigate } from 'react-router'
+import { AdmissionPage } from '@/admission/AdmissionPage.tsx'
+import { createAdmissionClient } from '@/admission/api/admissionClient.ts'
 import { createStaffBookingClient } from '@/booking/api/staffBookingClient.ts'
 import { CounterSalePage } from '@/booking/CounterSalePage.tsx'
 import { CounterSalesPage } from '@/booking/CounterSalesPage.tsx'
@@ -29,6 +31,10 @@ export function StaffRoutes({ catalogAdminClient, client }: StaffRoutesProps) {
   )
   const staffBookingClient = useMemo(
     () => (accessToken ? createStaffBookingClient(accessToken) : null),
+    [accessToken],
+  )
+  const admissionClient = useMemo(
+    () => (accessToken ? createAdmissionClient(accessToken) : null),
     [accessToken],
   )
 
@@ -81,6 +87,22 @@ export function StaffRoutes({ catalogAdminClient, client }: StaffRoutesProps) {
             <CounterSalePage
               session={auth.session}
               client={staffBookingClient}
+              onLogout={() => void auth.signOut()}
+            />
+          ) : auth.session ? (
+            <Navigate to="/staff" replace />
+          ) : (
+            <Navigate to="/staff/login" replace />
+          )
+        }
+      />
+      <Route
+        path="admission"
+        element={
+          auth.session?.staff.role === 'BOOKING_STAFF' && admissionClient ? (
+            <AdmissionPage
+              session={auth.session}
+              client={admissionClient}
               onLogout={() => void auth.signOut()}
             />
           ) : auth.session ? (

@@ -96,6 +96,27 @@ describe('StaffRoutes counter sales', () => {
   })
 })
 
+describe('StaffRoutes admission', () => {
+  it('lets Booking Staff open the Admission page from navigation', async () => {
+    await renderStaffRoutes({ session: bookingStaff, path: '/staff' })
+
+    await expect.element(page.getByRole('link', { name: 'Admission' })).toBeInTheDocument()
+    await page.getByRole('link', { name: 'Admission' }).click()
+
+    await expect.element(page.getByRole('heading', { name: 'Admission' })).toBeInTheDocument()
+    await expect.element(page.getByRole('button', { name: 'Start camera' })).toBeInTheDocument()
+    await expect.element(page.getByLabelText('Booking Reference')).toBeInTheDocument()
+  })
+
+  it('hides Admission from an Administrator, including a direct URL', async () => {
+    await renderStaffRoutes({ session: administrator, path: '/staff/admission' })
+
+    await expect.element(page.getByRole('heading', { name: 'Staff portal' })).toBeInTheDocument()
+    await expect.element(page.getByRole('link', { name: 'Admission' })).not.toBeInTheDocument()
+    await expect.element(page.getByRole('button', { name: 'Start camera' })).not.toBeInTheDocument()
+  })
+})
+
 describe('StaffRoutes staff administration', () => {
   it('hides Staff accounts from Booking Staff, including a direct URL', async () => {
     await renderStaffRoutes({ session: bookingStaff, path: '/staff/accounts' })

@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.cineflow.audit.Audit;
 import com.cineflow.audit.AuditAction;
+import com.cineflow.platform.Sha256;
 import com.cineflow.scheduling.CinemaTime;
 
 @Service

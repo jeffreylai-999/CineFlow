@@ -56,6 +56,8 @@ class SecurityConfiguration {
 				.hasRole("BOOKING_STAFF")
 				.requestMatchers("/api/staff/accounts", "/api/staff/accounts/**")
 				.hasRole("ADMINISTRATOR")
+				.requestMatchers("/api/staff/admissions", "/api/staff/admissions/**")
+				.hasRole("BOOKING_STAFF")
 				.requestMatchers("/api/halls/**", "/api/showtimes", "/api/showtimes/**")
 				.hasRole("ADMINISTRATOR")
 				.requestMatchers("/api/**")

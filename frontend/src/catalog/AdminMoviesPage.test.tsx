@@ -282,7 +282,7 @@ describe('AdminMoviesPage', () => {
     )
 
     await expect
-      .element(page.getByText(/Provider metadata approaches the retention limit/))
+      .element(page.getByText(/Provider metadata approaches the retention limit on 28 Sept 2026/))
       .toBeInTheDocument()
     await page.getByRole('button', { name: 'Archive Movie' }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Archived The Courier Gate.')

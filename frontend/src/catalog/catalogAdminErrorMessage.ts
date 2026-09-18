@@ -14,6 +14,7 @@ const CATALOG_ERROR_CODES = [
   'catalog.invalid_request',
   'catalog.save_failed',
   'catalog.showtime_overlap',
+  'catalog.movie_has_showtimes',
 ] as const
 
 type CatalogErrorCode = (typeof CATALOG_ERROR_CODES)[number]
@@ -53,6 +54,8 @@ export function catalogAdminErrorMessage(error: unknown): string {
       return 'Unable to save the Movie. Try again shortly.'
     case 'catalog.showtime_overlap':
       return 'That Hall is occupied through the movie runtime and the fifteen-minute Cleaning Buffer.'
+    case 'catalog.movie_has_showtimes':
+      return 'Archive this Movie only after its current and future Showtimes have ended.'
     default: {
       const exhausted: never = error.code
       return exhausted

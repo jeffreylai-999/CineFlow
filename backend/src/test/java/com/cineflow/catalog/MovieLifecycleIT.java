@@ -215,6 +215,11 @@ class MovieLifecycleIT {
 						Integer.class,
 						familyId))
 				.isZero();
+		assertThat(jdbcTemplate.queryForObject(
+						"select count(*) from cineflow.refresh_token_families where id = ?",
+						Integer.class,
+						familyId))
+				.isZero();
 	}
 
 	@Test

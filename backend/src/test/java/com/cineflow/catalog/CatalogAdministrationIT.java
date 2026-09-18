@@ -220,6 +220,39 @@ class CatalogAdministrationIT {
 	}
 
 	@Test
+	void administratorCannotArchiveAMovieWithACurrentOrFutureShowtime() throws Exception {
+		when(movieMetadataProvider.providerId()).thenReturn("tmdb");
+		when(movieMetadataProvider.fetch("9011"))
+			.thenReturn(providerRecord("9011", "Still Screening", "Adventure", 100, "PG"));
+
+		String token = adminToken();
+		String created = mockMvc.perform(post("/api/admin/movies/import")
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"providerId":"tmdb","externalId":"9011","runtimeMinutes":100,"ageRating":"PG"}
+						"""))
+			.andExpect(status().isCreated())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		int movieId = JsonPath.read(created, "$.id");
+		int hallId = createHall(token, "Archive guard " + UUID.randomUUID());
+		createShowtime(token, movieId, hallId, "2099-06-20T19:30").andExpect(status().isCreated());
+
+		mockMvc.perform(post("/api/admin/movies/" + movieId + "/archive")
+				.header("Authorization", "Bearer " + token))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("catalog.movie_has_showtimes"));
+
+		assertThat(jdbcTemplate.queryForObject(
+						"select archived_at from cineflow.movies where id = ?",
+						Object.class,
+						movieId))
+				.isNull();
+	}
+
+	@Test
 	void refreshDoesNotOverwriteAConcurrentSchedulingPatch() throws Exception {
 		CountDownLatch fetchStarted = new CountDownLatch(1);
 		CountDownLatch allowFetch = new CountDownLatch(1);

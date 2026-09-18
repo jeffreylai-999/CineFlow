@@ -17,6 +17,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.TransactionStatus;
@@ -44,6 +45,7 @@ class CatalogAdministrationServiceTest {
 		service = new CatalogAdministrationService(
 				providers,
 				movieRepository,
+				mock(JdbcTemplate.class),
 				mock(Audit.class),
 				Clock.fixed(Instant.parse("2026-09-15T00:00:00Z"), ZoneOffset.UTC),
 				immediateTransactions());

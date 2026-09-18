@@ -143,6 +143,13 @@ BEGIN
       );
     GET DIAGNOSTICS removed_tokens = ROW_COUNT;
 
+    DELETE FROM cineflow.refresh_token_families f
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM cineflow.refresh_tokens t
+        WHERE t.family_id = f.id
+    );
+
     RETURN removed_tokens;
 END;
 $function$;

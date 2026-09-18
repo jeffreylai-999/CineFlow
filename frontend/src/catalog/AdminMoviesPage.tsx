@@ -452,6 +452,7 @@ function formatRetentionDate(iso: string): string {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
+    timeZone: 'Asia/Kuala_Lumpur',
   }).format(new Date(parsed))
 }
 

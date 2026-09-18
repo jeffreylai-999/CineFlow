@@ -1,19 +1,27 @@
 package com.cineflow.platform;
 
+import org.springframework.stereotype.Component;
+
 import jakarta.servlet.http.HttpServletRequest;
 
-public final class ClientAddresses {
+@Component
+public class ClientAddresses {
 
-	private ClientAddresses() {
+	private final int trustedProxyDepth;
+
+	ClientAddresses(HttpProperties httpProperties) {
+		this.trustedProxyDepth = httpProperties.trustedProxyDepth();
 	}
 
-	public static String of(HttpServletRequest request) {
+	public String of(HttpServletRequest request) {
 		String forwarded = request.getHeader("X-Forwarded-For");
 		if (forwarded != null && !forwarded.isBlank()) {
-			int comma = forwarded.indexOf(',');
-			String first = comma < 0 ? forwarded.trim() : forwarded.substring(0, comma).trim();
-			if (!first.isEmpty()) {
-				return first;
+			String[] hops = forwarded.split(",");
+			if (hops.length >= trustedProxyDepth) {
+				String candidate = hops[hops.length - trustedProxyDepth].trim();
+				if (!candidate.isEmpty()) {
+					return candidate;
+				}
 			}
 		}
 		String remote = request.getRemoteAddr();

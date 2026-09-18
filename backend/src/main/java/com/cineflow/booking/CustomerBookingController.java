@@ -21,10 +21,12 @@ public class CustomerBookingController {
 
 	private final Booking booking;
 	private final BookingRateLimiter rateLimiter;
+	private final ClientAddresses clientAddresses;
 
-	CustomerBookingController(Booking booking, BookingRateLimiter rateLimiter) {
+	CustomerBookingController(Booking booking, BookingRateLimiter rateLimiter, ClientAddresses clientAddresses) {
 		this.booking = booking;
 		this.rateLimiter = rateLimiter;
+		this.clientAddresses = clientAddresses;
 	}
 
 	@PostMapping("/retrieve")
@@ -32,7 +34,7 @@ public class CustomerBookingController {
 	public BookingConfirmationResponse retrieve(
 			@Valid @RequestBody RetrieveTicketRequest request,
 			HttpServletRequest httpRequest) {
-		rateLimiter.checkRetrieval(ClientAddresses.of(httpRequest));
+		rateLimiter.checkRetrieval(clientAddresses.of(httpRequest));
 		return booking.retrieveTicket(request);
 	}
 }

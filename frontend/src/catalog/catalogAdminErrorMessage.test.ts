@@ -18,6 +18,12 @@ describe('catalogAdminErrorMessage', () => {
     )
   })
 
+  it('blocks archival while current or future Showtimes remain', () => {
+    expect(catalogAdminErrorMessage(new CatalogAdminRequestError(409, 'catalog.movie_has_showtimes'))).toBe(
+      'Archive this Movie only after its current and future Showtimes have ended.',
+    )
+  })
+
   it('keeps the fallback wording when Retry-After is absent', () => {
     expect(catalogAdminErrorMessage(new CatalogAdminRequestError(429, 'catalog.rate_limited'))).toBe(
       'Search is temporarily limited. Wait a moment and try again.',

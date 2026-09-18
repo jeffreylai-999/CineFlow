@@ -157,6 +157,21 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
     }
   }
 
+  async function onArchive(movieId: number) {
+    setBusy(true)
+    setError(null)
+    setMessage(null)
+    try {
+      const archived = await client.archive(movieId, session.accessToken)
+      upsertMovie(archived)
+      setMessage(`Archived ${archived.title}.`)
+    } catch (cause) {
+      setError(catalogAdminErrorMessage(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function onSaveScheduling(movie: ManagedMovie) {
     const draft = drafts[movie.id]
     const runtimeMinutes = Number(draft?.runtimeMinutes)
@@ -300,27 +315,58 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
                 runtimeMinutes: String(movie.runtimeMinutes),
                 ageRating: movie.ageRating,
               }
+              const archived = movie.archivedAt != null
               return (
                 <li key={movie.id} className="space-y-4 rounded-md border border-border/60 p-4">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
-                      <h3 className="text-xl font-semibold">{movie.title}</h3>
+                      <h3 className="text-xl font-semibold">
+                        {movie.title}
+                        {archived ? ' (archived)' : ''}
+                      </h3>
                       <p className="text-sm text-muted-foreground">
                         {movie.genre} · {movie.sourceProvider} {movie.externalId}
                       </p>
                       <p className="mt-2 max-w-2xl text-sm">{movie.synopsis}</p>
+                      {movie.providerRetentionWarning ? (
+                        <p role="status" className="mt-2 text-sm text-amber-800 dark:text-amber-200">
+                          Provider metadata approaches the retention limit
+                          {movie.providerRetentionExpiresAt
+                            ? ` on ${formatRetentionDate(movie.providerRetentionExpiresAt)}`
+                            : ''}
+                          . Refresh from the original source or archive this Movie.
+                        </p>
+                      ) : null}
+                      {archived ? (
+                        <p className="mt-2 text-sm text-muted-foreground">
+                          Archived — excluded from the public catalog and new Showtimes.
+                        </p>
+                      ) : null}
                     </div>
-                    {canRefreshFromSource(movie.sourceProvider) ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={busy}
-                        onClick={() => void onRefresh(movie.id)}
-                      >
-                        Refresh metadata
-                      </Button>
-                    ) : null}
+                    <div className="flex flex-col gap-2 sm:items-end">
+                      {canRefreshFromSource(movie.sourceProvider) ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() => void onRefresh(movie.id)}
+                        >
+                          Refresh metadata
+                        </Button>
+                      ) : null}
+                      {archived ? null : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() => void onArchive(movie.id)}
+                        >
+                          Archive Movie
+                        </Button>
+                      )}
+                    </div>
                   </div>
+                  {archived ? null : (
                   <div className="grid gap-3 sm:grid-cols-[8rem_8rem_auto] sm:items-end">
                     <div className="grid gap-2">
                       <Label htmlFor={`runtime-${movie.id}`}>Runtime (minutes)</Label>
@@ -353,6 +399,7 @@ export function AdminMoviesPage({ session, client, onLogout }: AdminMoviesPagePr
                       Save scheduling fields
                     </Button>
                   </div>
+                  )}
                 </li>
               )
             })}
@@ -394,6 +441,19 @@ function importInput(
 
 function canRefreshFromSource(sourceProvider: string): boolean {
   return sourceProvider === 'tmdb' || sourceProvider === 'omdb'
+}
+
+function formatRetentionDate(iso: string): string {
+  const parsed = Date.parse(iso)
+  if (Number.isNaN(parsed)) {
+    return iso
+  }
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Asia/Kuala_Lumpur',
+  }).format(new Date(parsed))
 }
 
 function searchLabel(providers: MovieProviderSettings | null): string {

@@ -113,7 +113,13 @@ class MovieEntity {
 		this.ageRating = ageRating;
 	}
 
-	MovieAdminResponse toAdminResponse() {
+	void archive(Instant archivedAt) {
+		if (this.archivedAt == null) {
+			this.archivedAt = archivedAt;
+		}
+	}
+
+	MovieAdminResponse toAdminResponse(Instant now) {
 		return new MovieAdminResponse(
 				id,
 				title,
@@ -125,6 +131,8 @@ class MovieEntity {
 				sourceProvider,
 				externalId,
 				sourceRefreshedAt,
-				archivedAt);
+				archivedAt,
+				ProviderRetention.warning(sourceProvider, sourceRefreshedAt, archivedAt, now),
+				ProviderRetention.expiresAt(sourceProvider, sourceRefreshedAt));
 	}
 }

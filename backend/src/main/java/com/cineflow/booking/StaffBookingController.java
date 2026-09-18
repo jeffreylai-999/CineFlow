@@ -30,10 +30,12 @@ public class StaffBookingController {
 
 	private final Booking booking;
 	private final BookingRateLimiter rateLimiter;
+	private final ClientAddresses clientAddresses;
 
-	StaffBookingController(Booking booking, BookingRateLimiter rateLimiter) {
+	StaffBookingController(Booking booking, BookingRateLimiter rateLimiter, ClientAddresses clientAddresses) {
 		this.booking = booking;
 		this.rateLimiter = rateLimiter;
+		this.clientAddresses = clientAddresses;
 	}
 
 	@GetMapping
@@ -55,7 +57,7 @@ public class StaffBookingController {
 			@PathVariable long id,
 			@Valid @RequestBody CreateSeatHoldRequest request,
 			HttpServletRequest httpRequest) {
-		rateLimiter.checkSeatHold(ClientAddresses.of(httpRequest));
+		rateLimiter.checkSeatHold(clientAddresses.of(httpRequest));
 		return booking.createCounterSeatHold(id, request.seatIds());
 	}
 

@@ -15,5 +15,7 @@ public record MovieAdminResponse(
 		String sourceProvider,
 		String externalId,
 		Instant sourceRefreshedAt,
-		@JsonInclude(JsonInclude.Include.NON_NULL) Instant archivedAt) {
+		@JsonInclude(JsonInclude.Include.NON_NULL) Instant archivedAt,
+		boolean providerRetentionWarning,
+		@JsonInclude(JsonInclude.Include.NON_NULL) Instant providerRetentionExpiresAt) {
 }

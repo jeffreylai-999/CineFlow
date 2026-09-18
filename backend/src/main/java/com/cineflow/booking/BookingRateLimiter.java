@@ -33,6 +33,10 @@ class BookingRateLimiter {
 		check("checkout:" + clientAddress);
 	}
 
+	void checkRetrieval(String clientAddress) {
+		check("retrieval:" + clientAddress);
+	}
+
 	private void check(String key) {
 		Instant now = clock.instant();
 		Instant windowStart = now.minus(WINDOW);

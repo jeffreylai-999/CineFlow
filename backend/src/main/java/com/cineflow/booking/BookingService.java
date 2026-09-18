@@ -94,6 +94,20 @@ class BookingService implements Booking {
 			order by seat.row_label, seat.seat_number
 			""";
 
+	// Retrieval closes at anonymization: the sentinel written by
+	// cineflow.anonymize_expired_booking_emails (V9) must never match.
+	private static final String RETRIEVAL_SELECT = """
+			select b.id, b.showtime_id, b.booking_reference,
+			       s.starts_at, m.title as movie_title, h.name as hall_name, p.amount_myr
+			from cineflow.bookings b
+			join cineflow.showtimes s on s.id = b.showtime_id
+			join cineflow.movies m on m.id = s.movie_id
+			join cineflow.halls h on h.id = s.hall_id
+			join cineflow.payments p on p.booking_id = b.id
+			where b.booking_reference = ? and b.email = ?
+			  and b.email <> 'anonymized@cineflow.invalid'
+			""";
+
 	private static final String INSERT_BOOKING = """
 			insert into cineflow.bookings (showtime_id, email, booking_reference, admission_token_hash, created_at)
 			values (?, ?, ?, ?, ?)
@@ -356,6 +370,34 @@ class BookingService implements Booking {
 				false);
 	}
 
+	@Override
+	@Transactional(readOnly = true)
+	public BookingConfirmationResponse retrieveTicket(RetrieveTicketRequest request) {
+		String email = request.email().trim().toLowerCase(Locale.ROOT);
+		String bookingReference = request.bookingReference().trim().toUpperCase(Locale.ROOT);
+		List<RetrievalRow> rows = jdbcTemplate.query(
+				RETRIEVAL_SELECT,
+				this::mapRetrievalRow,
+				bookingReference,
+				email);
+		if (rows.isEmpty()) {
+			throw BookingException.retrievalFailed();
+		}
+		RetrievalRow row = rows.getFirst();
+		List<BookedSeatResponse> seats = jdbcTemplate.query(BOOKED_SEATS_SELECT, this::mapBookedSeat, row.bookingId());
+		return new BookingConfirmationResponse(
+				row.bookingReference(),
+				row.showtimeId(),
+				row.movieTitle(),
+				row.hallName(),
+				CinemaTime.formatLocal(row.startsAt()),
+				CinemaTime.ZONE.getId(),
+				email,
+				seats,
+				row.amountMyr(),
+				null);
+	}
+
 	private void lockIdempotencyKey(String idempotencyKey) {
 		jdbcTemplate.queryForObject(IDEMPOTENCY_KEY_LOCK, Object.class, idempotencyKey);
 	}
@@ -475,6 +517,17 @@ class BookingService implements Booking {
 				resultSet.getString("hall_name"),
 				resultSet.getBigDecimal("amount_myr"),
 				resultSet.getString("request_fingerprint"));
+	}
+
+	private RetrievalRow mapRetrievalRow(ResultSet resultSet, int rowNum) throws SQLException {
+		return new RetrievalRow(
+				resultSet.getLong("id"),
+				resultSet.getLong("showtime_id"),
+				resultSet.getString("booking_reference"),
+				resultSet.getTimestamp("starts_at").toInstant(),
+				resultSet.getString("movie_title"),
+				resultSet.getString("hall_name"),
+				resultSet.getBigDecimal("amount_myr"));
 	}
 
 	private int bookingLimit() {
@@ -649,6 +702,16 @@ class BookingService implements Booking {
 			String hallName,
 			BigDecimal amountMyr,
 			String requestFingerprint) {
+	}
+
+	private record RetrievalRow(
+			long bookingId,
+			long showtimeId,
+			String bookingReference,
+			Instant startsAt,
+			String movieTitle,
+			String hallName,
+			BigDecimal amountMyr) {
 	}
 
 	private static final class MovieAccumulator {

@@ -100,6 +100,13 @@ public class BookingException extends RuntimeException {
 				"The Idempotency Key was already used for a different request");
 	}
 
+	public static BookingException retrievalFailed() {
+		return new BookingException(
+				HttpStatus.NOT_FOUND,
+				"booking.retrieval_failed",
+				"Booking not found");
+	}
+
 	public static BookingException rateLimited(Duration retryAfter) {
 		return new BookingException(
 				HttpStatus.TOO_MANY_REQUESTS,

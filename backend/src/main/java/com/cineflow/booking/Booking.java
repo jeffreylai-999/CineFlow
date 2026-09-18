@@ -11,4 +11,6 @@ public interface Booking {
 	SeatHoldResponse createSeatHold(long showtimeId, List<Long> seatIds);
 
 	CheckoutResult checkout(long showtimeId, CheckoutRequest request);
+
+	BookingConfirmationResponse retrieveTicket(RetrieveTicketRequest request);
 }

@@ -2,6 +2,7 @@ import { Route, Routes } from 'react-router'
 import { createCustomerClient } from '@/booking/api/customerClient.ts'
 import { createSeatAvailabilitySocket } from '@/booking/api/seatAvailabilitySocket.ts'
 import { CheckoutPage } from '@/booking/CheckoutPage.tsx'
+import { RetrieveTicketPage } from '@/booking/RetrieveTicketPage.tsx'
 import { SeatSelectionPage } from '@/booking/SeatSelectionPage.tsx'
 import { createCatalogAdminClient } from '@/catalog/api/catalogAdminClient.ts'
 import { CatalogPage } from '@/catalog/CatalogPage.tsx'
@@ -41,6 +42,14 @@ function App() {
         element={
           <CustomerShell>
             <CheckoutPage client={customerClient} />
+          </CustomerShell>
+        }
+      />
+      <Route
+        path="/ticket"
+        element={
+          <CustomerShell>
+            <RetrieveTicketPage client={customerClient} />
           </CustomerShell>
         }
       />

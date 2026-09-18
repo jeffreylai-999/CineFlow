@@ -56,7 +56,7 @@ pg_dump "postgresql://postgres.<project-ref>@aws-0-ap-southeast-1.pooler.supabas
 
 1. In the Render Dashboard, create a Blueprint from this repository. `render.yaml` defines a Free Docker web service named `cineflow` in Singapore, with readiness checks at `/actuator/health/readiness`.
 2. When prompted, paste the three `CINEFLOW_DATASOURCE_*` values plus `CINEFLOW_JWT_SECRET`, the bootstrap Administrator username and password, `CINEFLOW_TMDB_ACCESS_TOKEN`, and `CINEFLOW_OMDB_API_KEY`. Leave them out of git. The Blueprint sets `CINEFLOW_AUTH_COOKIE_SECURE=true`.
-3. Wait for the first deploy. Flyway applies all packaged migrations once (`V1__movie_catalog.sql` through `V9__booking_email_anonymization.sql`, including hall seat maps, catalog provider settings, Showtimes, the cinema-wide Booking Limit, Seat Holds, online checkout, and the email-anonymization Cron job); later deploys reuse the same schema. Production does not seed Booking Staff; the first Administrator comes from the bootstrap secrets.
+3. Wait for the first deploy. Flyway applies all packaged migrations once (`V1__movie_catalog.sql` through `V12__movie_and_expired_record_lifecycle.sql`, including hall seat maps, catalog provider settings, Showtimes, the cinema-wide Booking Limit, Seat Holds, online checkout, email anonymization, counter sales, Admissions, and Movie lifecycle Cron jobs); later deploys reuse the same schema. Production does not seed Booking Staff; the first Administrator comes from the bootstrap secrets.
 4. Confirm one HTTPS origin:
    - `https://<service>.onrender.com/` serves the Movie catalog page
    - `https://<service>.onrender.com/api/movies` returns Movies that have current or future Showtimes

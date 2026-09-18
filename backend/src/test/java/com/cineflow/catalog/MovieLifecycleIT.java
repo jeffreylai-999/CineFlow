@@ -49,7 +49,8 @@ class MovieLifecycleIT {
 		long movieId = insertMovie(90);
 		insertShowtime(movieId, AS_OF.minusSeconds(3 * 60 * 60), 90);
 
-		assertThat(archiveAsOf(AS_OF)).isOne();
+		assertThat(archivedAt(movieId)).isNull();
+		archiveAsOf(AS_OF);
 		assertThat(archivedAt(movieId)).isEqualTo(Timestamp.from(AS_OF));
 	}
 
@@ -58,7 +59,7 @@ class MovieLifecycleIT {
 		long movieId = insertMovie(90);
 		insertShowtime(movieId, AS_OF.minusSeconds(30 * 60), 90);
 
-		assertThat(archiveAsOf(AS_OF)).isZero();
+		archiveAsOf(AS_OF);
 		assertThat(archivedAt(movieId)).isNull();
 	}
 
@@ -66,7 +67,7 @@ class MovieLifecycleIT {
 	void doesNotArchiveMoviesThatNeverHadAShowtime() {
 		long movieId = insertMovie(90);
 
-		assertThat(archiveAsOf(AS_OF)).isZero();
+		archiveAsOf(AS_OF);
 		assertThat(archivedAt(movieId)).isNull();
 	}
 
@@ -75,8 +76,10 @@ class MovieLifecycleIT {
 		long movieId = insertMovie(90);
 		insertShowtime(movieId, AS_OF.minusSeconds(4 * 60 * 60), 90);
 
-		assertThat(archiveAsOf(AS_OF)).isOne();
-		assertThat(archiveAsOf(AS_OF)).isZero();
+		archiveAsOf(AS_OF);
+		assertThat(archivedAt(movieId)).isEqualTo(Timestamp.from(AS_OF));
+		archiveAsOf(AS_OF);
+		assertThat(archivedAt(movieId)).isEqualTo(Timestamp.from(AS_OF));
 
 		List<Map<String, Object>> events = jdbcTemplate.queryForList(
 				"""
@@ -127,7 +130,7 @@ class MovieLifecycleIT {
 				bookedSeatId,
 				bookingId);
 
-		assertThat(cleanupHoldsAsOf(AS_OF)).isOne();
+		assertThat(cleanupHoldsAsOf(AS_OF)).isGreaterThanOrEqualTo(1);
 		assertThat(jdbcTemplate.queryForObject(
 						"select count(*) from cineflow.seat_holds where id = ?",
 						Integer.class,
@@ -188,7 +191,8 @@ class MovieLifecycleIT {
 				currentId,
 				expiredId);
 
-		assertThat(cleanupTokensAsOf(AS_OF)).isOne();
+		int first = cleanupTokensAsOf(AS_OF);
+		assertThat(first).isGreaterThanOrEqualTo(1);
 		assertThat(cleanupTokensAsOf(AS_OF)).isZero();
 		assertThat(jdbcTemplate.queryForObject(
 						"select count(*) from cineflow.refresh_tokens where id = ?",

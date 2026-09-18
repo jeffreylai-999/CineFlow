@@ -267,6 +267,88 @@ describe('CounterSalePage', () => {
     await expect.element(page.getByRole('heading', { name: 'Booking confirmed' })).toBeInTheDocument()
   })
 
+  it('marks held Seats aria-disabled after the Seat Hold is created', async () => {
+    const client = clientStub({
+      createCounterHold: vi.fn().mockResolvedValue(activeHold([1])),
+    })
+    await renderCounterSale(client)
+
+    await page.getByRole('button', { name: 'Seat A1, available' }).click()
+    await expect.element(page.getByRole('button', { name: 'Seat A1, selected' })).toBeInTheDocument()
+    await expect
+      .element(page.getByRole('button', { name: 'Seat A1, selected' }))
+      .not.toHaveAttribute('aria-disabled')
+
+    await page.getByRole('button', { name: 'Hold selected Seats' }).click()
+    await expect.element(page.getByText(/Seats held for 10:00/)).toBeInTheDocument()
+    await expect.element(page.getByRole('button', { name: 'Seat A1, selected' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    )
+  })
+
+  it('keeps the Seat Map when a background availability refresh fails', async () => {
+    const client = clientStub({
+      getStaffSeatMap: vi
+        .fn()
+        .mockResolvedValueOnce(seatMap)
+        .mockRejectedValueOnce(new Error('network')),
+      createCounterHold: vi.fn().mockResolvedValue(activeHold([1])),
+    })
+    await renderCounterSale(client)
+
+    await page.getByRole('button', { name: 'Seat A1, available' }).click()
+    await page.getByRole('button', { name: 'Hold selected Seats' }).click()
+
+    await expect.element(page.getByText(/Seats held for 10:00/)).toBeInTheDocument()
+    await expect.element(page.getByRole('heading', { name: 'Counter sale' })).toBeInTheDocument()
+    await expect.element(page.getByText('Unable to load Seats. Try again shortly.')).not.toBeInTheDocument()
+    await expect.element(page.getByRole('button', { name: /Confirm RM 28.00 Cash sale/ })).toBeInTheDocument()
+  })
+
+  it('preserves an ambiguous confirm for exact replay after the Seat Hold expires', async () => {
+    const createdAt = new Date()
+    const shortHold: SeatHold = {
+      holdId: 'aabccabe-79c4-44d8-b38f-a1b64d4526d8',
+      showtimeId: 11,
+      seatIds: [1],
+      serverTime: createdAt.toISOString(),
+      expiresAt: new Date(createdAt.getTime() + 1_500).toISOString(),
+    }
+    const client = clientStub({
+      createCounterHold: vi.fn().mockResolvedValue(shortHold),
+      confirmCounterSale: vi
+        .fn()
+        .mockRejectedValueOnce(new TypeError('network'))
+        .mockResolvedValueOnce(confirmation),
+    })
+    await renderCounterSale(client)
+
+    await page.getByRole('button', { name: 'Seat A1, available' }).click()
+    await page.getByRole('button', { name: 'Hold selected Seats' }).click()
+    await page.getByRole('button', { name: /Confirm RM 28.00 Cash sale/ }).click()
+
+    await expect
+      .element(page.getByRole('alert'))
+      .toHaveTextContent(
+        'Unable to complete the sale. Retrying is safe — the same Booking is reused and the Payment is recorded only once.',
+      )
+
+    await expect.element(page.getByRole('button', { name: 'Retry previous sale' })).toBeInTheDocument()
+    await page.getByRole('button', { name: 'Retry previous sale' }).click()
+
+    expect(client.confirmCounterSale).toHaveBeenCalledTimes(2)
+    const firstKey = (client.confirmCounterSale as ReturnType<typeof vi.fn>).mock.calls[0][1]
+      .idempotencyKey
+    expect(client.confirmCounterSale).toHaveBeenLastCalledWith(11, {
+      holdId: 'aabccabe-79c4-44d8-b38f-a1b64d4526d8',
+      tickets: [{ seatId: 1, ticketType: 'ADULT' }],
+      method: 'CASH',
+      idempotencyKey: firstKey,
+    })
+    await expect.element(page.getByRole('heading', { name: 'Booking confirmed' })).toBeInTheDocument()
+  })
+
   it('reports an unknown Showtime', async () => {
     const client = clientStub({
       getStaffSeatMap: vi

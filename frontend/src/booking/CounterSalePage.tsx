@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import type { BookingConfirmation, SeatHold, TicketType } from '@/booking/api/customerClient.ts'
 import {
   isStaffBookingRequestError,
   type CounterPaymentMethod,
+  type CounterSaleRequest,
   type StaffBookingClient,
   type StaffSeatMap,
 } from '@/booking/api/staffBookingClient.ts'
@@ -64,16 +65,29 @@ function CounterSaleScreen({ session, client, onLogout }: CounterSalePageProps) 
   const [busy, setBusy] = useState(false)
   const [confirmation, setConfirmation] = useState<BookingConfirmation | null>(null)
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID())
+  const [submittedConfirm, setSubmittedConfirm] = useState<CounterSaleRequest | null>(null)
+  const submittedConfirmRef = useRef<CounterSaleRequest | null>(null)
   const [refresh, setRefresh] = useState(0)
 
   const refreshAvailability = useCallback(() => {
     setRefresh((current) => current + 1)
   }, [])
 
+  const rememberSubmittedConfirm = useCallback((request: CounterSaleRequest | null) => {
+    submittedConfirmRef.current = request
+    setSubmittedConfirm(request)
+  }, [])
+
   const handleHoldExpired = useCallback(() => {
     setHold(null)
-    setSelection({})
-    setHoldLost('The Seat Hold expired. Current availability has been refreshed.')
+    if (submittedConfirmRef.current) {
+      setHoldLost(
+        'The Seat Hold expired. If the sale may already have completed, retry the same request to recover the Booking.',
+      )
+    } else {
+      setSelection({})
+      setHoldLost('The Seat Hold expired. Current availability has been refreshed.')
+    }
     refreshAvailability()
   }, [refreshAvailability])
 
@@ -93,7 +107,7 @@ function CounterSaleScreen({ session, client, onLogout }: CounterSalePageProps) 
       .then((map) => {
         if (!cancelled) {
           setState({ status: 'ready', map })
-          if (!hold) {
+          if (!hold && !submittedConfirmRef.current) {
             setSelection((current) =>
               Object.fromEntries(
                 Object.entries(current).filter(([seatId]) =>
@@ -115,7 +129,9 @@ function CounterSaleScreen({ session, client, onLogout }: CounterSalePageProps) 
           setState({ status: 'not-found' })
           return
         }
-        setState({ status: 'error' })
+        // A transient refresh must not wipe an already-ready map while a Hold
+        // (or recoverable confirm) is still in progress.
+        setState((current) => (current.status === 'ready' ? current : { status: 'error' }))
       })
     return () => {
       cancelled = true
@@ -131,7 +147,7 @@ function CounterSaleScreen({ session, client, onLogout }: CounterSalePageProps) 
   )
 
   function handleSeatActivate(seatId: number) {
-    if (!readyMap || !readyMap.counterSalesOpen || busy || hold || confirmation) {
+    if (!readyMap || !readyMap.counterSalesOpen || busy || hold || submittedConfirm || confirmation) {
       return
     }
     const seat = readyMap.seats.find((item) => item.id === seatId)
@@ -165,7 +181,7 @@ function CounterSaleScreen({ session, client, onLogout }: CounterSalePageProps) 
   }
 
   async function createHold() {
-    if (!readyMap || selectedCount === 0 || busy || hold) {
+    if (!readyMap || selectedCount === 0 || busy || hold || submittedConfirm) {
       return
     }
     setBusy(true)
@@ -184,22 +200,32 @@ function CounterSaleScreen({ session, client, onLogout }: CounterSalePageProps) 
   }
 
   async function confirmSale() {
-    if (!readyMap || !hold || busy || confirmation) {
+    if (!readyMap || busy || confirmation) {
+      return
+    }
+    const request =
+      submittedConfirm ??
+      (hold
+        ? {
+            holdId: hold.details.holdId,
+            tickets: hold.details.seatIds.map((seatId) => ({
+              seatId,
+              ticketType: selection[seatId] ?? 'ADULT',
+            })),
+            method,
+            idempotencyKey,
+          }
+        : null)
+    if (!request) {
       return
     }
     setBusy(true)
     setNotice(null)
+    rememberSubmittedConfirm(request)
     try {
-      const confirmed = await client.confirmCounterSale(readyMap.showtimeId, {
-        holdId: hold.details.holdId,
-        tickets: hold.details.seatIds.map((seatId) => ({
-          seatId,
-          ticketType: selection[seatId] ?? 'ADULT',
-        })),
-        method,
-        idempotencyKey,
-      })
+      const confirmed = await client.confirmCounterSale(readyMap.showtimeId, request)
       setConfirmation(confirmed)
+      rememberSubmittedConfirm(null)
       refreshAvailability()
     } catch (error: unknown) {
       if (
@@ -208,11 +234,15 @@ function CounterSaleScreen({ session, client, onLogout }: CounterSalePageProps) 
           error.code === 'booking.hold_not_found' ||
           error.code === 'booking.hold_unavailable')
       ) {
+        // Replay lookup already missed, so the Booking was not created — drop the
+        // retained request and restart selection.
+        rememberSubmittedConfirm(null)
         setHold(null)
         setSelection({})
         setHoldLost('The Seat Hold is no longer active. Choose Seats again to restart the sale.')
         refreshAvailability()
       } else {
+        // Ambiguous and typed failures keep the exact request so staff can replay.
         setNotice(counterSaleErrorMessage(error))
         if (isStaffBookingRequestError(error) && error.code === 'booking.counter_sales_cutoff') {
           refreshAvailability()
@@ -229,6 +259,7 @@ function CounterSaleScreen({ session, client, onLogout }: CounterSalePageProps) 
     setSelection({})
     setNotice(null)
     setHoldLost(null)
+    rememberSubmittedConfirm(null)
     setMethod('CASH')
     setIdempotencyKey(crypto.randomUUID())
     refreshAvailability()
@@ -329,7 +360,7 @@ function CounterSaleScreen({ session, client, onLogout }: CounterSalePageProps) 
                             id={`counter-ticket-type-${seat.id}`}
                             className="h-9 rounded-md border border-input bg-background px-3 text-sm"
                             value={ticketType}
-                            disabled={busy || salesClosed}
+                            disabled={busy || salesClosed || submittedConfirm !== null}
                             onChange={(event) => setTicketType(seat.id, parseTicketType(event.target.value))}
                           >
                             <option value="ADULT">Adult {formatMyr(readyMap.adultPriceMyr)}</option>
@@ -354,8 +385,8 @@ function CounterSaleScreen({ session, client, onLogout }: CounterSalePageProps) 
                 </>
               ) : null}
 
-              {hold ? (
-                <fieldset className="mt-4" disabled={busy || salesClosed}>
+              {hold || submittedConfirm ? (
+                <fieldset className="mt-4" disabled={busy || (salesClosed && submittedConfirm === null)}>
                   <legend className="text-sm font-medium">Received Payment</legend>
                   <div className="mt-2 flex gap-4">
                     <label className="flex items-center gap-2 text-sm">
@@ -363,7 +394,8 @@ function CounterSaleScreen({ session, client, onLogout }: CounterSalePageProps) 
                         type="radio"
                         name="counter-payment-method"
                         value="CASH"
-                        checked={method === 'CASH'}
+                        checked={(submittedConfirm?.method ?? method) === 'CASH'}
+                        disabled={submittedConfirm !== null}
                         onChange={() => setMethod('CASH')}
                       />
                       Cash
@@ -373,7 +405,8 @@ function CounterSaleScreen({ session, client, onLogout }: CounterSalePageProps) 
                         type="radio"
                         name="counter-payment-method"
                         value="CARD"
-                        checked={method === 'CARD'}
+                        checked={(submittedConfirm?.method ?? method) === 'CARD'}
+                        disabled={submittedConfirm !== null}
                         onChange={() => setMethod('CARD')}
                       />
                       Card
@@ -382,10 +415,18 @@ function CounterSaleScreen({ session, client, onLogout }: CounterSalePageProps) 
                   <Button
                     type="button"
                     className="mt-3 w-full"
-                    disabled={busy || salesClosed || remainingHoldSeconds === 0}
+                    disabled={
+                      busy ||
+                      (salesClosed && submittedConfirm === null) ||
+                      (hold !== null && remainingHoldSeconds === 0 && submittedConfirm === null)
+                    }
                     onClick={confirmSale}
                   >
-                    {busy ? 'Confirming sale…' : `Confirm ${formatMyr(total)} ${method === 'CASH' ? 'Cash' : 'Card'} sale`}
+                    {busy
+                      ? 'Confirming sale…'
+                      : submittedConfirm && !hold
+                        ? 'Retry previous sale'
+                        : `Confirm ${formatMyr(total)} ${(submittedConfirm?.method ?? method) === 'CASH' ? 'Cash' : 'Card'} sale`}
                   </Button>
                 </fieldset>
               ) : (
@@ -417,7 +458,10 @@ function toGridSeat(
     rowLabel: seat.rowLabel,
     seatNumber: seat.seatNumber,
   }
-  if (heldSeatIds.has(seat.id) || selection[seat.id]) {
+  if (heldSeatIds.has(seat.id)) {
+    return { ...base, visualState: 'selected', pressed: true, ariaDisabled: true }
+  }
+  if (selection[seat.id]) {
     return { ...base, visualState: 'selected', pressed: true, ariaDisabled: false }
   }
   switch (seat.state) {

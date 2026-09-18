@@ -268,6 +268,44 @@ describe('AdmissionPage', () => {
     await expect.element(page.getByRole('heading', { name: 'Booking admitted' })).toBeInTheDocument()
   })
 
+  it('does not auto-resubmit a failed scan while the same QR stays in view', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    const client = fakeAdmissionClient({
+      admitByToken: vi.fn().mockRejectedValue(new AdmissionRequestError(404, 'admission.not_found')),
+    })
+    const scanner = fakeScanner()
+    try {
+      await render(
+        <MemoryRouter>
+          <AdmissionPage session={bookingStaff} client={client} onLogout={vi.fn()} scanner={scanner} />
+        </MemoryRouter>,
+      )
+
+      await page.getByRole('button', { name: 'Start camera' }).click()
+      await expect.element(page.getByText('Camera on. Point it at the Ticket QR code.')).toBeInTheDocument()
+
+      scanner.emit('bad-token')
+      await expect
+        .element(page.getByRole('alert'))
+        .toHaveTextContent('No Booking matches. Check the Booking Reference or scan the Ticket again.')
+      expect(client.admitByToken).toHaveBeenCalledTimes(1)
+
+      await vi.advanceTimersByTimeAsync(4_000)
+      scanner.emit('bad-token')
+      scanner.emit('bad-token')
+      expect(client.admitByToken).toHaveBeenCalledTimes(1)
+
+      await page.getByRole('button', { name: 'Stop camera' }).click()
+      await page.getByRole('button', { name: 'Start camera' }).click()
+      await expect.element(page.getByText('Camera on. Point it at the Ticket QR code.')).toBeInTheDocument()
+      scanner.emit('bad-token')
+      await expect.element(page.getByRole('alert')).toBeInTheDocument()
+      expect(client.admitByToken).toHaveBeenCalledTimes(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('keeps the manual fallback when the camera is unavailable', async () => {
     const client = fakeAdmissionClient()
     await render(

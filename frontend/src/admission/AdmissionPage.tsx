@@ -36,6 +36,7 @@ export function AdmissionPage({ session, client, onLogout, scanner }: AdmissionP
   const busyRef = useRef(false)
   const clientRef = useRef(client)
   const lastScanRef = useRef<{ token: string; at: number } | null>(null)
+  const blockedTokensRef = useRef(new Set<string>())
   const resultRef = useRef<HTMLHeadingElement>(null)
   const referenceInputRef = useRef<HTMLInputElement>(null)
 
@@ -87,17 +88,28 @@ export function AdmissionPage({ session, client, onLogout, scanner }: AdmissionP
         }
         return
       }
+      if (blockedTokensRef.current.has(token)) {
+        return
+      }
       const now = Date.now()
       const last = lastScanRef.current
       if (last !== null && last.token === token && now - last.at < DUPLICATE_SCAN_WINDOW_MS) {
         return
       }
       lastScanRef.current = { token, at: now }
+      // A finished decode must not auto-resubmit while the same QR stays in view.
+      // Clear only when the operator restarts the camera or admits another Booking.
+      blockedTokensRef.current.add(token)
       setScanNote(null)
       void submit(() => clientRef.current.admitByToken(token))
     },
     [submit],
   )
+
+  function clearBlockedScans() {
+    blockedTokensRef.current.clear()
+    lastScanRef.current = null
+  }
 
   function handleReferenceSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -109,6 +121,7 @@ export function AdmissionPage({ session, client, onLogout, scanner }: AdmissionP
     setOutcome(null)
     setError(null)
     setReference('')
+    clearBlockedScans()
   }
 
   return (
@@ -132,7 +145,11 @@ export function AdmissionPage({ session, client, onLogout, scanner }: AdmissionP
               <h2 id="scan-heading" className="text-lg font-medium">
                 Scan Ticket QR
               </h2>
-              <TicketScannerPanel scanner={scannerInstance} onToken={handleScannedToken} />
+              <TicketScannerPanel
+                scanner={scannerInstance}
+                onToken={handleScannedToken}
+                onScannerRestart={clearBlockedScans}
+              />
               {scanNote ? (
                 <p role="status" className="text-sm">
                   {scanNote}
@@ -182,9 +199,10 @@ export function AdmissionPage({ session, client, onLogout, scanner }: AdmissionP
 type TicketScannerPanelProps = {
   scanner: TicketScanner
   onToken: (token: string) => void
+  onScannerRestart: () => void
 }
 
-function TicketScannerPanel({ scanner, onToken }: TicketScannerPanelProps) {
+function TicketScannerPanel({ scanner, onToken, onScannerRestart }: TicketScannerPanelProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const [state, setState] = useState<'idle' | 'starting' | 'scanning' | 'unavailable'>('idle')
 
@@ -195,6 +213,7 @@ function TicketScannerPanel({ scanner, onToken }: TicketScannerPanelProps) {
     if (!video) {
       return
     }
+    onScannerRestart()
     setState('starting')
     try {
       await scanner.start(video, onToken)

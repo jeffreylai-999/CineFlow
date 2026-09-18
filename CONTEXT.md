@@ -101,7 +101,7 @@ A printable confirmation for one booking whose QR code represents every seat in 
 _Avoid_: Seat ticket, receipt
 
 **Admission**:
-The one-time check-in of an entire booking using its ticket or booking reference. A repeated check-in is identified as already admitted.
+The one-time check-in of an entire booking by Booking Staff using its ticket or booking reference. A repeated check-in is identified as already admitted.
 _Avoid_: Individual seat check-in, ticket redemption
 
 **Booking Cutoff**:

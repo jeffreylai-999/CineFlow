@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type RefObject } from 'react'
+import { admissionFeedback } from '@/admission/admissionFeedback.ts'
 import {
-  isAdmissionRequestError,
   type AdmissionClient,
   type AdmissionConfirmation,
 } from '@/admission/api/admissionClient.ts'
 import { createTicketScanner, type TicketScanner } from '@/admission/api/ticketScanner.ts'
+import { ticketTypeLabel } from '@/booking/ticketType.ts'
 import { Button } from '@/components/ui/button.tsx'
 import { Input } from '@/components/ui/input.tsx'
 import { Label } from '@/components/ui/label.tsx'
@@ -29,6 +30,7 @@ export function AdmissionPage({ session, client, onLogout, scanner }: AdmissionP
   const [reference, setReference] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [scanNote, setScanNote] = useState<string | null>(null)
   const [outcome, setOutcome] = useState<Outcome | null>(null)
 
   const busyRef = useRef(false)
@@ -62,34 +64,36 @@ export function AdmissionPage({ session, client, onLogout, scanner }: AdmissionP
       const confirmation = await request()
       setOutcome({ kind: 'admitted', confirmation })
     } catch (failure) {
-      if (isAdmissionRequestError(failure)) {
-        switch (failure.code) {
-          case 'admission.already_admitted':
-            setOutcome({ kind: 'already-admitted' })
-            break
-          case 'admission.not_found':
-            setError('No Booking matches. Check the Booking Reference or scan the Ticket again.')
-            break
-          default:
-            setError('Unable to admit this Booking. Try again shortly.')
-        }
+      const feedback = admissionFeedback(failure)
+      if (feedback.kind === 'already-admitted') {
+        setOutcome({ kind: 'already-admitted' })
       } else {
-        setError('Unable to admit this Booking. Try again shortly.')
+        setError(feedback.message)
       }
     } finally {
       busyRef.current = false
       setSubmitting(false)
+      setScanNote(null)
     }
   }, [])
 
   const handleScannedToken = useCallback(
     (token: string) => {
+      if (busyRef.current) {
+        if (lastScanRef.current?.token !== token) {
+          setScanNote(
+            'Still admitting the previous Booking. Wait for the result before scanning the next Ticket.',
+          )
+        }
+        return
+      }
       const now = Date.now()
       const last = lastScanRef.current
       if (last !== null && last.token === token && now - last.at < DUPLICATE_SCAN_WINDOW_MS) {
         return
       }
       lastScanRef.current = { token, at: now }
+      setScanNote(null)
       void submit(() => clientRef.current.admitByToken(token))
     },
     [submit],
@@ -129,6 +133,11 @@ export function AdmissionPage({ session, client, onLogout, scanner }: AdmissionP
                 Scan Ticket QR
               </h2>
               <TicketScannerPanel scanner={scannerInstance} onToken={handleScannedToken} />
+              {scanNote ? (
+                <p role="status" className="text-sm">
+                  {scanNote}
+                </p>
+              ) : null}
             </section>
 
             <section aria-labelledby="reference-heading" className="space-y-3">
@@ -278,7 +287,7 @@ function AdmissionOutcome({ outcome, resultRef, onNext }: AdmissionOutcomeProps)
       <ul className="grid list-none gap-1 p-0">
         {confirmation.seats.map((seat) => (
           <li key={seat.label} className="text-sm">
-            Seat {seat.label} — {seat.ticketType === 'ADULT' ? 'Adult' : 'Child'}
+            Seat {seat.label} — {ticketTypeLabel(seat.ticketType)}
           </li>
         ))}
       </ul>

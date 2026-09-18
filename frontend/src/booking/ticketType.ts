@@ -25,3 +25,16 @@ export function ticketPrice(
     }
   }
 }
+
+export function ticketTypeLabel(ticketType: TicketType): string {
+  switch (ticketType) {
+    case 'ADULT':
+      return 'Adult'
+    case 'CHILD':
+      return 'Child'
+    default: {
+      const exhaustive: never = ticketType
+      return exhaustive
+    }
+  }
+}

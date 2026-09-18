@@ -7,7 +7,6 @@ export type AdmittedSeat = {
 
 export type AdmissionConfirmation = {
   bookingReference: string
-  showtimeId: number
   movieTitle: string
   hallName: string
   startsAtCinemaTime: string

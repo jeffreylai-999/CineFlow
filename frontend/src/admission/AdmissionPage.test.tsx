@@ -20,7 +20,6 @@ const bookingStaff: StaffSession = {
 
 const confirmation: AdmissionConfirmation = {
   bookingReference: 'K7M2PQ9X4D',
-  showtimeId: 42,
   movieTitle: 'Nebula Express',
   hallName: 'Hall 1',
   startsAtCinemaTime: '2099-06-20T19:30:00',
@@ -229,6 +228,42 @@ describe('AdmissionPage', () => {
     await vi.waitFor(() => {
       expect(client.admitByToken).toHaveBeenCalledTimes(1)
     })
+    finish(confirmation)
+    await expect.element(page.getByRole('heading', { name: 'Booking admitted' })).toBeInTheDocument()
+  })
+
+  it('announces when a different Ticket is scanned while an Admission is running', async () => {
+    let finish: (value: AdmissionConfirmation) => void = () => {}
+    const client = fakeAdmissionClient({
+      admitByToken: vi.fn(
+        () =>
+          new Promise<AdmissionConfirmation>((resolve) => {
+            finish = resolve
+          }),
+      ),
+    })
+    const scanner = fakeScanner()
+    await render(
+      <MemoryRouter>
+        <AdmissionPage session={bookingStaff} client={client} onLogout={vi.fn()} scanner={scanner} />
+      </MemoryRouter>,
+    )
+
+    await page.getByRole('button', { name: 'Start camera' }).click()
+    await expect.element(page.getByText('Camera on. Point it at the Ticket QR code.')).toBeInTheDocument()
+
+    scanner.emit('first-token')
+    scanner.emit('second-token')
+
+    await expect
+      .element(
+        page.getByText(
+          'Still admitting the previous Booking. Wait for the result before scanning the next Ticket.',
+        ),
+      )
+      .toBeInTheDocument()
+    expect(client.admitByToken).toHaveBeenCalledTimes(1)
+
     finish(confirmation)
     await expect.element(page.getByRole('heading', { name: 'Booking admitted' })).toBeInTheDocument()
   })

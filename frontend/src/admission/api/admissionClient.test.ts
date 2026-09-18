@@ -8,7 +8,6 @@ import {
 
 const confirmation: AdmissionConfirmation = {
   bookingReference: 'K7M2PQ9X4D',
-  showtimeId: 42,
   movieTitle: 'Nebula Express',
   hallName: 'Hall 1',
   startsAtCinemaTime: '2099-06-20T19:30:00',

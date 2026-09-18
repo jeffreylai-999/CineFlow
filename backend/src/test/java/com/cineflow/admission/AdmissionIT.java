@@ -5,13 +5,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -35,6 +31,7 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import com.cineflow.MutableClock;
 import com.cineflow.TestcontainersConfiguration;
+import com.cineflow.platform.Sha256;
 import com.jayway.jsonpath.JsonPath;
 
 @Import({ TestcontainersConfiguration.class, AdmissionIT.ClockConfig.class })
@@ -68,7 +65,6 @@ class AdmissionIT {
 				.content("{\"admissionToken\":\"%s\"}".formatted(fixture.admissionToken())))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.bookingReference").value(fixture.bookingReference()))
-			.andExpect(jsonPath("$.showtimeId").value(fixture.showtimeId()))
 			.andExpect(jsonPath("$.movieTitle").value("QR Scan"))
 			.andExpect(jsonPath("$.hallName").value(fixture.hallName()))
 			.andExpect(jsonPath("$.startsAtCinemaTime").value("2099-06-20T19:30:00"))
@@ -97,7 +93,7 @@ class AdmissionIT {
 						""",
 				fixture.bookingReference());
 		assertThat(((Number) audit.get("actor_staff_id")).longValue()).isEqualTo(staffId("booking.staff"));
-		assertThat(audit.get("subject_type")).isEqualTo("BOOKING");
+		assertThat(audit.get("subject_type")).isEqualTo("booking");
 		assertThat(audit.get("correlation_id")).isNotNull();
 	}
 
@@ -196,6 +192,18 @@ class AdmissionIT {
 			.andExpect(jsonPath("$.code").value("request.invalid"));
 
 		assertThat(admissionCount(fixture.bookingId())).isZero();
+	}
+
+	@Test
+	void aMalformedBodyIsRejectedSafely() throws Exception {
+		clock.set(START);
+		String staffToken = accessToken("booking.staff", "StaffPassw0rd!");
+
+		mockMvc.perform(post("/api/staff/admissions")
+				.header("Authorization", "Bearer " + staffToken)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("{not json"))
+			.andExpect(status().isBadRequest());
 	}
 
 	@Test
@@ -300,7 +308,6 @@ class AdmissionIT {
 
 	private record Fixture(
 			long bookingId,
-			long showtimeId,
 			String hallName,
 			String bookingReference,
 			String admissionToken) {
@@ -362,7 +369,7 @@ class AdmissionIT {
 				showtimeId,
 				"aisyah@example.com",
 				bookingReference,
-				sha256(admissionToken),
+				Sha256.hash(admissionToken),
 				Timestamp.from(START));
 		jdbcTemplate.update(
 				"""
@@ -388,17 +395,7 @@ class AdmissionIT {
 				"select name from cineflow.halls where id = ?",
 				String.class,
 				hallId);
-		return new Fixture(bookingId, showtimeId, hallName, bookingReference, admissionToken);
-	}
-
-	private static String sha256(String value) {
-		try {
-			MessageDigest digest = MessageDigest.getInstance("SHA-256");
-			return HexFormat.of().formatHex(digest.digest(value.getBytes(StandardCharsets.UTF_8)));
-		}
-		catch (NoSuchAlgorithmException exception) {
-			throw new IllegalStateException(exception);
-		}
+		return new Fixture(bookingId, hallName, bookingReference, admissionToken);
 	}
 
 	@TestConfiguration

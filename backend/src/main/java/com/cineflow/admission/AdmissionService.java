@@ -22,7 +22,7 @@ import com.cineflow.scheduling.CinemaTime;
 class AdmissionService implements Admission {
 
 	private static final String BOOKING_SELECT = """
-			select b.id, b.booking_reference, b.showtime_id, s.starts_at,
+			select b.id, b.booking_reference, s.starts_at,
 			       m.title as movie_title, h.name as hall_name
 			from cineflow.bookings b
 			join cineflow.showtimes s on s.id = b.showtime_id
@@ -78,12 +78,11 @@ class AdmissionService implements Admission {
 		if (inserted == 0) {
 			throw AdmissionException.alreadyAdmitted();
 		}
-		audit.record(staffId, AuditAction.BOOKING_ADMITTED, "BOOKING", booking.bookingReference());
+		audit.record(staffId, AuditAction.BOOKING_ADMITTED, "booking", booking.bookingReference());
 
 		List<AdmittedSeatResponse> seats = jdbcTemplate.query(SEATS_SELECT, this::mapSeat, booking.id());
 		return new AdmissionResponse(
 				booking.bookingReference(),
-				booking.showtimeId(),
 				booking.movieTitle(),
 				booking.hallName(),
 				CinemaTime.formatLocal(booking.startsAt()),
@@ -128,7 +127,6 @@ class AdmissionService implements Admission {
 		return new BookingRow(
 				resultSet.getLong("id"),
 				resultSet.getString("booking_reference"),
-				resultSet.getLong("showtime_id"),
 				resultSet.getTimestamp("starts_at").toInstant(),
 				resultSet.getString("movie_title"),
 				resultSet.getString("hall_name"));
@@ -142,7 +140,6 @@ class AdmissionService implements Admission {
 	private record BookingRow(
 			long id,
 			String bookingReference,
-			long showtimeId,
 			Instant startsAt,
 			String movieTitle,
 			String hallName) {

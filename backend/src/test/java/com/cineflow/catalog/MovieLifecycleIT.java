@@ -47,7 +47,7 @@ class MovieLifecycleIT {
 	@Test
 	void archivesAMovieOnlyAfterAtLeastOneEndedShowtimeAndNoCurrentOrFutureShowtime() {
 		long movieId = insertMovie(90);
-		insertShowtime(movieId, AS_OF.minusSeconds(3 * 60 * 60), 90);
+		insertShowtime(movieId, AS_OF.minusSeconds(3 * 60 * 60));
 
 		assertThat(archivedAt(movieId)).isNull();
 		archiveAsOf(AS_OF);
@@ -57,7 +57,7 @@ class MovieLifecycleIT {
 	@Test
 	void doesNotArchiveWhenACurrentOrFutureShowtimeRemains() {
 		long movieId = insertMovie(90);
-		insertShowtime(movieId, AS_OF.minusSeconds(30 * 60), 90);
+		insertShowtime(movieId, AS_OF.minusSeconds(30 * 60));
 
 		archiveAsOf(AS_OF);
 		assertThat(archivedAt(movieId)).isNull();
@@ -74,7 +74,7 @@ class MovieLifecycleIT {
 	@Test
 	void archivalIsIdempotentAndWritesASystemAuditEvent() {
 		long movieId = insertMovie(90);
-		insertShowtime(movieId, AS_OF.minusSeconds(4 * 60 * 60), 90);
+		insertShowtime(movieId, AS_OF.minusSeconds(4 * 60 * 60));
 
 		archiveAsOf(AS_OF);
 		assertThat(archivedAt(movieId)).isEqualTo(Timestamp.from(AS_OF));
@@ -207,6 +207,16 @@ class MovieLifecycleIT {
 	}
 
 	@Test
+	void cronJobHistoryCleanupIsSafeWithoutPgCron() {
+		Integer removed = jdbcTemplate.queryForObject(
+				"select cineflow.cleanup_cron_job_history(?)",
+				Integer.class,
+				Timestamp.from(AS_OF));
+		assertThat(removed).isNotNull();
+		assertThat(removed).isGreaterThanOrEqualTo(0);
+	}
+
+	@Test
 	void cronJobsAreScheduledWherePgCronIsAvailable() {
 		Boolean pgCronAvailable = jdbcTemplate.queryForObject(
 				"select exists (select 1 from pg_available_extensions where name = 'pg_cron')",
@@ -275,7 +285,7 @@ class MovieLifecycleIT {
 				Timestamp.from(AS_OF.minusSeconds(30 * 24 * 60 * 60L)));
 	}
 
-	private long insertShowtime(long movieId, Instant startsAt, int ignoredRuntime) {
+	private long insertShowtime(long movieId, Instant startsAt) {
 		int hallId = insertHall(false);
 		return insertShowtimeInHall(movieId, hallId, startsAt);
 	}

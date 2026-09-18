@@ -72,7 +72,7 @@ class CatalogAdministrationService implements CatalogAdministration {
 	@Override
 	@Transactional
 	public MovieAdminResponse archive(long actorStaffId, long movieId) {
-		MovieEntity movie = movieRepository.findById(movieId).orElseThrow(CatalogException::movieNotFound);
+		MovieEntity movie = movieRepository.findByIdForUpdate(movieId).orElseThrow(CatalogException::movieNotFound);
 		if (movie.getArchivedAt() == null) {
 			movie.archive(clock.instant());
 			audit.record(actorStaffId, AuditAction.MOVIE_ARCHIVED, "movie", Long.toString(movie.getId()));

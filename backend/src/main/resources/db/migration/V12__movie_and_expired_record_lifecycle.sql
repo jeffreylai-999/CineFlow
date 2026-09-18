@@ -7,9 +7,12 @@ LANGUAGE plpgsql
 AS $function$
 DECLARE
     archived_count INTEGER := 0;
-    movie_id BIGINT;
+    candidate_id BIGINT;
+    runtime INTEGER;
 BEGIN
-    FOR movie_id IN
+    -- Candidate scan is unlocked; each archive serializes on the Movie row with the same
+    -- FOR UPDATE point used by reject_showtime_on_archived_movie, then re-checks eligibility.
+    FOR candidate_id IN
         SELECT m.id
         FROM cineflow.movies m
         WHERE m.archived_at IS NULL
@@ -26,15 +29,41 @@ BEGIN
                 AND s.starts_at + make_interval(mins => m.runtime_minutes) > as_of
           )
     LOOP
+        SELECT runtime_minutes INTO runtime
+        FROM cineflow.movies
+        WHERE id = candidate_id
+          AND archived_at IS NULL
+        FOR UPDATE;
+
+        IF NOT FOUND THEN
+            CONTINUE;
+        END IF;
+
+        IF NOT EXISTS (
+              SELECT 1
+              FROM cineflow.showtimes s
+              WHERE s.movie_id = candidate_id
+                AND s.starts_at + make_interval(mins => runtime) <= as_of
+          )
+          OR EXISTS (
+              SELECT 1
+              FROM cineflow.showtimes s
+              WHERE s.movie_id = candidate_id
+                AND s.starts_at + make_interval(mins => runtime) > as_of
+          )
+        THEN
+            CONTINUE;
+        END IF;
+
         UPDATE cineflow.movies
         SET archived_at = as_of
-        WHERE id = movie_id
+        WHERE id = candidate_id
           AND archived_at IS NULL;
 
         IF FOUND THEN
             INSERT INTO cineflow.audit_events (
                 occurred_at, actor_staff_id, action, subject_type, subject_id, correlation_id)
-            VALUES (as_of, NULL, 'MOVIE_ARCHIVED', 'movie', movie_id::text, NULL);
+            VALUES (as_of, NULL, 'MOVIE_ARCHIVED', 'movie', candidate_id::text, NULL);
             archived_count := archived_count + 1;
         END IF;
     END LOOP;
@@ -103,10 +132,6 @@ BEGIN
     RETURN removed_rows;
 END;
 $function$;
-
-CREATE INDEX IF NOT EXISTS movies_pending_archival_idx
-    ON cineflow.movies (id)
-    WHERE archived_at IS NULL;
 
 DO $schedule$
 BEGIN

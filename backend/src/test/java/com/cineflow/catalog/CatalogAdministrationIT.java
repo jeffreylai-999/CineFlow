@@ -210,7 +210,13 @@ class CatalogAdministrationIT {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.archivedAt").isNotEmpty());
 
-		assertThat(auditActions()).contains("MOVIE_ARCHIVED");
+		assertThat(jdbcTemplate.queryForList(
+				"""
+						select action from cineflow.audit_events
+						where action = 'MOVIE_ARCHIVED' and subject_id = ?
+						""",
+				String.class,
+				Integer.toString(movieId))).hasSize(1);
 	}
 
 	@Test

@@ -74,25 +74,43 @@ $function$;
 
 -- Expired HOLD claims are already treated as available by application queries; this only
 -- reduces storage and cannot change Booking correctness.
+-- Lock expired holds first (same order as BookingService.requireHeldSeats), then delete
+-- their claims and holds so this job cannot deadlock checkout.
 CREATE OR REPLACE FUNCTION cineflow.cleanup_expired_seat_holds(as_of TIMESTAMPTZ DEFAULT now())
 RETURNS INTEGER
 LANGUAGE plpgsql
 AS $function$
 DECLARE
     removed_holds INTEGER;
+    expired_hold_ids UUID[];
 BEGIN
+    SELECT coalesce(array_agg(id), ARRAY[]::UUID[])
+    INTO expired_hold_ids
+    FROM (
+        SELECT id
+        FROM cineflow.seat_holds
+        WHERE expires_at <= as_of
+        FOR UPDATE
+    ) locked;
+
     DELETE FROM cineflow.seat_claims
     WHERE claim_kind = 'HOLD'
-      AND expires_at <= as_of;
+      AND (
+          hold_id = ANY (expired_hold_ids)
+          OR (hold_id IS NULL AND expires_at <= as_of)
+      );
 
     DELETE FROM cineflow.seat_holds
-    WHERE expires_at <= as_of;
+    WHERE id = ANY (expired_hold_ids);
     GET DIAGNOSTICS removed_holds = ROW_COUNT;
 
     RETURN removed_holds;
 END;
 $function$;
 
+-- Retain expired refresh-token rows while any unexpired token remains in the family so
+-- IdentityService.refresh can still detect reuse of rotated tombstones (issue #17:
+-- cleanup must not affect correctness).
 CREATE OR REPLACE FUNCTION cineflow.cleanup_expired_refresh_tokens(as_of TIMESTAMPTZ DEFAULT now())
 RETURNS INTEGER
 LANGUAGE plpgsql
@@ -100,14 +118,29 @@ AS $function$
 DECLARE
     removed_tokens INTEGER;
 BEGIN
+    WITH deletable AS (
+        SELECT t.id
+        FROM cineflow.refresh_tokens t
+        WHERE t.expires_at < as_of
+          AND NOT EXISTS (
+              SELECT 1
+              FROM cineflow.refresh_tokens live
+              WHERE live.family_id = t.family_id
+                AND live.expires_at >= as_of
+          )
+    )
     UPDATE cineflow.refresh_tokens
     SET replaced_by_id = NULL
-    WHERE replaced_by_id IN (
-        SELECT id FROM cineflow.refresh_tokens WHERE expires_at < as_of
-    );
+    WHERE replaced_by_id IN (SELECT id FROM deletable);
 
-    DELETE FROM cineflow.refresh_tokens
-    WHERE expires_at < as_of;
+    DELETE FROM cineflow.refresh_tokens t
+    WHERE t.expires_at < as_of
+      AND NOT EXISTS (
+          SELECT 1
+          FROM cineflow.refresh_tokens live
+          WHERE live.family_id = t.family_id
+            AND live.expires_at >= as_of
+      );
     GET DIAGNOSTICS removed_tokens = ROW_COUNT;
 
     RETURN removed_tokens;

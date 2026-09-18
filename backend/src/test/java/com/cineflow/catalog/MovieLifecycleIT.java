@@ -149,7 +149,7 @@ class MovieLifecycleIT {
 	}
 
 	@Test
-	void expiredRefreshTokenCleanupIsIdempotent() {
+	void expiredRefreshTokenCleanupKeepsReuseTombstonesWhileAFamilyTokenIsLive() {
 		long staffId = jdbcTemplate.queryForObject(
 				"select id from cineflow.staff_accounts where username = 'administrator'",
 				Long.class);
@@ -187,23 +187,34 @@ class MovieLifecycleIT {
 				Timestamp.from(AS_OF.plusSeconds(60 * 60)),
 				Timestamp.from(AS_OF.minusSeconds(30)));
 		jdbcTemplate.update(
-				"update cineflow.refresh_tokens set replaced_by_id = ? where id = ?",
+				"update cineflow.refresh_tokens set replaced_by_id = ?, revoked_at = ? where id = ?",
 				currentId,
+				Timestamp.from(AS_OF.minusSeconds(30)),
 				expiredId);
 
-		int first = cleanupTokensAsOf(AS_OF);
-		assertThat(first).isGreaterThanOrEqualTo(1);
 		assertThat(cleanupTokensAsOf(AS_OF)).isZero();
 		assertThat(jdbcTemplate.queryForObject(
 						"select count(*) from cineflow.refresh_tokens where id = ?",
 						Integer.class,
 						expiredId))
-				.isZero();
+				.isOne();
 		assertThat(jdbcTemplate.queryForObject(
 						"select count(*) from cineflow.refresh_tokens where id = ?",
 						Integer.class,
 						currentId))
 				.isOne();
+
+		jdbcTemplate.update(
+				"update cineflow.refresh_tokens set expires_at = ? where id = ?",
+				Timestamp.from(AS_OF.minusSeconds(1)),
+				currentId);
+		assertThat(cleanupTokensAsOf(AS_OF)).isEqualTo(2);
+		assertThat(cleanupTokensAsOf(AS_OF)).isZero();
+		assertThat(jdbcTemplate.queryForObject(
+						"select count(*) from cineflow.refresh_tokens where family_id = ?",
+						Integer.class,
+						familyId))
+				.isZero();
 	}
 
 	@Test

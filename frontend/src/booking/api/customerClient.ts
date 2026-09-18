@@ -82,7 +82,8 @@ export type BookingConfirmation = {
   hallName: string
   startsAtCinemaTime: string
   timeZone: string
-  email: string
+  /** Null for a Staff-Assisted Booking: a Walk-in Customer has no stored details. */
+  email: string | null
   seats: BookedSeat[]
   totalMyr: number
   admissionToken: string | null

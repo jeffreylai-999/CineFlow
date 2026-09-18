@@ -1,7 +1,14 @@
 import { cn } from '@/lib/utils.ts'
 import './seat-grid.css'
 
-export type SeatVisualState = 'enabled' | 'disabled' | 'available' | 'unavailable' | 'selected'
+export type SeatVisualState =
+  | 'enabled'
+  | 'disabled'
+  | 'available'
+  | 'unavailable'
+  | 'selected'
+  | 'held'
+  | 'booked'
 
 export type SeatGridItem = {
   id: number
@@ -23,6 +30,8 @@ const STATE_MARK: Record<SeatVisualState, string> = {
   selected: '●',
   unavailable: '■',
   disabled: '✕',
+  held: '◐',
+  booked: '■',
 }
 
 export function SeatGrid({ seats, onSeatActivate }: SeatGridProps) {
@@ -40,7 +49,7 @@ export function SeatGrid({ seats, onSeatActivate }: SeatGridProps) {
                 key={seat.id}
                 type="button"
                 aria-pressed={seat.pressed}
-                aria-disabled={seat.visualState === 'unavailable' ? true : undefined}
+                aria-disabled={NOT_ACTIVATABLE.has(seat.visualState) ? true : undefined}
                 aria-label={seatAccessibleName(seat.label, seat.visualState)}
                 data-state={seat.visualState}
                 className={cn(
@@ -61,6 +70,8 @@ export function SeatGrid({ seats, onSeatActivate }: SeatGridProps) {
   )
 }
 
+const NOT_ACTIVATABLE: ReadonlySet<SeatVisualState> = new Set(['unavailable', 'held', 'booked'])
+
 function seatAccessibleName(label: string, visualState: SeatVisualState): string {
   return `Seat ${label}, ${visualState}`
 }
@@ -76,6 +87,10 @@ function seatClasses(state: SeatVisualState): string {
       return 'border-dotted border-seat-unavailable-border bg-seat-unavailable text-seat-unavailable-foreground'
     case 'disabled':
       return 'border-dashed border-seat-disabled-border bg-seat-disabled text-seat-disabled-foreground'
+    case 'held':
+      return 'border-dotted border-seat-held-border bg-seat-held text-seat-held-foreground'
+    case 'booked':
+      return 'border-solid border-seat-booked-border bg-seat-booked text-seat-booked-foreground'
     default: {
       const exhaustive: never = state
       return exhaustive

@@ -12,6 +12,7 @@ public final class CinemaTime {
 	public static final ZoneId ZONE = ZoneId.of("Asia/Kuala_Lumpur");
 	static final int CLEANING_BUFFER_MINUTES = 15;
 	public static final int BOOKING_CUTOFF_MINUTES = 15;
+	public static final int COUNTER_SALES_CUTOFF_MINUTES = 15;
 	static final Duration CLEANING_BUFFER = Duration.ofMinutes(CLEANING_BUFFER_MINUTES);
 
 	private CinemaTime() {
@@ -42,6 +43,14 @@ public final class CinemaTime {
 
 	public static boolean onlineCheckoutOpen(Instant startsAt, Instant now) {
 		return now.isBefore(bookingCutoff(startsAt));
+	}
+
+	public static Instant counterSalesCutoff(Instant startsAt) {
+		return startsAt.plus(Duration.ofMinutes(COUNTER_SALES_CUTOFF_MINUTES));
+	}
+
+	public static boolean counterSalesOpen(Instant startsAt, Instant now) {
+		return now.isBefore(counterSalesCutoff(startsAt));
 	}
 
 	public static boolean stillScreening(Instant startsAt, int runtimeMinutes, Instant now) {

@@ -46,6 +46,12 @@
   --color-seat-selected: var(--seat-selected);
   --color-seat-selected-foreground: var(--seat-selected-foreground);
   --color-seat-selected-border: var(--seat-selected-border);
+  --color-seat-held: var(--seat-held);
+  --color-seat-held-foreground: var(--seat-held-foreground);
+  --color-seat-held-border: var(--seat-held-border);
+  --color-seat-booked: var(--seat-booked);
+  --color-seat-booked-foreground: var(--seat-booked-foreground);
+  --color-seat-booked-border: var(--seat-booked-border);
 }
 
 :root,
@@ -101,4 +107,14 @@
   --seat-selected: #3a1520; /* selected-foreground on selected ≈ 11.8:1 */
   --seat-selected-foreground: #f4efe6;
   --seat-selected-border: #e11d2e; /* primary border against selected fill ≈ 3.38:1 */
+
+  /* Seat Hold (staff map): dotted amber border + ◐, a claim that expires in minutes. */
+  --seat-held: #3a2f16; /* held-foreground on held ≈ 11.47:1 */
+  --seat-held-foreground: #f4efe6;
+  --seat-held-border: #e0a83c; /* dotted border against held fill ≈ 6.15:1 */
+
+  /* Booked Seat (staff map): solid steel border + ■, a confirmed Booking that never expires. */
+  --seat-booked: #16324a; /* booked-foreground on booked ≈ 11.54:1 */
+  --seat-booked-foreground: #f4efe6;
+  --seat-booked-border: #82aed4; /* solid border against booked fill ≈ 5.63:1 */
 }

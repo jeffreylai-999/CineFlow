@@ -13,4 +13,12 @@ public interface Booking {
 	CheckoutResult checkout(long showtimeId, CheckoutRequest request);
 
 	BookingConfirmationResponse retrieveTicket(RetrieveTicketRequest request);
+
+	List<CounterShowtimeResponse> listCounterSaleShowtimes();
+
+	StaffSeatMapResponse staffSeatMap(long showtimeId);
+
+	SeatHoldResponse createCounterSeatHold(long showtimeId, List<Long> seatIds);
+
+	CheckoutResult confirmCounterSale(long actorStaffId, long showtimeId, CounterSaleRequest request);
 }

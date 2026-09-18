@@ -78,6 +78,24 @@ async function renderStaffRoutes(options: {
   return client
 }
 
+describe('StaffRoutes counter sales', () => {
+  it('shows Counter sales navigation to Booking Staff and opens the counter sales route', async () => {
+    await renderStaffRoutes({ session: bookingStaff, path: '/staff' })
+
+    await expect.element(page.getByRole('link', { name: 'Counter sales' })).toBeInTheDocument()
+    await page.getByRole('link', { name: 'Counter sales' }).click()
+    await expect.element(page.getByRole('heading', { name: 'Counter sales' })).toBeInTheDocument()
+  })
+
+  it('hides Counter sales from an Administrator, including a direct URL', async () => {
+    await renderStaffRoutes({ session: administrator, path: '/staff/counter-sales' })
+
+    await expect.element(page.getByRole('heading', { name: 'Staff portal' })).toBeInTheDocument()
+    await expect.element(page.getByRole('link', { name: 'Counter sales' })).not.toBeInTheDocument()
+    await expect.element(page.getByRole('heading', { name: 'Counter sales' })).not.toBeInTheDocument()
+  })
+})
+
 describe('StaffRoutes staff administration', () => {
   it('hides Staff accounts from Booking Staff, including a direct URL', async () => {
     await renderStaffRoutes({ session: bookingStaff, path: '/staff/accounts' })

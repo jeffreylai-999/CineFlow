@@ -5,6 +5,8 @@ import java.util.Base64;
 
 import org.springframework.stereotype.Component;
 
+import com.cineflow.platform.Sha256;
+
 /**
  * Issues the opaque Admission token carried by a Ticket's QR code. CineFlow
  * stores only the SHA-256 hash; the raw token is shown to the customer once.

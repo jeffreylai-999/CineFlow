@@ -29,11 +29,11 @@ An authenticated cinema employee assigned either the Booking Staff or Administra
 _Avoid_: Customer, member
 
 **Booking Staff**:
-A staff role that views bookings and creates staff-assisted bookings without changing cinema configuration.
+A staff role that creates staff-assisted bookings and performs Admission, without changing cinema configuration.
 _Avoid_: Staff role, standard user
 
 **Administrator**:
-A staff role that manages movies, halls, showtimes, bookings, and Booking Staff accounts.
+A staff role that manages movies, halls, showtimes, cinema settings, and Booking Staff accounts. Administrators configure bookings; they do not perform Admission.
 _Avoid_: Superuser, admin user
 
 **Movie**:
@@ -101,7 +101,7 @@ A printable confirmation for one booking whose QR code represents every seat in 
 _Avoid_: Seat ticket, receipt
 
 **Admission**:
-The one-time check-in of an entire booking using its ticket or booking reference. A repeated check-in is identified as already admitted.
+The one-time check-in of an entire booking by Booking Staff using its ticket or booking reference. A repeated check-in is identified as already admitted.
 _Avoid_: Individual seat check-in, ticket redemption
 
 **Booking Cutoff**:

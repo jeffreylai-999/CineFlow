@@ -1,5 +1,8 @@
 import { useMemo } from 'react'
 import { Navigate, Route, Routes, useNavigate } from 'react-router'
+import { createStaffBookingClient } from '@/booking/api/staffBookingClient.ts'
+import { CounterSalePage } from '@/booking/CounterSalePage.tsx'
+import { CounterSalesPage } from '@/booking/CounterSalesPage.tsx'
 import { AdminMoviesPage } from '@/catalog/AdminMoviesPage.tsx'
 import type { CatalogAdminClient } from '@/catalog/api/catalogAdminClient.ts'
 import type { IdentityClient } from '@/identity/api/identityClient.ts'
@@ -24,6 +27,10 @@ export function StaffRoutes({ catalogAdminClient, client }: StaffRoutesProps) {
     () => (accessToken ? createSchedulingClient(accessToken) : null),
     [accessToken],
   )
+  const staffBookingClient = useMemo(
+    () => (accessToken ? createStaffBookingClient(accessToken) : null),
+    [accessToken],
+  )
 
   if (!auth.ready) {
     return <p role="status">Restoring session…</p>
@@ -46,6 +53,38 @@ export function StaffRoutes({ catalogAdminClient, client }: StaffRoutesProps) {
         element={
           auth.session ? (
             <StaffHomePage session={auth.session} onLogout={() => void auth.signOut()} />
+          ) : (
+            <Navigate to="/staff/login" replace />
+          )
+        }
+      />
+      <Route
+        path="counter-sales"
+        element={
+          auth.session?.staff.role === 'BOOKING_STAFF' && staffBookingClient ? (
+            <CounterSalesPage
+              session={auth.session}
+              client={staffBookingClient}
+              onLogout={() => void auth.signOut()}
+            />
+          ) : auth.session ? (
+            <Navigate to="/staff" replace />
+          ) : (
+            <Navigate to="/staff/login" replace />
+          )
+        }
+      />
+      <Route
+        path="counter-sales/:showtimeId"
+        element={
+          auth.session?.staff.role === 'BOOKING_STAFF' && staffBookingClient ? (
+            <CounterSalePage
+              session={auth.session}
+              client={staffBookingClient}
+              onLogout={() => void auth.signOut()}
+            />
+          ) : auth.session ? (
+            <Navigate to="/staff" replace />
           ) : (
             <Navigate to="/staff/login" replace />
           )

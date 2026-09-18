@@ -1,5 +1,13 @@
-/* Hardcoded: Tailwind theme tokens and :root --seat-available-border do not reach this iframe. */
+/* Hardcoded: Tailwind theme tokens and :root --seat-* custom properties do not reach this iframe. */
 [data-state='available'],
 [data-state='enabled'] {
   border-color: #7d8799;
+}
+
+[data-state='held'] {
+  border-color: #e0a83c;
+}
+
+[data-state='booked'] {
+  border-color: #82aed4;
 }

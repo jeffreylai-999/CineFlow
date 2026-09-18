@@ -50,6 +50,13 @@ public class BookingException extends RuntimeException {
 				"Online checkout is closed at the Booking Cutoff");
 	}
 
+	public static BookingException counterSalesCutoff() {
+		return new BookingException(
+				HttpStatus.CONFLICT,
+				"booking.counter_sales_cutoff",
+				"Counter sales are closed at the Counter Sales Cutoff");
+	}
+
 	public static BookingException seatsUnavailable() {
 		return new BookingException(
 				HttpStatus.CONFLICT,

@@ -41,4 +41,12 @@ class CinemaTimeTest {
 		assertThat(CinemaTime.onlineCheckoutOpen(startsAt, Instant.parse("2026-09-20T11:15:00Z"))).isFalse();
 		assertThat(CinemaTime.cinemaDate(startsAt)).isEqualTo("2026-09-20");
 	}
+
+	@Test
+	void counterSalesCloseFifteenMinutesAfterTheShowtimeStarts() {
+		Instant startsAt = Instant.parse("2026-09-20T11:30:00Z");
+		assertThat(CinemaTime.counterSalesCutoff(startsAt)).isEqualTo(Instant.parse("2026-09-20T11:45:00Z"));
+		assertThat(CinemaTime.counterSalesOpen(startsAt, Instant.parse("2026-09-20T11:44:59Z"))).isTrue();
+		assertThat(CinemaTime.counterSalesOpen(startsAt, Instant.parse("2026-09-20T11:45:00Z"))).isFalse();
+	}
 }

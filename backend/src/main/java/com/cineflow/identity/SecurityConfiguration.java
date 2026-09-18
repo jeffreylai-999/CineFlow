@@ -52,6 +52,8 @@ class SecurityConfiguration {
 				.permitAll()
 				.requestMatchers("/api/admin/**")
 				.hasRole("ADMINISTRATOR")
+				.requestMatchers("/api/staff/showtimes", "/api/staff/showtimes/**")
+				.hasRole("BOOKING_STAFF")
 				.requestMatchers("/api/staff/accounts", "/api/staff/accounts/**")
 				.hasRole("ADMINISTRATOR")
 				.requestMatchers("/api/halls/**", "/api/showtimes", "/api/showtimes/**")

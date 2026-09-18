@@ -2,6 +2,7 @@ package com.cineflow.booking;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -130,7 +131,8 @@ class BookingRetrievalIT {
 
 		retrieve("aisyah@example.com", "ZZZZZZZZZZ", address)
 			.andExpect(status().isTooManyRequests())
-			.andExpect(jsonPath("$.code").value("booking.rate_limited"));
+			.andExpect(jsonPath("$.code").value("booking.rate_limited"))
+			.andExpect(header().exists("Retry-After"));
 
 		retrieve("aisyah@example.com", "ZZZZZZZZZZ", "retrieval-" + UUID.randomUUID())
 			.andExpect(status().isNotFound());

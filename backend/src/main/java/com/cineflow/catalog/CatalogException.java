@@ -74,6 +74,13 @@ public class CatalogException extends RuntimeException {
 				"That Hall is occupied through the movie runtime and Cleaning Buffer");
 	}
 
+	public static CatalogException movieHasCurrentOrFutureShowtime() {
+		return new CatalogException(
+				HttpStatus.CONFLICT,
+				"catalog.movie_has_showtimes",
+				"Archive only after current and future Showtimes have ended");
+	}
+
 	public static CatalogException providerNotConfigured() {
 		return new CatalogException(
 				HttpStatus.SERVICE_UNAVAILABLE,

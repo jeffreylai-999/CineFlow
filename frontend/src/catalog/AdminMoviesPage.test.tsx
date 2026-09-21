@@ -66,6 +66,11 @@ function client(overrides: Partial<CatalogAdminClient> = {}): CatalogAdminClient
     search: vi.fn().mockResolvedValue([hit]),
     importMovie: vi.fn().mockResolvedValue(imported),
     refresh: vi.fn().mockResolvedValue({ ...imported, title: 'Refreshed Gate' }),
+    archive: vi.fn().mockResolvedValue({
+      ...imported,
+      archivedAt: '2026-09-16T12:00:00Z',
+      providerRetentionWarning: false,
+    }),
     updateSchedulingFields: vi.fn().mockResolvedValue({ ...imported, runtimeMinutes: 130, ageRating: 'NC-16' }),
     ...overrides,
   }
@@ -255,6 +260,34 @@ describe('AdminMoviesPage', () => {
     await page.getByRole('button', { name: 'Refresh metadata' }).click()
     await expect.element(page.getByRole('status')).toHaveTextContent('Refreshed Refreshed Gate.')
     expect(catalogClient.refresh).toHaveBeenCalledWith(8, 'admin-token')
+  })
+
+  it('shows a retention warning and archives through the catalog client', async () => {
+    const warned: ManagedMovie = {
+      ...imported,
+      providerRetentionWarning: true,
+      providerRetentionExpiresAt: '2026-09-28T12:00:00Z',
+    }
+    const catalogClient = client({
+      listMovies: vi.fn().mockResolvedValue([warned]),
+      archive: vi.fn().mockResolvedValue({
+        ...warned,
+        archivedAt: '2026-09-16T12:00:00Z',
+        providerRetentionWarning: false,
+      }),
+    })
+
+    await renderMovies(
+      <AdminMoviesPage session={administrator} client={catalogClient} onLogout={() => undefined} />,
+    )
+
+    await expect
+      .element(page.getByText(/Provider metadata approaches the retention limit on 28 Sept 2026/))
+      .toBeInTheDocument()
+    await page.getByRole('button', { name: 'Archive Movie' }).click()
+    await expect.element(page.getByRole('status')).toHaveTextContent('Archived The Courier Gate.')
+    expect(catalogClient.archive).toHaveBeenCalledWith(8, 'admin-token')
+    await expect.element(page.getByText(/Archived — excluded from the public catalog/)).toBeInTheDocument()
   })
 
   it('surfaces Retry-After when search is rate limited', async () => {

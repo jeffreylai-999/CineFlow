@@ -26,10 +26,12 @@ public class CustomerShowtimeController {
 
 	private final Booking booking;
 	private final BookingRateLimiter rateLimiter;
+	private final ClientAddresses clientAddresses;
 
-	CustomerShowtimeController(Booking booking, BookingRateLimiter rateLimiter) {
+	CustomerShowtimeController(Booking booking, BookingRateLimiter rateLimiter, ClientAddresses clientAddresses) {
 		this.booking = booking;
 		this.rateLimiter = rateLimiter;
+		this.clientAddresses = clientAddresses;
 	}
 
 	@GetMapping("/{id}/seats")
@@ -45,7 +47,7 @@ public class CustomerShowtimeController {
 			@PathVariable long id,
 			@Valid @RequestBody CreateSeatHoldRequest request,
 			HttpServletRequest httpRequest) {
-		rateLimiter.checkSeatHold(ClientAddresses.of(httpRequest));
+		rateLimiter.checkSeatHold(clientAddresses.of(httpRequest));
 		return booking.createSeatHold(id, request.seatIds());
 	}
 
@@ -55,7 +57,7 @@ public class CustomerShowtimeController {
 			@PathVariable long id,
 			@Valid @RequestBody CheckoutRequest request,
 			HttpServletRequest httpRequest) {
-		rateLimiter.checkCheckout(ClientAddresses.of(httpRequest));
+		rateLimiter.checkCheckout(clientAddresses.of(httpRequest));
 		CheckoutResult result = booking.checkout(id, request);
 		HttpStatus status = result.replayed() ? HttpStatus.OK : HttpStatus.CREATED;
 		return ResponseEntity.status(status).body(result.confirmation());

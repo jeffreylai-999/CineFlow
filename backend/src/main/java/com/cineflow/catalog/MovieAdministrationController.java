@@ -66,6 +66,12 @@ public class MovieAdministrationController {
 		return catalogAdministration.refresh(staffId(authentication), movieId);
 	}
 
+	@PostMapping("/{movieId}/archive")
+	@Operation(summary = "Archive a Movie so it leaves new scheduling and catalog choices")
+	public MovieAdminResponse archive(@PathVariable long movieId, Authentication authentication) {
+		return catalogAdministration.archive(staffId(authentication), movieId);
+	}
+
 	@PatchMapping("/{movieId}")
 	@Operation(summary = "Update locally controlled runtime and age rating")
 	public MovieAdminResponse updateSchedulingFields(

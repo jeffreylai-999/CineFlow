@@ -61,11 +61,31 @@ class IdentityRateLimitIT {
 	}
 
 	@Test
+	void refreshRateLimitIgnoresSpoofedLeftmostForwardedHops() throws Exception {
+		mockMvc.perform(post("/api/auth/refresh").header("X-Forwarded-For", "203.0.113.10, 198.51.100.50"))
+			.andExpect(status().isUnauthorized());
+		mockMvc.perform(post("/api/auth/refresh").header("X-Forwarded-For", "198.51.100.1, 198.51.100.50"))
+			.andExpect(status().isUnauthorized());
+		mockMvc.perform(post("/api/auth/refresh").header("X-Forwarded-For", "192.0.2.9, 198.51.100.50"))
+			.andExpect(status().isTooManyRequests());
+		mockMvc.perform(post("/api/auth/refresh").header("X-Forwarded-For", "192.0.2.9, 203.0.113.77"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
 	void loginRateLimitUsesTheForwardedClientAddress() throws Exception {
 		attemptLogin("203.0.113.10").andExpect(status().isUnauthorized());
 		attemptLogin("203.0.113.10").andExpect(status().isUnauthorized());
 		attemptLogin("203.0.113.10").andExpect(status().isTooManyRequests());
 		attemptLogin("198.51.100.20").andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void loginRateLimitIgnoresSpoofedLeftmostForwardedHops() throws Exception {
+		attemptLogin("203.0.113.10, 198.51.100.50").andExpect(status().isUnauthorized());
+		attemptLogin("198.51.100.1, 198.51.100.50").andExpect(status().isUnauthorized());
+		attemptLogin("192.0.2.9, 198.51.100.50").andExpect(status().isTooManyRequests());
+		attemptLogin("192.0.2.9, 203.0.113.77").andExpect(status().isUnauthorized());
 	}
 
 	private ResultActions attemptLogin() throws Exception {

@@ -172,6 +172,87 @@ class CatalogAdministrationIT {
 	}
 
 	@Test
+	void administratorCanArchiveAMovieAndSeeTmdbRetentionWarnings() throws Exception {
+		when(movieMetadataProvider.providerId()).thenReturn("tmdb");
+		when(movieMetadataProvider.fetch("9010"))
+			.thenReturn(providerRecord("9010", "Retention Gate", "Adventure", 100, "PG"));
+
+		String created = mockMvc.perform(post("/api/admin/movies/import")
+				.header("Authorization", "Bearer " + adminToken())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"providerId":"tmdb","externalId":"9010"}
+						"""))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.providerRetentionWarning").value(false))
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		int movieId = JsonPath.read(created, "$.id");
+
+		jdbcTemplate.update(
+				"update cineflow.movies set source_refreshed_at = now() - interval '160 days' where id = ?",
+				movieId);
+
+		mockMvc.perform(get("/api/admin/movies").header("Authorization", "Bearer " + adminToken()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[?(@.id==" + movieId + ")].providerRetentionWarning").value(true))
+			.andExpect(jsonPath("$[?(@.id==" + movieId + ")].providerRetentionExpiresAt").exists());
+
+		mockMvc.perform(post("/api/admin/movies/" + movieId + "/archive")
+				.header("Authorization", "Bearer " + adminToken()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.archivedAt").isNotEmpty())
+			.andExpect(jsonPath("$.providerRetentionWarning").value(false));
+
+		mockMvc.perform(post("/api/admin/movies/" + movieId + "/archive")
+				.header("Authorization", "Bearer " + adminToken()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.archivedAt").isNotEmpty());
+
+		assertThat(jdbcTemplate.queryForList(
+				"""
+						select action from cineflow.audit_events
+						where action = 'MOVIE_ARCHIVED' and subject_id = ?
+						""",
+				String.class,
+				Integer.toString(movieId))).hasSize(1);
+	}
+
+	@Test
+	void administratorCannotArchiveAMovieWithACurrentOrFutureShowtime() throws Exception {
+		when(movieMetadataProvider.providerId()).thenReturn("tmdb");
+		when(movieMetadataProvider.fetch("9011"))
+			.thenReturn(providerRecord("9011", "Still Screening", "Adventure", 100, "PG"));
+
+		String token = adminToken();
+		String created = mockMvc.perform(post("/api/admin/movies/import")
+				.header("Authorization", "Bearer " + token)
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{"providerId":"tmdb","externalId":"9011","runtimeMinutes":100,"ageRating":"PG"}
+						"""))
+			.andExpect(status().isCreated())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		int movieId = JsonPath.read(created, "$.id");
+		int hallId = createHall(token, "Archive guard " + UUID.randomUUID());
+		createShowtime(token, movieId, hallId, "2099-06-20T19:30").andExpect(status().isCreated());
+
+		mockMvc.perform(post("/api/admin/movies/" + movieId + "/archive")
+				.header("Authorization", "Bearer " + token))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("catalog.movie_has_showtimes"));
+
+		assertThat(jdbcTemplate.queryForObject(
+						"select archived_at from cineflow.movies where id = ?",
+						Object.class,
+						movieId))
+				.isNull();
+	}
+
+	@Test
 	void refreshDoesNotOverwriteAConcurrentSchedulingPatch() throws Exception {
 		CountDownLatch fetchStarted = new CountDownLatch(1);
 		CountDownLatch allowFetch = new CountDownLatch(1);

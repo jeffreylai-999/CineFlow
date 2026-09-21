@@ -120,6 +120,41 @@ class IdentityAuthIT {
 	}
 
 	@Test
+	void refreshTokenCleanupPreservesReuseDetectionForRotatedTombstones() throws Exception {
+		MvcResult login = login("administrator", "AdminPassw0rd!").andExpect(status().isOk()).andReturn();
+		Cookie first = refreshCookie(login);
+		MvcResult rotated = mockMvc.perform(post("/api/auth/refresh").cookie(first)).andExpect(status().isOk()).andReturn();
+		Cookie second = refreshCookie(rotated);
+
+		jdbcTemplate.update(
+				"""
+						update cineflow.refresh_tokens
+						set expires_at = now() - interval '1 minute'
+						where token_hash = ?
+						""",
+				sha256(first.getValue()));
+
+		Integer removed = jdbcTemplate.queryForObject(
+				"select cineflow.cleanup_expired_refresh_tokens(now())",
+				Integer.class);
+		assertThat(removed).isNotNull();
+		assertThat(removed).isZero();
+		assertThat(jdbcTemplate.queryForObject(
+						"select count(*) from cineflow.refresh_tokens where token_hash = ?",
+						Integer.class,
+						sha256(first.getValue())))
+				.isOne();
+
+		mockMvc.perform(post("/api/auth/refresh").cookie(first))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("auth.token_reused"));
+
+		mockMvc.perform(post("/api/auth/refresh").cookie(second))
+			.andExpect(status().isUnauthorized());
+		assertThat(auditActions()).contains("TOKEN_REUSE");
+	}
+
+	@Test
 	void logoutRevokesTheCurrentFamily() throws Exception {
 		MvcResult login = login("booking.staff", "StaffPassw0rd!").andExpect(status().isOk()).andReturn();
 		Cookie refresh = refreshCookie(login);

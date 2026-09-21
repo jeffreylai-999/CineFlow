@@ -1,10 +1,13 @@
 package com.cineflow.catalog;
 
+import java.sql.Timestamp;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
 
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +23,7 @@ class CatalogAdministrationService implements CatalogAdministration {
 
 	private final MovieMetadataProviders movieMetadataProviders;
 	private final MovieRepository movieRepository;
+	private final JdbcTemplate jdbcTemplate;
 	private final Audit audit;
 	private final Clock clock;
 	private final TransactionTemplate transactions;
@@ -27,11 +31,13 @@ class CatalogAdministrationService implements CatalogAdministration {
 	CatalogAdministrationService(
 			MovieMetadataProviders movieMetadataProviders,
 			MovieRepository movieRepository,
+			JdbcTemplate jdbcTemplate,
 			Audit audit,
 			Clock clock,
 			PlatformTransactionManager transactionManager) {
 		this.movieMetadataProviders = movieMetadataProviders;
 		this.movieRepository = movieRepository;
+		this.jdbcTemplate = jdbcTemplate;
 		this.audit = audit;
 		this.clock = clock;
 		this.transactions = new TransactionTemplate(transactionManager);
@@ -70,6 +76,21 @@ class CatalogAdministrationService implements CatalogAdministration {
 
 	@Override
 	@Transactional
+	public MovieAdminResponse archive(long actorStaffId, long movieId) {
+		MovieEntity movie = movieRepository.findByIdForUpdate(movieId).orElseThrow(CatalogException::movieNotFound);
+		if (movie.getArchivedAt() == null) {
+			Instant now = clock.instant();
+			if (hasCurrentOrFutureShowtime(movieId, movie.getRuntimeMinutes(), now)) {
+				throw CatalogException.movieHasCurrentOrFutureShowtime();
+			}
+			movie.archive(now);
+			audit.record(actorStaffId, AuditAction.MOVIE_ARCHIVED, "movie", Long.toString(movie.getId()));
+		}
+		return movie.toAdminResponse(clock.instant());
+	}
+
+	@Override
+	@Transactional
 	public MovieAdminResponse updateSchedulingFields(long movieId, int runtimeMinutes, String ageRating) {
 		if (runtimeMinutes <= 0 || ageRating == null || ageRating.isBlank()) {
 			throw CatalogException.schedulingFieldsRequired();
@@ -85,13 +106,16 @@ class CatalogAdministrationService implements CatalogAdministration {
 			}
 			throw exception;
 		}
-		return movie.toAdminResponse();
+		return movie.toAdminResponse(clock.instant());
 	}
 
 	@Override
 	@Transactional(readOnly = true)
 	public List<MovieAdminResponse> listMovies() {
-		return movieRepository.findAllByOrderByTitleAsc().stream().map(MovieEntity::toAdminResponse).toList();
+		Instant now = clock.instant();
+		return movieRepository.findAllByOrderByTitleAsc().stream()
+				.map(movie -> movie.toAdminResponse(now))
+				.toList();
 	}
 
 	@Override
@@ -140,7 +164,7 @@ class CatalogAdministrationService implements CatalogAdministration {
 			throw CatalogException.saveFailed();
 		}
 		audit.record(actorStaffId, AuditAction.MOVIE_IMPORTED, "movie", Long.toString(movie.getId()));
-		return movie.toAdminResponse();
+		return movie.toAdminResponse(clock.instant());
 	}
 
 	private MovieAdminResponse applyRefresh(long actorStaffId, long movieId, MovieProviderRecord record) {
@@ -152,7 +176,7 @@ class CatalogAdministrationService implements CatalogAdministration {
 				record.posterUrl(),
 				clock.instant());
 		audit.record(actorStaffId, AuditAction.MOVIE_REFRESHED, "movie", Long.toString(movie.getId()));
-		return movie.toAdminResponse();
+		return movie.toAdminResponse(clock.instant());
 	}
 
 	private boolean alreadyImported(String providerId, String externalId) {
@@ -160,6 +184,23 @@ class CatalogAdministrationService implements CatalogAdministration {
 			return false;
 		}
 		return movieRepository.findBySourceProviderAndExternalId(providerId, externalId).isPresent();
+	}
+
+	private boolean hasCurrentOrFutureShowtime(long movieId, int runtimeMinutes, Instant now) {
+		Boolean present = jdbcTemplate.queryForObject(
+				"""
+						select exists (
+						    select 1
+						    from cineflow.showtimes s
+						    where s.movie_id = ?
+						      and s.starts_at + make_interval(mins => ?) > ?
+						)
+						""",
+				Boolean.class,
+				movieId,
+				runtimeMinutes,
+				Timestamp.from(now));
+		return Boolean.TRUE.equals(present);
 	}
 
 	static boolean isShowtimeOccupancyConflict(DataIntegrityViolationException exception) {

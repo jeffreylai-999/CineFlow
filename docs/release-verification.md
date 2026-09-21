@@ -24,7 +24,7 @@ axe cannot detect are recorded here.
 
 ## Automated gate results
 
-Recorded on branch `feat/release-verification` (local run before PR CI):
+Recorded on branch `cursor/release-verification-439f` (local run before PR CI):
 
 | Gate | Command | Result |
 | --- | --- | --- |

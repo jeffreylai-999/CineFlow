@@ -24,15 +24,16 @@ axe cannot detect are recorded here.
 
 ## Automated gate results
 
-Run on branch `feat/release-verification` against `main` at verification time:
+Recorded on branch `feat/release-verification` (local run before PR CI):
 
 | Gate | Command | Result |
 | --- | --- | --- |
-| Backend tests | `cd backend && ./gradlew test --no-daemon` | See CI / local run in this PR |
-| Frontend lint | `cd frontend && pnpm lint` | See CI / local run |
-| Frontend typecheck | `cd frontend && pnpm typecheck` | See CI / local run |
-| Frontend browser tests | `cd frontend && pnpm test` | See CI / local run |
-| Production image smoke | `bash scripts/smoke-production-image.sh` | See CI `container` job |
+| Backend tests | `cd backend && ./gradlew test --no-daemon` | Pass |
+| Frontend lint | `cd frontend && pnpm lint` | Pass |
+| Frontend typecheck | `cd frontend && pnpm typecheck` | Pass |
+| Frontend browser tests | `cd frontend && pnpm test` | Pass (162 tests) |
+| Frontend production build | `cd frontend && pnpm build` | Pass |
+| Production image smoke | `bash scripts/smoke-production-image.sh` | CI `container` job |
 | Flyway + advisor surface | `bash scripts/check-supabase-advisor-surface.sh` | Pass (empty DB → v12; zero `public` tables without RLS) |
 | Backup / restore | `bash scripts/prove-backup-restore.sh` | Pass (Nebula Express fixture survives dump → drop → restore) |
 

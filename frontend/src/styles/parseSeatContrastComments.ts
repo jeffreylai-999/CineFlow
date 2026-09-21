@@ -50,7 +50,7 @@ export function missingRequiredSeatContrastTokens(
 
 /** Non-text UI (borders) need 3:1; text-on-fill pairs need 4.5:1. */
 export function seatContrastMeetsAa(token: string, ratio: number): boolean {
-  if (token.endsWith('-border') || token === '--seat-available-border') {
+  if (token.endsWith('-border')) {
     return ratio >= 3
   }
   return ratio >= 4.5

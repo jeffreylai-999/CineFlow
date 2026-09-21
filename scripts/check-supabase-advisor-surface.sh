@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Checks the local schema surface against release-blocking Supabase advisor themes.
-# CineFlow keeps application tables in the private cineflow schema (not PostgREST-exposed).
-# This script fails if application relations appear in public, or if anon/authenticated
-# can SELECT tables in schemas that advisors treat as exposed (public by default).
+# Checks the local schema surface against release-blocking Supabase advisor theme 0013
+# (rls_disabled_in_public). CineFlow keeps application tables in the private cineflow
+# schema (not PostgREST-exposed). This is not a substitute for Studio Security/Performance
+# advisors on the hosted project; it proves the application migrate path does not put
+# tables into public without RLS.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"

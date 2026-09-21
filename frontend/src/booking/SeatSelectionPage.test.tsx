@@ -396,8 +396,15 @@ describe('SeatSelectionPage', () => {
 
   it('shows a visible focus ring when a Seat receives keyboard focus', async () => {
     await renderSeats()
+    await expect.element(page.getByRole('button', { name: 'Seat A1, available' })).toBeInTheDocument()
+
+    page.getByRole('link', { name: 'Open showtime 11' }).element().focus()
+    await userEvent.keyboard('{Tab}')
+    await userEvent.keyboard('{Tab}')
+    await userEvent.keyboard('{Tab}')
+    await userEvent.keyboard('{Tab}')
+
     const seat = page.getByRole('button', { name: 'Seat A1, available' })
-    seat.element().focus({ focusVisible: true } as FocusOptions)
     await expect.poll(() => seat.element() === seat.element().ownerDocument.activeElement).toBe(true)
 
     const style = getComputedStyle(seat.element())

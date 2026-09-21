@@ -10,34 +10,33 @@ axe cannot detect are recorded here.
 | --- | --- |
 | Backend module HTTP/STOMP + PostgreSQL | `./gradlew test` (unit + Testcontainers ITs from an empty database via Flyway) |
 | Frontend routes / components | `pnpm lint`, `pnpm typecheck`, `pnpm test` (Vitest browser mode, Playwright Chromium provider, ADR 0005) |
-| Production image + Render Free memory | `scripts/smoke-production-image.sh` (CI `container` job) |
+| Production image + Render Free memory | `scripts/smoke-production-image.sh` |
 | Flyway from empty database | Testcontainers ITs; `scripts/check-supabase-advisor-surface.sh` and `scripts/prove-backup-restore.sh` both migrate empty Postgres |
-| Supabase advisors (release-blocking surface) | `scripts/check-supabase-advisor-surface.sh` — no application tables in `public`; `cineflow` stays private |
+| Supabase advisors (release-blocking surface) | Local proxy for advisor **0013** (`rls_disabled_in_public`): no application tables in `public`; `cineflow` stays private. Hosted Studio Security/Performance advisors still need an owner re-check when the live project is available. |
 | axe-core on every route | Browser-mode tests call `axe.run` after interactive regions are shown (Admission starts the camera; no Dialog/Menu primitives are mounted today) |
-| Seat-state contrast | Measured ratios recorded beside tokens in `frontend/src/styles/cinematic-focus.css`; enforced by `parseSeatContrastComments` tests |
-| Keyboard Focus Order / Focus Visible | Recorded walkthrough below; Seat Map focus ring asserted in `SeatSelectionPage` tests |
-| Meaningful Sequence | Recorded reading-order pass below; Seat Map before Booking summary asserted in DOM |
-| Supported browsers | Agreed level: current or previous Chrome, Edge, Firefox, Safari. Automated suite runs Chromium; see browser section |
+| Seat-state contrast | Hand-measured ratios recorded beside tokens in `frontend/src/styles/cinematic-focus.css`; `parseSeatContrastComments` requires those recorded values and checks AA thresholds (does not re-measure colour) |
+| Keyboard Focus Order / Focus Visible | Five-flow walkthrough recorded below; Seat Map Focus Visible asserted via keyboard Tab in `SeatSelectionPage` tests |
+| Meaningful Sequence | Five-flow reading-order pass recorded below; Seat Map before Booking summary asserted in DOM (the known divergence risk) |
+| Supported browsers | Agreed level: current or previous Chrome, Edge, Firefox, Safari. Automated suite runs Chromium; other evergreen browsers accepted at API-parity for this release (see browser section) |
 | Backup + manual restore | `scripts/prove-backup-restore.sh` with sanitized fixtures |
 | Credentials / personal data / authorization / rate limits | Backend ITs for auth, role checks, rate limits; dump scan rejects personal-looking patterns |
 | Playwright end-to-end suites | Deferred — `docs/future-enhancements.md` (Playwright remains the Vitest browser-mode provider) |
 
 ## Automated gate results
 
-Recorded on branch `cursor/release-verification-439f` (local run before PR CI):
+Recorded on branch `cursor/release-verification-439f`:
 
 | Gate | Command | Result |
 | --- | --- | --- |
 | Backend tests | `cd backend && ./gradlew test --no-daemon` | Pass |
 | Frontend lint | `cd frontend && pnpm lint` | Pass |
 | Frontend typecheck | `cd frontend && pnpm typecheck` | Pass |
-| Frontend browser tests | `cd frontend && pnpm test` | Pass (162 tests) |
-| Frontend production build | `cd frontend && pnpm build` | Pass |
-| Production image smoke | `bash scripts/smoke-production-image.sh` | CI `container` job |
-| Flyway + advisor surface | `bash scripts/check-supabase-advisor-surface.sh` | Pass (empty DB → v12; zero `public` tables without RLS) |
+| Frontend browser tests | `cd frontend && pnpm test` | Pass (162+ tests) |
+| Production image smoke | `bash scripts/smoke-production-image.sh` | CI `container` job (local agent VM: Docker bridge blocks container→container TCP to Postgres; host port access works) |
+| Flyway + advisor 0013 surface | `bash scripts/check-supabase-advisor-surface.sh` | Pass (empty DB → v12; zero `public` tables without RLS) |
 | Backup / restore | `bash scripts/prove-backup-restore.sh` | Pass (Nebula Express fixture survives dump → drop → restore) |
 
-Hosted Supabase Studio advisors for Auth/Realtime/Storage objects that CineFlow does not use remain outside this application schema. Application data stays in `cineflow`, which is not on the PostgREST `public` API surface (ADR 0003). Re-check Studio Security/Performance advisors after any change that exposes a new schema.
+Hosted Supabase Studio advisors for Auth/Realtime/Storage objects that CineFlow does not use remain outside this application schema. Application data stays in `cineflow`, which is not on the PostgREST `public` API surface (ADR 0003). An owner should open Studio Security/Performance advisors on the live Free project once after merge to confirm no project-level findings outside the app schema.
 
 ## Accessibility — automated floor
 
@@ -45,15 +44,15 @@ Every Customer and Staff route under test runs `axe-core` directly in the browse
 
 ## Accessibility — keyboard walkthrough (Focus Order, Focus Visible)
 
-Completed for this release against the Vitest browser harness and the live component trees. Pointer was not used for the activation steps below.
+Completed for this release by exercising each flow’s focusable controls without a pointer (Vitest browser harness for Seat selection; DOM/focus-style review for the other four against the same shared `focus-visible:ring-*` tokens).
 
-| Flow | Focus Order | Focus Visible | Notes |
+| Flow | Focus Order | Focus Visible | Evidence |
 | --- | --- | --- | --- |
-| Catalog browsing | Landmark → Movie headings / Showtime links follow DOM order | Focus ring via shared `Button` / link styles (`focus-visible:ring-*`) | No dialogs to open |
-| Seat selection | Booking steps → Seat Map buttons (native tab order) → Ticket Type selects → Hold / Continue | Seat buttons use `focus-visible:ring-3 focus-visible:ring-ring/50`; asserted in tests | Native tab order accepted per spec |
-| Checkout | Steps → email / card fields → Pay | Same focus-visible tokens | Confirmed Ticket state also axe-clean |
-| Administration | Staff nav → movie / hall / showtime / accounts controls | Shared button/input focus styles | Archive / import controls are in-page, not modal |
-| Admission | Heading → Start camera → Booking Reference → Admit | Camera region announced; manual fallback remains keyboard reachable | Scanner UI opened before axe |
+| Catalog browsing | Landmark → Movie headings / Showtime links follow DOM order | Shared `Button` / link `focus-visible:ring-*` | DOM + style review |
+| Seat selection | Booking steps → Seat Map buttons (native tab order) → Ticket Type selects → Hold / Continue | Keyboard Tab reaches Seat A1 with a non-none ring/outline | `SeatSelectionPage` test |
+| Checkout | Steps → email / card fields → Pay | Shared focus-visible tokens | DOM + style review; confirmed Ticket also axe-clean |
+| Administration | Staff nav → movie / hall / showtime / accounts controls | Shared button/input focus styles | DOM + style review |
+| Admission | Heading → Start camera → Booking Reference → Admit | Camera region announced; manual fallback keyboard reachable | DOM + style review; camera opened before axe |
 
 ## Accessibility — reading-order pass (Meaningful Sequence)
 
@@ -61,17 +60,17 @@ Completed by reading the rendered DOM against the layout for the same five flows
 
 | Flow | Method | Result |
 | --- | --- | --- |
-| Catalog | DOM order of headings, posters, Showtimes matches visual stack | Pass |
+| Catalog | DOM order of headings, posters, Showtimes matches visual stack | Pass (DOM review) |
 | Seat selection | Seat Map (`role="group"`) precedes Booking summary (`complementary`) in DOM; mobile dock is visually below via CSS, still after the map in DOM | Pass — asserted in `SeatSelectionPage` test |
-| Checkout | Form fields then confirmation Ticket content follow visual order | Pass |
-| Administration | Page heading → filters/actions → tables/lists | Pass |
-| Admission | Instructions → camera / reference → result | Pass |
+| Checkout | Form fields then confirmation Ticket content follow visual order | Pass (DOM review) |
+| Administration | Page heading → filters/actions → tables/lists | Pass (DOM review) |
+| Admission | Instructions → camera / reference → result | Pass (DOM review) |
 
 Docked Booking summary and Seat Map remain the divergence risk; CSS reorders only on the visual plane (sticky / fixed), not via `order`/`flex-direction` that would invert DOM reading order.
 
 ## Seat-state contrast ratios
 
-Measured values live beside the token definitions in `frontend/src/styles/cinematic-focus.css` (for example `--seat-held-border` ≈ 6.15:1 against held fill). `parseSeatContrastComments` requires every Seat-state token to carry a recorded ratio and to meet AA thresholds (3:1 non-text borders, 4.5:1 text-on-fill pairs).
+Hand-measured values live beside the token definitions in `frontend/src/styles/cinematic-focus.css` (for example `--seat-held-border` ≈ 6.15:1 against held fill). `parseSeatContrastComments` requires every Seat-state token to carry a recorded ratio and to meet AA thresholds (3:1 non-text borders, 4.5:1 text-on-fill pairs). It does not re-sample pixels; the comments are the measurement record required by ADR 0005.
 
 ## Supported browsers
 
@@ -81,7 +80,7 @@ Verification for this release:
 
 - Automated: full React route/component suite in Vitest browser mode on **Chromium** (Playwright provider).
 - Shared primitives and Seat Map use standard focus, `<button>`, and form controls without browser-specific APIs beyond `getUserMedia` for Admission (with a keyboard Booking Reference fallback).
-- Safari/Firefox/Edge parity for this release is accepted at the “same evergreen Web platform APIs” level; no Safari-only or Firefox-only code paths are present. Re-smoke those browsers manually when Admission camera behaviour changes.
+- Edge/Firefox/Safari were not separately smoked in this environment. They are accepted for this release at evergreen Web-platform API parity; re-smoke those browsers when Admission camera behaviour changes.
 
 ## Security and personal data
 

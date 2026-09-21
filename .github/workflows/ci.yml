@@ -82,3 +82,12 @@ jobs:
         env:
           CINEFLOW_IMAGE: cineflow:ci
         run: bash scripts/smoke-production-image.sh
+
+  release-ops:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Flyway empty database and Supabase advisor surface
+        run: bash scripts/check-supabase-advisor-surface.sh
+      - name: Prove sanitized backup and manual restore
+        run: bash scripts/prove-backup-restore.sh

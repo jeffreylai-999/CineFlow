@@ -101,7 +101,7 @@ cd frontend && pnpm lint && pnpm typecheck && pnpm test && pnpm build
 docker build -t cineflow:local .
 ```
 
-GitHub Actions runs the same checks on pull requests and `main`, including the production-image smoke test.
+GitHub Actions runs the same checks on pull requests and `main`, including the production-image smoke test, Flyway-from-empty / advisor-surface check, and sanitized backup/restore proof. Release gate evidence is recorded in [`docs/release-verification.md`](docs/release-verification.md).
 
 ## Legacy application
 

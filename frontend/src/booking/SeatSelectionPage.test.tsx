@@ -408,10 +408,11 @@ describe('SeatSelectionPage', () => {
     await expect.poll(() => seat.element() === seat.element().ownerDocument.activeElement).toBe(true)
 
     const style = getComputedStyle(seat.element())
-    const hasRingShadow = style.getPropertyValue('--tw-ring-shadow').trim() !== ''
+    // Assert computed paint, not --tw-ring-shadow: Tailwind's default for that
+    // custom property is a non-empty transparent shadow that would pass without a ring.
     const hasBoxShadow = style.boxShadow !== 'none' && style.boxShadow !== ''
-    const hasOutline = style.outlineStyle !== 'none' && style.outlineStyle !== ''
-    expect(hasRingShadow || hasBoxShadow || hasOutline).toBe(true)
+    const hasOutline = style.outlineStyle !== 'none' && style.outlineWidth !== '0px'
+    expect(hasBoxShadow || hasOutline).toBe(true)
   })
 
   it('has no serious axe violations on the Seats route', async () => {

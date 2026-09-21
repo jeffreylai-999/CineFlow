@@ -52,12 +52,18 @@ pg_dump "postgresql://postgres.<project-ref>@aws-0-ap-southeast-1.pooler.supabas
   --schema=cineflow --file=cineflow.dump
 ```
 
-After a schema-only restore onto an empty database, recreate `btree_gist` in the `cineflow` schema before replaying the dump if `pg_dump --schema` omitted `CREATE EXTENSION` (Flyway installs that extension into `cineflow`):
+A `pg_dump --schema=cineflow` plain SQL file already contains `CREATE SCHEMA cineflow;`. Do **not** pre-create that schema before replay — with `ON_ERROR_STOP` the duplicate aborts the restore. `pg_dump --schema` also omits `CREATE EXTENSION` for `btree_gist` even though Flyway installs it into `cineflow`, so inject the extension immediately after the dump’s own schema creation (same approach as `scripts/prove-backup-restore.sh`):
 
-```sql
-create schema cineflow;
-create extension if not exists btree_gist with schema cineflow;
--- then replay cineflow.dump
+```bash
+awk '
+  /^CREATE SCHEMA cineflow;/ {
+    print
+    print "CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA cineflow;"
+    next
+  }
+  { print }
+' cineflow.dump | psql "postgresql://postgres.<project-ref>@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require" \
+  -v ON_ERROR_STOP=1
 ```
 
 ## Apply the Render Blueprint

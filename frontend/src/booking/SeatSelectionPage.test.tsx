@@ -387,6 +387,34 @@ describe('SeatSelectionPage', () => {
     await expect.element(page.getByRole('group', { name: 'Seat Map' })).not.toBeInTheDocument()
   })
 
+  it('keeps the Seat Map before the Booking summary in DOM order for Meaningful Sequence', async () => {
+    await renderSeats()
+    const seatMap = page.getByRole('group', { name: 'Seat Map' }).element()
+    const summary = page.getByRole('complementary', { name: 'Booking summary' }).element()
+    expect(seatMap.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('shows a visible focus ring when a Seat receives keyboard focus', async () => {
+    await renderSeats()
+    await expect.element(page.getByRole('button', { name: 'Seat A1, available' })).toBeInTheDocument()
+
+    page.getByRole('link', { name: 'Open showtime 11' }).element().focus()
+    await userEvent.keyboard('{Tab}')
+    await userEvent.keyboard('{Tab}')
+    await userEvent.keyboard('{Tab}')
+    await userEvent.keyboard('{Tab}')
+
+    const seat = page.getByRole('button', { name: 'Seat A1, available' })
+    await expect.poll(() => seat.element() === seat.element().ownerDocument.activeElement).toBe(true)
+
+    const style = getComputedStyle(seat.element())
+    // Assert computed paint, not --tw-ring-shadow: Tailwind's default for that
+    // custom property is a non-empty transparent shadow that would pass without a ring.
+    const hasBoxShadow = style.boxShadow !== 'none' && style.boxShadow !== ''
+    const hasOutline = style.outlineStyle !== 'none' && style.outlineWidth !== '0px'
+    expect(hasBoxShadow || hasOutline).toBe(true)
+  })
+
   it('has no serious axe violations on the Seats route', async () => {
     const screen = await renderSeats()
     await expect.element(page.getByRole('button', { name: 'Seat A1, available' })).toBeInTheDocument()

@@ -41,7 +41,7 @@ Take the real hostname from the Supabase **Connect** dialog's JDBC **Session poo
 2. Save the database password in a password manager. Reset it from Database Settings if it is lost.
 3. Leave application tables in the private `cineflow` schema. Flyway creates that schema on first boot; it is not exposed by Supabase's Data API (which defaults to `public`).
 4. Do **not** schedule a demo-data reset. Public demonstration rows persist until someone changes them.
-5. Keep an independent `pg_dump` of the `cineflow` schema. Free hosting is not a durability guarantee.
+5. Keep an independent `pg_dump` of the `cineflow` schema. Free hosting is not a durability guarantee. Prove dump and restore locally with sanitized fixtures via `bash scripts/prove-backup-restore.sh` (see [`docs/release-verification.md`](release-verification.md)).
 
 ```bash
 # Store the password in ~/.pgpass (chmod 0600), never in the command or shell history:
@@ -50,6 +50,20 @@ Take the real hostname from the Supabase **Connect** dialog's JDBC **Session poo
 
 pg_dump "postgresql://postgres.<project-ref>@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require" \
   --schema=cineflow --file=cineflow.dump
+```
+
+A `pg_dump --schema=cineflow` plain SQL file already contains `CREATE SCHEMA cineflow;`. Do **not** pre-create that schema before replay — with `ON_ERROR_STOP` the duplicate aborts the restore. `pg_dump --schema` also omits `CREATE EXTENSION` for `btree_gist` even though Flyway installs it into `cineflow`, so inject the extension immediately after the dump’s own schema creation (same approach as `scripts/prove-backup-restore.sh`):
+
+```bash
+awk '
+  /^CREATE SCHEMA cineflow;/ {
+    print
+    print "CREATE EXTENSION IF NOT EXISTS btree_gist WITH SCHEMA cineflow;"
+    next
+  }
+  { print }
+' cineflow.dump | psql "postgresql://postgres.<project-ref>@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=require" \
+  -v ON_ERROR_STOP=1
 ```
 
 ## Apply the Render Blueprint

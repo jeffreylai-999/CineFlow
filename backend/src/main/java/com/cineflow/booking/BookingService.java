@@ -339,6 +339,9 @@ class BookingService implements Booking {
 		if (replay.isPresent()) {
 			return replay.get();
 		}
+		if (!CinemaTime.onlineCheckoutOpen(showtime.startsAt(), now)) {
+			throw BookingException.cutoff();
+		}
 
 		HeldHold hold = requireHeldSeats(request.holdId(), showtimeId, now);
 		PricedTickets priced = priceTickets(showtime, request.tickets(), hold.seats());

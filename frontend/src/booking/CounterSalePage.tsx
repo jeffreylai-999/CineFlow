@@ -221,8 +221,31 @@ function CounterSaleScreen({ session, client, onLogout }: CounterSalePageProps) 
     }
     setBusy(true)
     setNotice(null)
-    rememberSubmittedConfirm(request)
     try {
+      if (submittedConfirm == null) {
+        try {
+          const fresh = await client.getStaffSeatMap(readyMap.showtimeId)
+          if (
+            fresh.adultPriceMyr !== readyMap.adultPriceMyr ||
+            fresh.childPriceMyr !== readyMap.childPriceMyr
+          ) {
+            setState({
+              status: 'ready',
+              map: {
+                ...readyMap,
+                adultPriceMyr: fresh.adultPriceMyr,
+                childPriceMyr: fresh.childPriceMyr,
+              },
+            })
+            setNotice('Ticket Prices changed. Review the total and confirm again.')
+            return
+          }
+        } catch {
+          setNotice('Unable to load Ticket Prices. Try again shortly.')
+          return
+        }
+      }
+      rememberSubmittedConfirm(request)
       const confirmed = await client.confirmCounterSale(readyMap.showtimeId, request)
       setConfirmation(confirmed)
       rememberSubmittedConfirm(null)

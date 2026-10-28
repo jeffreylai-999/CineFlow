@@ -64,9 +64,10 @@ class CatalogMoviesIT {
 
 	@Test
 	void echoesOrAssignsCorrelationId() throws Exception {
-		mockMvc.perform(get("/api/movies").header("X-Correlation-Id", "trace-fixture-1"))
+		String supplied = "11111111-1111-1111-1111-111111111111";
+		mockMvc.perform(get("/api/movies").header("X-Correlation-Id", supplied))
 			.andExpect(status().isOk())
-			.andExpect(header().string("X-Correlation-Id", "trace-fixture-1"));
+			.andExpect(header().string("X-Correlation-Id", supplied));
 
 		MvcResult generated = mockMvc.perform(get("/api/movies"))
 			.andExpect(status().isOk())
@@ -74,6 +75,30 @@ class CatalogMoviesIT {
 			.andReturn();
 
 		assertThat(generated.getResponse().getHeader("X-Correlation-Id")).isNotBlank();
+	}
+
+	@Test
+	void aNonUuidCorrelationIdIsReplaced() throws Exception {
+		String injected = "trace-fixture-1\nERROR forged";
+		MvcResult result = mockMvc.perform(post("/api/auth/login")
+				.contentType(MediaType.APPLICATION_JSON)
+				.header("X-Correlation-Id", injected)
+				.content("""
+						{"username":"nobody","password":"wrong-password-1"}
+						"""))
+			.andExpect(status().isUnauthorized())
+			.andReturn();
+
+		String correlationId = result.getResponse().getHeader("X-Correlation-Id");
+		assertThat(correlationId).matches("[0-9a-fA-F-]{36}").doesNotContain("forged").doesNotContain("\n");
+		assertThat(jdbcTemplate.queryForObject(
+				"""
+						select correlation_id from cineflow.audit_events
+						where action = 'STAFF_LOGIN_FAILURE' and subject_id = 'nobody'
+						order by id desc
+						limit 1
+						""",
+				String.class)).isEqualTo(correlationId);
 	}
 
 	@Test

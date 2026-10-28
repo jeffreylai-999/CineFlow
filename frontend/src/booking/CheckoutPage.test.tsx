@@ -10,6 +10,7 @@ import {
   type SeatHold,
   type ShowtimeSeats,
 } from '@/booking/api/customerClient.ts'
+import { BOOKING_CUTOFF_MESSAGE } from '@/booking/bookingCutoffMessage.ts'
 import { CheckoutPage, type CheckoutLocationState } from '@/booking/CheckoutPage.tsx'
 
 const seatMap: ShowtimeSeats = {
@@ -205,6 +206,35 @@ describe('CheckoutPage', () => {
 
     await page.getByRole('button', { name: 'Pay RM 58.00' }).click()
     expect(checkout).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the Booking Cutoff when the first price read finds checkout closed', async () => {
+    const client = clientStub({
+      getShowtimeSeats: vi.fn().mockRejectedValue(new CustomerRequestError(409, 'booking.cutoff')),
+    })
+    await renderCheckout(client)
+
+    await expect.element(page.getByRole('alert')).toHaveTextContent(BOOKING_CUTOFF_MESSAGE)
+    await expect.element(page.getByRole('button', { name: /Pay RM/ })).toBeDisabled()
+    await expect.element(page.getByRole('button', { name: 'Try again' })).not.toBeInTheDocument()
+    expect(client.checkout).not.toHaveBeenCalled()
+  })
+
+  it('retries a failed Ticket Price load without leaving checkout', async () => {
+    const getShowtimeSeats = vi.fn().mockRejectedValueOnce(new Error('network')).mockResolvedValue(seatMap)
+    const client = clientStub({ getShowtimeSeats })
+    await renderCheckout(client)
+
+    await expect.element(page.getByRole('alert')).toHaveTextContent(
+      'Unable to load Ticket Prices. Try again shortly.',
+    )
+    await expect.element(page.getByRole('button', { name: /Pay RM/ })).toBeDisabled()
+
+    await page.getByRole('button', { name: 'Try again' }).click()
+
+    await expect.element(page.getByRole('button', { name: 'Pay RM 46.00' })).toBeEnabled()
+    await expect.element(page.getByRole('alert')).not.toBeInTheDocument()
+    expect(getShowtimeSeats).toHaveBeenCalledTimes(2)
   })
 
   it('redirects to Seat selection when the checkout state is missing', async () => {

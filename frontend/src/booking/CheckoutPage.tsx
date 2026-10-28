@@ -74,6 +74,8 @@ function CheckoutScreen({ client, hold, holdReceivedAt, initialSelection, map }:
     childPriceMyr: map.childPriceMyr,
   }))
   const [pricesReady, setPricesReady] = useState(false)
+  const [priceAttempt, setPriceAttempt] = useState(0)
+  const [checkoutCutoff, setCheckoutCutoff] = useState(false)
 
   const handleHoldExpired = useCallback(() => {
     setHoldLost('Your Seat Hold expired before the Payment completed.')
@@ -89,17 +91,24 @@ function CheckoutScreen({ client, hold, holdReceivedAt, initialSelection, map }:
         if (!cancelled) {
           setPrices({ adultPriceMyr: fresh.adultPriceMyr, childPriceMyr: fresh.childPriceMyr })
           setPricesReady(true)
+          setError(null)
         }
       })
-      .catch(() => {
-        if (!cancelled) {
-          setError('Unable to load Ticket Prices. Try again shortly.')
+      .catch((failure: unknown) => {
+        if (cancelled) {
+          return
         }
+        if (failure instanceof CustomerRequestError && failure.code === 'booking.cutoff') {
+          setCheckoutCutoff(true)
+          setError(BOOKING_CUTOFF_MESSAGE)
+          return
+        }
+        setError('Unable to load Ticket Prices. Try again shortly.')
       })
     return () => {
       cancelled = true
     }
-  }, [client, map.showtimeId])
+  }, [client, map.showtimeId, priceAttempt])
 
   const ticketTypeFor = (seatId: number): TicketType => tickets[seatId] ?? 'ADULT'
   const total = heldSeats.reduce((sum, seat) => sum + ticketPrice(ticketTypeFor(seat.id), prices), 0)
@@ -195,7 +204,7 @@ function CheckoutScreen({ client, hold, holdReceivedAt, initialSelection, map }:
     )
   }
 
-  const checkoutClosed = holdLost !== null || remainingSeconds === 0
+  const checkoutClosed = holdLost !== null || remainingSeconds === 0 || checkoutCutoff
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-8">
@@ -298,6 +307,11 @@ function CheckoutScreen({ client, hold, holdReceivedAt, initialSelection, map }:
         </section>
 
         {error ? <p role="alert">{error}</p> : null}
+        {error && !pricesReady && !checkoutCutoff ? (
+          <Button type="button" onClick={() => setPriceAttempt((attempt) => attempt + 1)}>
+            Try again
+          </Button>
+        ) : null}
 
         <Button type="submit" disabled={submitting || checkoutClosed || !pricesReady}>
           {submitting ? 'Confirming Payment…' : `Pay ${formatMyr(total)}`}

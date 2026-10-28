@@ -152,6 +152,35 @@ describe('CounterSalePage', () => {
     await expect.element(page.getByRole('button', { name: 'Print Ticket' })).toBeInTheDocument()
   })
 
+  it('does not confirm a sale when Ticket Prices change before the confirm', async () => {
+    const priced = { ...seatMap, adultPriceMyr: 40, childPriceMyr: 18 }
+    const getStaffSeatMap = vi
+      .fn()
+      .mockResolvedValueOnce(seatMap)
+      .mockResolvedValueOnce(seatMap)
+      .mockResolvedValue(priced)
+    const confirmCounterSale = vi.fn().mockResolvedValue(confirmation)
+    const client = clientStub({
+      getStaffSeatMap,
+      createCounterHold: vi.fn().mockResolvedValue(activeHold([1])),
+      confirmCounterSale,
+    })
+    await renderCounterSale(client)
+
+    await page.getByRole('button', { name: 'Seat A1, available' }).click()
+    await page.getByRole('button', { name: 'Hold selected Seats' }).click()
+    await page.getByRole('button', { name: 'Confirm RM 28.00 Cash sale' }).click()
+
+    await expect.element(page.getByRole('alert')).toHaveTextContent(
+      'Ticket Prices changed. Review the total and confirm again.',
+    )
+    await expect.element(page.getByText('Total RM 40.00')).toHaveAttribute('role', 'status')
+    expect(confirmCounterSale).not.toHaveBeenCalled()
+
+    await page.getByRole('button', { name: 'Confirm RM 40.00 Cash sale' }).click()
+    expect(confirmCounterSale).toHaveBeenCalledTimes(1)
+  })
+
   it('records a received Card Payment without card credentials', async () => {
     const client = clientStub({
       createCounterHold: vi.fn().mockResolvedValue(activeHold([1])),

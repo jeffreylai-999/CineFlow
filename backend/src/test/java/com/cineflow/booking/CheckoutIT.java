@@ -262,6 +262,53 @@ class CheckoutIT {
 	}
 
 	@Test
+	void onlineCheckoutAfterTheBookingCutoffIsRejected() throws Exception {
+		Instant beforeCutoff = Instant.parse("2099-06-20T11:14:00Z");
+		clock.set(beforeCutoff);
+		int hallId = createHall("Cutoff pay " + UUID.randomUUID(), 1, 2);
+		long showtimeId = insertShowtime(hallId, insertMovie("Late Checkout", 90));
+		int seatId = seatIds(hallId)[0];
+		jdbcTemplate.update("update cineflow.halls set seat_map_locked = true where id = ?", hallId);
+		String holdId = createHold(showtimeId, seatId);
+
+		clock.set(Instant.parse("2099-06-20T11:15:00Z"));
+		checkout(showtimeId, holdId, "aisyah@example.com", SUCCESS_CARD, UUID.randomUUID().toString(),
+				ticket(seatId, "ADULT"))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("booking.cutoff"));
+
+		assertThat(bookingCount(showtimeId)).isZero();
+		assertThat(paymentCount(showtimeId)).isZero();
+	}
+
+	@Test
+	void anIdempotentReplayAfterTheBookingCutoffReturnsTheExistingBooking() throws Exception {
+		clock.set(Instant.parse("2099-06-20T11:14:00Z"));
+		int hallId = createHall("Cutoff replay " + UUID.randomUUID(), 1, 2);
+		long showtimeId = insertShowtime(hallId, insertMovie("Cutoff Replay", 90));
+		int seatId = seatIds(hallId)[0];
+		jdbcTemplate.update("update cineflow.halls set seat_map_locked = true where id = ?", hallId);
+		String holdId = createHold(showtimeId, seatId);
+		String idempotencyKey = UUID.randomUUID().toString();
+
+		MvcResult first = checkout(showtimeId, holdId, "aisyah@example.com", SUCCESS_CARD, idempotencyKey,
+				ticket(seatId, "ADULT"))
+			.andExpect(status().isCreated())
+			.andReturn();
+		String bookingReference = JsonPath.read(first.getResponse().getContentAsString(), "$.bookingReference");
+
+		clock.set(Instant.parse("2099-06-20T11:15:00Z"));
+		checkout(showtimeId, holdId, "aisyah@example.com", SUCCESS_CARD, idempotencyKey,
+				ticket(seatId, "ADULT"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.bookingReference").value(bookingReference))
+			.andExpect(jsonPath("$.totalMyr").value(28.00));
+
+		assertThat(bookingCount(showtimeId)).isOne();
+		assertThat(paymentCount(showtimeId)).isOne();
+	}
+
+	@Test
 	void anExpiredSeatHoldCannotCheckout() throws Exception {
 		clock.set(START);
 		int hallId = createHall("Expired " + UUID.randomUUID(), 1, 2);

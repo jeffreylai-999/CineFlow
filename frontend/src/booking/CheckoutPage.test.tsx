@@ -180,8 +180,31 @@ describe('CheckoutPage', () => {
 
     await expect.element(page.getByRole('heading', { name: 'Checkout' })).toBeInTheDocument()
     await expect.element(page.getByText('Total RM 51.50')).toHaveAttribute('role', 'status')
-    await expect.element(page.getByRole('button', { name: 'Pay RM 51.50' })).toBeInTheDocument()
+    await expect.element(page.getByRole('button', { name: 'Pay RM 51.50' })).toBeEnabled()
     expect(client.getShowtimeSeats).toHaveBeenCalledWith(11)
+  })
+
+  it('does not pay when Ticket Prices change before the confirm', async () => {
+    const getShowtimeSeats = vi
+      .fn()
+      .mockResolvedValueOnce(seatMap)
+      .mockResolvedValue({ ...seatMap, adultPriceMyr: 40 })
+    const checkout = vi.fn().mockResolvedValue(confirmation)
+    const client = clientStub({ getShowtimeSeats, checkout })
+    await renderCheckout(client)
+
+    await expect.element(page.getByRole('button', { name: 'Pay RM 46.00' })).toBeEnabled()
+    await payWithCard()
+    await page.getByRole('button', { name: 'Pay RM 46.00' }).click()
+
+    await expect.element(page.getByRole('alert')).toHaveTextContent(
+      'Ticket Prices changed. Review the total and confirm again.',
+    )
+    await expect.element(page.getByText('Total RM 58.00')).toHaveAttribute('role', 'status')
+    expect(checkout).not.toHaveBeenCalled()
+
+    await page.getByRole('button', { name: 'Pay RM 58.00' }).click()
+    expect(checkout).toHaveBeenCalledTimes(1)
   })
 
   it('redirects to Seat selection when the checkout state is missing', async () => {

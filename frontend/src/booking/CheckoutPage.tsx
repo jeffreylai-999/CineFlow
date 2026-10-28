@@ -8,6 +8,7 @@ import {
   type ShowtimeSeats,
   type TicketType,
 } from '@/booking/api/customerClient.ts'
+import { BOOKING_CUTOFF_MESSAGE } from '@/booking/bookingCutoffMessage.ts'
 import { formatHoldTime } from '@/booking/formatHoldTime.ts'
 import { formatMyr } from '@/booking/formatMyr.ts'
 import { TicketView } from '@/booking/TicketView.tsx'
@@ -72,6 +73,7 @@ function CheckoutScreen({ client, hold, holdReceivedAt, initialSelection, map }:
     adultPriceMyr: map.adultPriceMyr,
     childPriceMyr: map.childPriceMyr,
   }))
+  const [pricesReady, setPricesReady] = useState(false)
 
   const handleHoldExpired = useCallback(() => {
     setHoldLost('Your Seat Hold expired before the Payment completed.')
@@ -86,10 +88,13 @@ function CheckoutScreen({ client, hold, holdReceivedAt, initialSelection, map }:
       .then((fresh) => {
         if (!cancelled) {
           setPrices({ adultPriceMyr: fresh.adultPriceMyr, childPriceMyr: fresh.childPriceMyr })
+          setPricesReady(true)
         }
       })
       .catch(() => {
-        // Keep the Seat Selection snapshot prices; the stored prices at Payment are authoritative.
+        if (!cancelled) {
+          setError('Unable to load Ticket Prices. Try again shortly.')
+        }
       })
     return () => {
       cancelled = true
@@ -105,12 +110,29 @@ function CheckoutScreen({ client, hold, holdReceivedAt, initialSelection, map }:
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
-    if (submitting || confirmation !== null || holdLost !== null) {
+    if (submitting || confirmation !== null || holdLost !== null || !pricesReady) {
       return
     }
     setSubmitting(true)
     setError(null)
     try {
+      let fresh: ShowtimeSeats
+      try {
+        fresh = await client.getShowtimeSeats(map.showtimeId)
+      } catch (failure: unknown) {
+        if (failure instanceof CustomerRequestError && failure.code === 'booking.cutoff') {
+          setError(BOOKING_CUTOFF_MESSAGE)
+          return
+        }
+        setError('Unable to load Ticket Prices. Try again shortly.')
+        return
+      }
+      const nextPrices = { adultPriceMyr: fresh.adultPriceMyr, childPriceMyr: fresh.childPriceMyr }
+      if (nextPrices.adultPriceMyr !== prices.adultPriceMyr || nextPrices.childPriceMyr !== prices.childPriceMyr) {
+        setPrices(nextPrices)
+        setError('Ticket Prices changed. Review the total and confirm again.')
+        return
+      }
       const confirmed = await client.checkout(map.showtimeId, {
         holdId: hold.holdId,
         email: email.trim(),
@@ -134,6 +156,9 @@ function CheckoutScreen({ client, hold, holdReceivedAt, initialSelection, map }:
             break
           case 'booking.rate_limited':
             setError('Too many attempts. Wait a moment and try again.')
+            break
+          case 'booking.cutoff':
+            setError(BOOKING_CUTOFF_MESSAGE)
             break
           default:
             setError('Unable to confirm the Payment. Try again shortly.')
@@ -274,7 +299,7 @@ function CheckoutScreen({ client, hold, holdReceivedAt, initialSelection, map }:
 
         {error ? <p role="alert">{error}</p> : null}
 
-        <Button type="submit" disabled={submitting || checkoutClosed}>
+        <Button type="submit" disabled={submitting || checkoutClosed || !pricesReady}>
           {submitting ? 'Confirming Payment…' : `Pay ${formatMyr(total)}`}
         </Button>
       </form>
